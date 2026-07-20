@@ -9,6 +9,7 @@ try:
     import akshare as ak
     AK_OK = True
 except Exception:
+    ak = None
     AK_OK = False
 
 try:
