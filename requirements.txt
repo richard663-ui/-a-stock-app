@@ -1,1 +1,14 @@
-
+streamlit
+pandas
+numpy
+requests
+matplotlib
+akshare
+baostock
+openpyxl
+plotly
+beautifulsoup4
+lxml
+feedparser
+python-dateutil
+pytz
