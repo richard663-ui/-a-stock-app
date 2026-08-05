@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
-"""A股盯盘 V17 实验版：原四板块 + QMT实时方向预警。"""
+"""A股盯盘 V17 实验版：Streamlit内置QMT实时采集与自动切股。"""
 from __future__ import annotations
 
-import ast
-import os
 from datetime import datetime
-from typing import Dict, List, Tuple
+from typing import Dict
 
 import pandas as pd
 import streamlit as st
@@ -20,6 +18,7 @@ from modules.event_radar import (
     event_certainty_grade,
 )
 from modules.qishi import analyze_qishi
+from modules.qmt_live import QMTLiveManager
 from modules.short_direction import analyze_short_direction
 from modules.signals import make_action
 from modules.ui_blocks import plot_qishi
@@ -44,19 +43,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 st.title("A股盯盘 V17｜QMT实时实验版")
-st.caption("保留原四板块｜显示完整起势图｜短线方向只在多条件一致时触发｜只读行情，不自动交易")
+st.caption("在左侧输入股票代码，QMT自动切换｜保留四大板块与完整起势图｜只读行情，不自动交易")
 
 
-def _parse_list(v):
-    if isinstance(v, list):
-        return v
-    if not isinstance(v, str) or not v:
-        return []
-    try:
-        x = ast.literal_eval(v)
-        return x if isinstance(x, list) else []
-    except Exception:
-        return []
+@st.cache_resource
+def get_qmt_manager() -> QMTLiveManager:
+    return QMTLiveManager(interval=1.0, max_rows=1800, runtime_dir="runtime")
 
 
 def _qmt_symbol(code: str) -> str:
@@ -66,22 +58,6 @@ def _qmt_symbol(code: str) -> str:
     if code.startswith(("4", "8")):
         return f"{code}.BJ"
     return f"{code}.SZ"
-
-
-def load_qmt_ticks(path: str, expected_symbol: str) -> Tuple[pd.DataFrame, List[str]]:
-    if not os.path.exists(path):
-        return pd.DataFrame(), []
-    try:
-        df = pd.read_csv(path)
-        for c in ["bidPrice", "askPrice", "bidVol", "askVol"]:
-            if c in df.columns:
-                df[c] = df[c].apply(_parse_list)
-        symbols = sorted(df.get("symbol", pd.Series(dtype=str)).dropna().astype(str).unique().tolist())
-        if "symbol" in df.columns:
-            df = df[df["symbol"].astype(str).str.upper() == expected_symbol.upper()]
-        return df.tail(900).reset_index(drop=True), symbols
-    except Exception:
-        return pd.DataFrame(), []
 
 
 def _macd_status(df: pd.DataFrame) -> Dict[str, str]:
@@ -143,30 +119,37 @@ def _card(col, label: str, value: str, sub: str = ""):
 
 with st.sidebar:
     st.header("输入")
-    code_input = st.text_input("股票代码", "000400")
+    code_input = st.text_input("股票代码", "000400", max_chars=6, help="输入6位代码并按回车，QMT会自动切换")
     has_position = st.checkbox("已有仓位", False)
     cost = st.number_input("成本价", min_value=0.0, value=0.0, step=0.01)
     position_pct = st.number_input("持仓比例%", 0.0, 100.0, 0.0, 5.0)
-    qmt_file = st.text_input("QMT采集文件", "runtime/qmt_ticks.csv")
     auto_event = st.checkbox("自动抓新闻（会变慢）", False)
-    refresh_seconds = st.selectbox("页面自动刷新", [0, 2, 5, 10], index=2, format_func=lambda x: "关闭" if x == 0 else f"每{x}秒")
-    st.caption("页面股票必须与采集器 --symbol 完全一致。")
+    refresh_seconds = st.selectbox("页面自动刷新", [2, 5, 10], index=1, format_func=lambda x: f"每{x}秒")
+    st.caption("国盛QMT保持登录即可，不再需要单独运行采集器。")
 
-if refresh_seconds and st_autorefresh is not None:
+if st_autorefresh is not None:
     st_autorefresh(interval=refresh_seconds * 1000, key="qmt_v17_refresh")
-elif refresh_seconds and st_autorefresh is None:
-    st.sidebar.warning("未安装自动刷新组件，可运行：py -m pip install streamlit-autorefresh")
+else:
+    st.sidebar.warning("缺少自动刷新组件：双击 start_v17.bat 会自动提示安装。")
 
 code = normalize_code(code_input)
-expected_symbol = _qmt_symbol(code)
-qmt_ticks, collected_symbols = load_qmt_ticks(qmt_file, expected_symbol)
+if len(code) != 6 or not code.isdigit():
+    st.error("请输入6位A股股票代码，例如 301666。")
+    st.stop()
 
-if collected_symbols and expected_symbol not in [x.upper() for x in collected_symbols]:
-    got = ", ".join(collected_symbols)
-    st.error(
-        f"股票不一致：页面输入的是 {expected_symbol}，采集文件实际是 {got}。\n\n"
-        f"请停止旧采集器后运行：`py .\\services\\qmt_experiment_collector.py --symbol {expected_symbol} --interval 1`"
-    )
+expected_symbol = _qmt_symbol(code)
+qmt_manager = get_qmt_manager()
+qmt_manager.set_symbol(expected_symbol)
+qmt_ticks = qmt_manager.get_frame()
+qmt_status = qmt_manager.get_status()
+
+with st.sidebar:
+    if qmt_status.get("ok"):
+        st.success(f"QMT已连接：{qmt_status.get('symbol')}｜{qmt_status.get('samples')}条")
+    elif qmt_status.get("error"):
+        st.error(f"{qmt_status.get('status')}：{qmt_status.get('error')}")
+    else:
+        st.info(qmt_status.get("status", "正在连接QMT"))
 
 short = analyze_short_direction(qmt_ticks)
 snapshots = fetch_em_snapshot((code,))
@@ -210,7 +193,6 @@ news_text = " ".join(n.get("title", "") for n in auto_radar.get("news", []))
 catalyst = analyze_event_catalyst(code, news_text, concepts)
 event_certainty = event_certainty_grade(news_text, auto_radar.get("news", []), catalyst)
 
-# 盘口快照不能冒充逐笔大单：交易逻辑暂时使用中性L2，等逐笔接口验证后再替换。
 manual_l2 = score_manual_l2("中性", "无明显", "无明显", "一般", "中性")
 l2 = combine_l2_scores(
     manual_l2,
@@ -222,7 +204,6 @@ trend_text = _trend_structure(qishi)
 m = short.get("metrics", {})
 strength_text = f"{short.get('signal_strength', 0)}/100" if short.get("direction_60") != "NEUTRAL" else "未触发"
 
-# ① 今日动作与短线预警
 st.markdown(f"## ① 今日结论｜{snapshot.get('name', code)}（{code}）")
 st.write(f"当前价 **{fmt_num(snapshot.get('price'))}**　今日涨跌 **{fmt_pct(snapshot.get('pct'))}**　数据源 **{snapshot.get('source', '未知')}**")
 cols = st.columns(4)
@@ -241,7 +222,6 @@ st.write(f"**持仓建议：** {action['holding_advice']}")
 if short.get("reasons"):
     st.write("**短线依据：** " + "；".join(short["reasons"][:3]))
 
-# ② 大资金与盘口
 st.markdown("## ② 大资金与盘口确认")
 buy_pressure = float(m.get("buy_pressure_pct", 50.0) or 50.0)
 if buy_pressure >= 58:
@@ -255,16 +235,16 @@ change60 = float(m.get("change_60s_pct", 0.0) or 0.0)
 vwap_pos = float(m.get("above_vwap_pct", 0.0) or 0.0)
 cols = st.columns(4)
 _card(cols[0], "盘口结论", book_text, f"五档买盘占 {buy_pressure:.0f}%")
-_card(cols[1], "近30秒价格", f"{change30:+.2f}%", "直接显示涨跌，不使用BP")
+_card(cols[1], "近30秒价格", f"{change30:+.2f}%", "直接显示涨跌")
 _card(cols[2], "近60秒价格", f"{change60:+.2f}%", "观察是否持续同向")
 _card(cols[3], "近60秒成交均价", "上方" if vwap_pos > 0 else ("下方" if vwap_pos < 0 else "附近"), f"偏离 {vwap_pos:+.2f}%")
 
 if qmt_ticks.empty:
-    st.warning("没有读到该股票的QMT实时采集，短线方向暂停。")
+    st.warning(f"正在等待 {expected_symbol} 的QMT实时数据，短线方向暂不判断。")
 else:
     latest_time = str(qmt_ticks.iloc[-1].get("captured_at", ""))
     st.caption(f"QMT最新采集：{latest_time}｜当前股票：{expected_symbol}｜样本数：{len(qmt_ticks)}")
-st.info("目前接入的是实时价格和五档盘口。真正的千手/万手主动买卖必须等逐笔成交与逐笔委托接口验证后再显示，现阶段不伪造‘主力净流入’。")
+st.info("目前接入实时价格和五档盘口。真正的千手/万手主动买卖要在逐笔成交与逐笔委托接口验证后显示，现阶段不伪造‘主力净流入’。")
 
 with st.expander("查看五档买卖盘"):
     if not qmt_ticks.empty:
@@ -278,7 +258,6 @@ with st.expander("查看五档买卖盘"):
             rows.append({"档位": i + 1, "买价": bids[i], "买量": bidv[i], "卖价": asks[i], "卖量": askv[i]})
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
-# ③ 趋势与指标
 st.markdown("## ③ 趋势与指标")
 cols = st.columns(4)
 _card(cols[0], "AI起势", action["q_state"], f"起势分 {qishi.get('latest_score', 0):.0f}/100")
@@ -290,7 +269,6 @@ if qishi.get("reasons"):
 if qishi.get("ok"):
     plot_qishi(qishi, title=f"{snapshot.get('name', code)} {code}")
 
-# ④ 事件与基本面背景
 st.markdown("## ④ 事件催化与基本面")
 cols = st.columns(4)
 _card(cols[0], "行业", industry, f"来源：{industry_src}")
