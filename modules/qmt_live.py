@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-"""QMT本地实时管理器。
+"""QMT local real-time manager used when Streamlit runs on the ROG.
 
-由Streamlit页面在后台启动一个常驻线程；用户在页面更换股票代码时，
-采集器自动切换到对应股票，不需要再打开单独PowerShell。
-只读行情，不导入xttrader，不下单。
+The manager automatically switches symbols, backfills today's recent tick data,
+and then keeps collecting snapshots. It is read-only and never imports xttrader.
 """
 from __future__ import annotations
 
@@ -14,7 +13,7 @@ import threading
 import time
 from collections import deque
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Iterable
 
 import pandas as pd
 
@@ -22,7 +21,7 @@ try:
     from xtquant import xtdata
     XTQUANT_OK = True
     XTQUANT_ERROR = ""
-except Exception as exc:  # pragma: no cover - 仅在本机环境判断
+except Exception as exc:  # pragma: no cover
     xtdata = None
     XTQUANT_OK = False
     XTQUANT_ERROR = str(exc)
@@ -32,29 +31,50 @@ def _first(values, default=None):
     return values[0] if isinstance(values, (list, tuple)) and values else default
 
 
+def _iso_time(value: Any) -> str:
+    try:
+        x = float(value)
+        if x > 10_000_000_000:
+            x /= 1000.0
+        return datetime.fromtimestamp(x).isoformat(timespec="seconds")
+    except Exception:
+        return datetime.now().isoformat(timespec="seconds")
+
+
 def normalize_tick(symbol: str, tick: dict) -> dict:
     return {
         "symbol": symbol,
-        "captured_at": datetime.now().isoformat(timespec="seconds"),
+        "captured_at": tick.get("captured_at") or _iso_time(tick.get("time")),
         "time": tick.get("time"),
         "timetag": tick.get("timetag"),
         "lastPrice": tick.get("lastPrice"),
         "open": tick.get("open"),
         "high": tick.get("high"),
         "low": tick.get("low"),
-        "lastClose": tick.get("lastClose"),
+        "lastClose": tick.get("lastClose") or tick.get("preClose"),
         "avgPrice": tick.get("avgPrice"),
         "amount": tick.get("amount"),
         "volume": tick.get("volume"),
-        "bidPrice": tick.get("bidPrice") or [],
-        "askPrice": tick.get("askPrice") or [],
-        "bidVol": tick.get("bidVol") or [],
-        "askVol": tick.get("askVol") or [],
+        "bidPrice": list(tick.get("bidPrice") or []),
+        "askPrice": list(tick.get("askPrice") or []),
+        "bidVol": list(tick.get("bidVol") or []),
+        "askVol": list(tick.get("askVol") or []),
         "bidPrice1": _first(tick.get("bidPrice")),
         "askPrice1": _first(tick.get("askPrice")),
         "bidVol1": _first(tick.get("bidVol")),
         "askVol1": _first(tick.get("askVol")),
     }
+
+
+def _records_from_frame(symbol: str, frame: pd.DataFrame) -> Iterable[dict]:
+    if frame is None or frame.empty:
+        return []
+    out = []
+    for idx, row in frame.tail(300).iterrows():
+        raw = row.to_dict()
+        raw.setdefault("timetag", str(idx))
+        out.append(normalize_tick(symbol, raw))
+    return out
 
 
 class QMTLiveManager:
@@ -71,6 +91,7 @@ class QMTLiveManager:
         self._status = "等待输入股票代码"
         self._error = "" if XTQUANT_OK else XTQUANT_ERROR
         self._last_write_symbol = ""
+        self._subscription_id = None
 
         self._thread = threading.Thread(target=self._run, name="qmt-live-manager", daemon=True)
         self._thread.start()
@@ -84,7 +105,7 @@ class QMTLiveManager:
                 return
             self._symbol = symbol
             self._rows.clear()
-            self._status = f"正在切换到 {symbol}"
+            self._status = f"正在加载 {symbol} 完整实时数据"
             self._error = ""
             self._last_write_symbol = ""
 
@@ -110,16 +131,48 @@ class QMTLiveManager:
     def _append_csv(self, row: dict) -> None:
         symbol = row["symbol"].replace(".", "_")
         path = os.path.join(self.runtime_dir, f"qmt_ticks_{symbol}.csv")
-        write_header = not os.path.exists(path) or self._last_write_symbol != row["symbol"]
         with open(path, "a", newline="", encoding="utf-8-sig") as f:
             writer = csv.DictWriter(f, fieldnames=list(row.keys()))
-            if write_header and os.path.getsize(path) == 0:
+            if os.path.getsize(path) == 0:
                 writer.writeheader()
             writer.writerow(row)
         latest_path = os.path.join(self.runtime_dir, "qmt_latest.json")
         with open(latest_path, "w", encoding="utf-8") as f:
             json.dump(row, f, ensure_ascii=False)
-        self._last_write_symbol = row["symbol"]
+
+    def _switch_subscription(self, symbol: str) -> None:
+        if self._subscription_id is not None:
+            try:
+                xtdata.unsubscribe_quote(self._subscription_id)
+            except Exception:
+                pass
+        try:
+            self._subscription_id = xtdata.subscribe_quote(symbol, period="tick", count=-1)
+        except Exception:
+            self._subscription_id = None
+
+        time.sleep(0.7)
+        try:
+            result = xtdata.get_market_data_ex(
+                field_list=[],
+                stock_list=[symbol],
+                period="tick",
+                start_time="",
+                end_time="",
+                count=300,
+                dividend_type="none",
+                fill_data=False,
+            ) or {}
+            records = list(_records_from_frame(symbol, result.get(symbol)))
+            with self._lock:
+                if symbol == self._symbol:
+                    self._rows.extend(records)
+                    self._status = f"已加载 {len(records)} 条历史分笔，继续实时更新"
+        except Exception as exc:
+            with self._lock:
+                if symbol == self._symbol:
+                    self._status = "历史分笔未加载，正在实时积累"
+                    self._error = str(exc)
 
     def _run(self) -> None:
         if not XTQUANT_OK:
@@ -127,12 +180,17 @@ class QMTLiveManager:
                 self._status = "xtquant未安装"
             return
 
+        active_symbol = ""
         while not self._stop.is_set():
             with self._lock:
                 symbol = self._symbol
             if not symbol:
                 time.sleep(0.2)
                 continue
+
+            if symbol != active_symbol:
+                active_symbol = symbol
+                self._switch_subscription(symbol)
 
             try:
                 data = xtdata.get_full_tick([symbol]) or {}
@@ -148,7 +206,8 @@ class QMTLiveManager:
                 with self._lock:
                     if symbol != self._symbol:
                         continue
-                    self._rows.append(row)
+                    if not self._rows or row.get("captured_at") != self._rows[-1].get("captured_at") or row.get("lastPrice") != self._rows[-1].get("lastPrice"):
+                        self._rows.append(row)
                     self._status = "国盛QMT实时连接"
                     self._error = ""
                 try:
