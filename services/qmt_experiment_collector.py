@@ -5,12 +5,12 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import os
 import time
 from datetime import datetime
 
-import pandas as pd
 from xtquant import xtdata
 
 
@@ -29,6 +29,7 @@ def normalize_tick(symbol: str, tick: dict) -> dict:
         "high": tick.get("high"),
         "low": tick.get("low"),
         "lastClose": tick.get("lastClose"),
+        "avgPrice": tick.get("avgPrice"),
         "amount": tick.get("amount"),
         "volume": tick.get("volume"),
         "bidPrice": tick.get("bidPrice") or [],
@@ -46,29 +47,43 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--symbol", default="000400.SZ")
     p.add_argument("--interval", type=float, default=1.0)
-    p.add_argument("--max-rows", type=int, default=1200)
     p.add_argument("--out", default="runtime/qmt_ticks.csv")
     args = p.parse_args()
 
+    symbol = args.symbol.upper().strip()
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-    print(f"QMT collector started: {args.symbol} -> {args.out}")
+
+    # 每次启动都清空旧文件，避免把不同股票混在一起。
+    if os.path.exists(args.out):
+        os.remove(args.out)
+    latest_path = args.out.replace(".csv", "_latest.json")
+    if os.path.exists(latest_path):
+        os.remove(latest_path)
+
+    print(f"QMT collector started: {symbol} -> {args.out}")
     print("Read-only mode. Press Ctrl+C to stop.")
 
-    rows = []
+    fieldnames = list(normalize_tick(symbol, {}).keys())
     while True:
         try:
-            data = xtdata.get_full_tick([args.symbol]) or {}
-            tick = data.get(args.symbol) or {}
+            data = xtdata.get_full_tick([symbol]) or {}
+            tick = data.get(symbol) or {}
             if tick:
-                row = normalize_tick(args.symbol, tick)
-                rows.append(row)
-                rows = rows[-args.max_rows:]
-                pd.DataFrame(rows).to_csv(args.out, index=False, encoding="utf-8-sig")
-                with open(args.out.replace(".csv", "_latest.json"), "w", encoding="utf-8") as f:
+                row = normalize_tick(symbol, tick)
+                write_header = not os.path.exists(args.out)
+                with open(args.out, "a", newline="", encoding="utf-8-sig") as f:
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    if write_header:
+                        writer.writeheader()
+                    writer.writerow(row)
+                with open(latest_path, "w", encoding="utf-8") as f:
                     json.dump(row, f, ensure_ascii=False)
-                print(f"{row['captured_at']} price={row['lastPrice']} volume={row['volume']}")
+                print(
+                    f"{row['captured_at']} {symbol} price={row['lastPrice']} "
+                    f"day={row['lastClose']}->{row['lastPrice']}"
+                )
             else:
-                print("No tick returned")
+                print(f"No tick returned for {symbol}")
         except KeyboardInterrupt:
             print("Collector stopped")
             break
