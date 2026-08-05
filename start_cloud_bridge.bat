@@ -1,6 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
+set "PYTHONPATH=%CD%;%PYTHONPATH%"
 
 py -c "from xtquant import xtdata" >nul 2>&1
 if errorlevel 1 (
