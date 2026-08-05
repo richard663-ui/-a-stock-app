@@ -85,9 +85,12 @@ class CloudBridge:
         self.base = f"{config.url}/rest/v1"
         self.headers = {
             "apikey": config.service_key,
-            "Authorization": f"Bearer {config.service_key}",
             "Content-Type": "application/json",
         }
+        # Legacy service_role keys are JWTs and can be used as Bearer tokens.
+        # Modern sb_secret_ keys should be sent only in the apikey header.
+        if config.service_key.startswith("eyJ"):
+            self.headers["Authorization"] = f"Bearer {config.service_key}"
 
     def _request(self, method: str, path: str, **kwargs):
         headers = dict(self.headers)
