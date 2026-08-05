@@ -18,6 +18,13 @@ if not exist ".streamlit\secrets.toml" (
   exit /b 1
 )
 
+echo Checking Supabase configuration...
+py .\services\check_cloud_config.py
+if errorlevel 1 (
+  pause
+  exit /b 1
+)
+
 echo Starting QMT cloud bridge...
 py .\services\qmt_cloud_bridge.py
 pause
