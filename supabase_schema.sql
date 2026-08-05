@@ -26,6 +26,16 @@ begin
 end;
 $$;
 
+create or replace function public.touch_requested_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.requested_at = now();
+  return new;
+end;
+$$;
+
 drop trigger if exists trg_qmt_cache_updated_at on public.qmt_live_cache;
 create trigger trg_qmt_cache_updated_at
 before update on public.qmt_live_cache
@@ -34,7 +44,7 @@ for each row execute function public.touch_updated_at();
 drop trigger if exists trg_qmt_request_updated_at on public.qmt_watch_requests;
 create trigger trg_qmt_request_updated_at
 before update on public.qmt_watch_requests
-for each row execute function public.touch_updated_at();
+for each row execute function public.touch_requested_at();
 
 alter table public.qmt_watch_requests enable row level security;
 alter table public.qmt_live_cache enable row level security;
