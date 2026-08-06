@@ -20,7 +20,8 @@ except Exception:  # pragma: no cover
     tomllib = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SECRETS_PATH = PROJECT_ROOT / ".streamlit" / "secrets.toml"
+PROJECT_SECRETS_PATH = PROJECT_ROOT / ".streamlit" / "secrets.toml"
+PERSISTENT_SECRETS_PATH = Path.home() / ".a_stock_qmt" / "secrets.toml"
 
 
 def _clean_text(value: Any) -> str:
@@ -77,19 +78,28 @@ class BridgeConfig:
         return not self.validation_errors()
 
 
-def _read_local_toml(path: Optional[str] = None) -> Dict[str, Any]:
-    if tomllib is None:
-        return {}
-    p = Path(path) if path else DEFAULT_SECRETS_PATH
-    if not p.is_absolute():
-        p = PROJECT_ROOT / p
-    if not p.exists():
+def _read_toml(path: Path) -> Dict[str, Any]:
+    if tomllib is None or not path.exists():
         return {}
     try:
-        with p.open("rb") as f:
+        with path.open("rb") as f:
             return tomllib.load(f)
     except Exception:
         return {}
+
+
+def _local_values() -> Dict[str, Any]:
+    """Read local secrets from a stable user path, then project-local fallback."""
+    explicit = os.environ.get("ASTOCK_SECRETS_FILE", "").strip()
+    candidates: List[Path] = []
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+    candidates.extend([PERSISTENT_SECRETS_PATH, PROJECT_SECRETS_PATH])
+    for path in candidates:
+        values = _read_toml(path)
+        if values:
+            return values
+    return {}
 
 
 def load_bridge_config(streamlit_secrets: Optional[Any] = None) -> BridgeConfig:
@@ -100,7 +110,7 @@ def load_bridge_config(streamlit_secrets: Optional[Any] = None) -> BridgeConfig:
         except Exception:
             values = {}
 
-    local = _read_local_toml()
+    local = _local_values()
     values = {**local, **values}
     section = values.get("bridge", {}) if isinstance(values.get("bridge"), dict) else {}
 
@@ -168,9 +178,6 @@ class CloudBridge:
         if config.service_key.startswith("eyJ"):
             self.headers["Authorization"] = f"Bearer {config.service_key}"
 
-        # Direct connection first: this bypasses Windows/VPN proxy variables,
-        # which are a common cause of SSL UNEXPECTED_EOF errors. If direct
-        # access is unavailable, retry once through the system proxy settings.
         self._direct_session = _build_session(trust_env=False)
         self._system_session = _build_session(trust_env=True)
 
