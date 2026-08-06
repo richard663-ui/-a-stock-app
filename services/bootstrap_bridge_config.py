@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Find an existing local secrets.toml and persist it outside downloaded ZIP folders."""
+"""Find a valid local secrets.toml and persist it outside downloaded ZIP folders."""
 from __future__ import annotations
 
 import shutil
@@ -24,15 +24,20 @@ def _valid(path: Path) -> bool:
             data = tomllib.load(f)
     except Exception:
         return False
-    url = str(data.get("SUPABASE_URL", ""))
-    key = str(data.get("SUPABASE_SERVICE_KEY", ""))
-    bridge = str(data.get("BRIDGE_ID", ""))
+    url = str(data.get("SUPABASE_URL", "")).strip()
+    key = str(data.get("SUPABASE_SERVICE_KEY", "")).strip()
+    bridge = str(data.get("BRIDGE_ID", "")).strip()
     return (
         url.startswith("https://")
         and "supabase.co" in url
         and (key.startswith("sb_secret_") or key.startswith("eyJ"))
         and bool(bridge)
     )
+
+
+def _copy(src: Path, dst: Path) -> None:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
 
 
 def _candidates():
@@ -47,8 +52,9 @@ def _candidates():
             continue
         try:
             for path in root.glob("**/.streamlit/secrets.toml"):
-                key = str(path.resolve()).lower()
-                if key in seen or path.resolve() == PROJECT_SECRET.resolve():
+                resolved = path.resolve()
+                key = str(resolved).lower()
+                if key in seen or resolved == PROJECT_SECRET.resolve():
                     continue
                 seen.add(key)
                 yield path
@@ -60,28 +66,27 @@ def main() -> int:
     PERSISTENT_DIR.mkdir(parents=True, exist_ok=True)
 
     if _valid(PERSISTENT_SECRET):
+        if not _valid(PROJECT_SECRET):
+            _copy(PERSISTENT_SECRET, PROJECT_SECRET)
+            print(f"[CONFIG RESTORED] {PROJECT_SECRET}")
         print(f"[CONFIG FOUND] {PERSISTENT_SECRET}")
         return 0
 
     if _valid(PROJECT_SECRET):
-        shutil.copy2(PROJECT_SECRET, PERSISTENT_SECRET)
-        print(f"[CONFIG SAVED] Persistent config created at {PERSISTENT_SECRET}")
+        _copy(PROJECT_SECRET, PERSISTENT_SECRET)
+        print(f"[CONFIG SAVED] {PERSISTENT_SECRET}")
         return 0
 
     for candidate in _candidates():
         if _valid(candidate):
-            shutil.copy2(candidate, PERSISTENT_SECRET)
-            print(f"[CONFIG RECOVERED] Copied existing config from {candidate}")
+            _copy(candidate, PROJECT_SECRET)
+            _copy(candidate, PERSISTENT_SECRET)
+            print(f"[CONFIG RECOVERED] {candidate}")
             print(f"[CONFIG SAVED] {PERSISTENT_SECRET}")
             return 0
 
-    example = PROJECT_ROOT / ".streamlit" / "secrets.toml.example"
-    if example.exists() and not PERSISTENT_SECRET.exists():
-        shutil.copy2(example, PERSISTENT_SECRET)
-
-    print("[CONFIG ERROR] No valid Supabase secret configuration was found.")
-    print(f"Open this file and fill in the real values once: {PERSISTENT_SECRET}")
-    print("After that, every newly downloaded project folder will reuse it automatically.")
+    print("[CONFIG NOT SET]")
+    print("The one-time setup wizard will open next.")
     return 1
 
 
