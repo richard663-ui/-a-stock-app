@@ -2,7 +2,9 @@ streamlit
 streamlit-autorefresh
 pandas
 numpy
-requests
+requests>=2.32.3
+urllib3>=2.2.2
+certifi>=2024.7.4
 matplotlib
 akshare
 baostock
