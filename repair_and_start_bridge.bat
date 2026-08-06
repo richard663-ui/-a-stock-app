@@ -13,18 +13,18 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [2/4] Checking local configuration...
-if not exist ".streamlit\secrets.toml" (
-  echo [ERROR] Missing .streamlit\secrets.toml
+echo [2/4] Recovering persistent local configuration...
+py .\services\bootstrap_bridge_config.py
+if errorlevel 1 (
   pause
   exit /b 1
 )
 
-echo [3/4] Testing direct Supabase HTTPS connection...
+echo [3/4] Testing Supabase HTTPS connection...
 py .\services\check_cloud_config.py
 if errorlevel 1 (
   echo.
-  echo [FAILED] Direct and system-proxy connection modes both failed.
+  echo [FAILED] Supabase connection test failed.
   echo Close VPN/proxy software and temporarily disable antivirus HTTPS scanning, then run this file again.
   pause
   exit /b 1
