@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Persistent local bridge: QMT on the ROG -> Supabase -> Streamlit Cloud.
+"""Persistent local bridge: Guosheng QMT -> Supabase -> Streamlit Cloud.
 
-Run once with start_cloud_bridge.bat, or install it at Windows logon with
-install_cloud_bridge_startup.bat. Read-only: never imports xttrader.
+Read-only: this module never imports xttrader and never sends orders.
 """
 from __future__ import annotations
 
@@ -12,23 +11,20 @@ import time
 from collections import deque
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
-# Running a file inside services/ makes Python treat services/ as sys.path[0].
-# Add the project root explicitly so imports such as modules.cloud_bridge work
-# from a double-clicked .bat file and from a Windows startup task.
+import pandas as pd
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import pandas as pd
 from xtquant import xtdata
 
 from modules.cloud_bridge import CloudBridge, load_bridge_config
 
 
 def _clean(value: Any) -> Any:
-    """Convert numpy/pandas values into JSON-safe Python values."""
     if value is None:
         return None
     if isinstance(value, (str, bool, int)):
@@ -40,8 +36,7 @@ def _clean(value: Any) -> Any:
     if isinstance(value, dict):
         return {str(k): _clean(v) for k, v in value.items()}
     try:
-        item = value.item()
-        return _clean(item)
+        return _clean(value.item())
     except Exception:
         pass
     try:
@@ -57,23 +52,47 @@ def _first(values, default=None):
 
 
 def _iso_time(value: Any) -> str:
+    if isinstance(value, (pd.Timestamp, datetime)):
+        return pd.Timestamp(value).to_pydatetime().isoformat(timespec="milliseconds")
+    text = str(value or "").strip()
+    if text:
+        for fmt in (
+            "%Y%m%d %H:%M:%S.%f", "%Y%m%d %H:%M:%S",
+            "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
+        ):
+            try:
+                return datetime.strptime(text, fmt).isoformat(timespec="milliseconds")
+            except Exception:
+                pass
     try:
-        x = float(value)
-        if x > 10_000_000_000:
-            x /= 1000.0
-        return datetime.fromtimestamp(x).isoformat(timespec="seconds")
+        number = float(value)
+        if number > 10_000_000_000:
+            number /= 1000.0
+        if number > 1_000_000_000:
+            return datetime.fromtimestamp(number).isoformat(timespec="milliseconds")
     except Exception:
-        return datetime.now().isoformat(timespec="seconds")
+        pass
+    return datetime.now().isoformat(timespec="milliseconds")
 
 
-def normalize_tick(symbol: str, tick: Dict[str, Any]) -> Dict[str, Any]:
-    captured = tick.get("captured_at") or _iso_time(tick.get("time"))
+def _captured_time(tick: Dict[str, Any], fallback: Any = None) -> str:
+    captured = tick.get("captured_at")
+    if captured:
+        return _iso_time(captured)
+    for key in ("time", "timetag", "datetime", "date"):
+        value = tick.get(key)
+        if value not in (None, ""):
+            return _iso_time(value)
+    return _iso_time(fallback)
+
+
+def normalize_tick(symbol: str, tick: Dict[str, Any], fallback_time: Any = None) -> Dict[str, Any]:
     row = {
         "symbol": symbol,
-        "captured_at": captured,
+        "captured_at": _captured_time(tick, fallback_time),
         "time": tick.get("time"),
         "timetag": tick.get("timetag"),
-        "lastPrice": tick.get("lastPrice"),
+        "lastPrice": tick.get("lastPrice") or tick.get("price"),
         "open": tick.get("open"),
         "high": tick.get("high"),
         "low": tick.get("low"),
@@ -100,15 +119,21 @@ def _records_from_frame(symbol: str, frame: Any) -> Iterable[Dict[str, Any]]:
     for idx, row in frame.tail(300).iterrows():
         raw = row.to_dict()
         raw.setdefault("timetag", str(idx))
-        records.append(normalize_tick(symbol, raw))
-    return records
+        records.append(normalize_tick(symbol, raw, fallback_time=idx))
+    records.sort(key=lambda item: str(item.get("captured_at") or ""))
+    deduped: List[Dict[str, Any]] = []
+    seen = set()
+    for item in records:
+        key = (item.get("captured_at"), item.get("lastPrice"), item.get("volume"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return deduped
 
 
 def backfill_ticks(symbol: str) -> List[Dict[str, Any]]:
-    """Load recent subscribed tick history so the cloud page fills immediately."""
     try:
-        xtdata.subscribe_quote(symbol, period="tick", count=-1)
-        time.sleep(0.8)
         result = xtdata.get_market_data_ex(
             field_list=[], stock_list=[symbol], period="tick",
             start_time="", end_time="", count=300,
@@ -120,19 +145,32 @@ def backfill_ticks(symbol: str) -> List[Dict[str, Any]]:
         return []
 
 
+def _append_unique(rows: deque, row: Dict[str, Any]) -> None:
+    if not row:
+        return
+    if not rows:
+        rows.append(row)
+        return
+    latest = rows[-1]
+    if (
+        row.get("captured_at") != latest.get("captured_at")
+        or row.get("lastPrice") != latest.get("lastPrice")
+        or row.get("volume") != latest.get("volume")
+    ):
+        rows.append(row)
+
+
 def main() -> None:
     config = load_bridge_config()
     if not config.ok:
-        raise SystemExit(
-            "Bridge secrets missing. Create .streamlit/secrets.toml with "
-            "SUPABASE_URL, SUPABASE_SERVICE_KEY and BRIDGE_ID."
-        )
+        raise SystemExit("Bridge configuration is incomplete. Run repair_and_start_bridge.bat once.")
 
     bridge = CloudBridge(config)
     current_symbol = ""
-    subscription_id = None
-    rows: deque = deque(maxlen=300)
+    subscription_id: Optional[int] = None
+    rows: deque = deque(maxlen=600)
     last_publish = 0.0
+    last_print = 0.0
 
     print("QMT cloud bridge started. Read-only mode.")
     print(f"Bridge ID: {config.bridge_id}")
@@ -140,7 +178,6 @@ def main() -> None:
     while True:
         try:
             requested = (bridge.get_requested_symbol() or current_symbol or "000400.SZ").upper()
-
             if requested != current_symbol:
                 if subscription_id is not None:
                     try:
@@ -152,9 +189,12 @@ def main() -> None:
                 print(f"Switching to {current_symbol}")
                 try:
                     subscription_id = xtdata.subscribe_quote(current_symbol, period="tick", count=-1)
-                except Exception:
+                except Exception as exc:
                     subscription_id = None
-                rows.extend(backfill_ticks(current_symbol))
+                    print(f"Live subscription warning: {exc}")
+                time.sleep(0.6)
+                for item in backfill_ticks(current_symbol):
+                    _append_unique(rows, item)
                 if rows:
                     bridge.publish_ticks(current_symbol, list(rows), status="loading")
                     print(f"Backfilled {len(rows)} ticks")
@@ -162,24 +202,19 @@ def main() -> None:
             data = xtdata.get_full_tick([current_symbol]) or {}
             tick = data.get(current_symbol) or {}
             if tick:
-                row = normalize_tick(current_symbol, tick)
-                if (
-                    not rows
-                    or row.get("captured_at") != rows[-1].get("captured_at")
-                    or row.get("lastPrice") != rows[-1].get("lastPrice")
-                ):
-                    rows.append(row)
+                _append_unique(rows, normalize_tick(current_symbol, tick))
 
             now = time.time()
             if now - last_publish >= 1.0:
                 bridge.publish_ticks(current_symbol, list(rows), status="online")
                 last_publish = now
+            if now - last_print >= 5.0:
                 latest = rows[-1] if rows else {}
                 print(
                     f"{datetime.now().strftime('%H:%M:%S')} {current_symbol} "
                     f"price={latest.get('lastPrice')} samples={len(rows)}"
                 )
-
+                last_print = now
         except KeyboardInterrupt:
             print("Bridge stopped")
             break
@@ -190,10 +225,8 @@ def main() -> None:
                     bridge.publish_ticks(current_symbol, list(rows), status=f"error: {exc}")
             except Exception:
                 pass
-            time.sleep(3)
-            continue
-
-        time.sleep(0.35)
+            time.sleep(3.0)
+        time.sleep(0.25)
 
 
 if __name__ == "__main__":
