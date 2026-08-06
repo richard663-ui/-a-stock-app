@@ -7,7 +7,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import certifi
 import requests
+from requests.adapters import HTTPAdapter
+from requests.exceptions import ConnectionError as RequestsConnectionError
+from requests.exceptions import SSLError
+from urllib3.util.retry import Retry
 
 try:
     import tomllib
@@ -124,8 +129,32 @@ def load_bridge_config(streamlit_secrets: Optional[Any] = None) -> BridgeConfig:
     )
 
 
+def _build_session(*, trust_env: bool) -> requests.Session:
+    session = requests.Session()
+    session.trust_env = trust_env
+    retry = Retry(
+        total=5,
+        connect=5,
+        read=5,
+        status=5,
+        backoff_factor=0.8,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=None,
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=4, pool_maxsize=8)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    session.headers.update({
+        "User-Agent": "AStock-QMT-Bridge/17.0",
+        "Accept": "application/json",
+        "Connection": "close",
+    })
+    return session
+
+
 class CloudBridge:
-    def __init__(self, config: BridgeConfig, timeout: float = 8.0):
+    def __init__(self, config: BridgeConfig, timeout: float = 12.0):
         errors = config.validation_errors()
         if errors:
             raise ValueError("; ".join(errors))
@@ -139,23 +168,51 @@ class CloudBridge:
         if config.service_key.startswith("eyJ"):
             self.headers["Authorization"] = f"Bearer {config.service_key}"
 
-    def _request(self, method: str, path: str, **kwargs):
+        # Direct connection first: this bypasses Windows/VPN proxy variables,
+        # which are a common cause of SSL UNEXPECTED_EOF errors. If direct
+        # access is unavailable, retry once through the system proxy settings.
+        self._direct_session = _build_session(trust_env=False)
+        self._system_session = _build_session(trust_env=True)
+
+    def _request_once(self, session: requests.Session, method: str, path: str, **kwargs):
         headers = dict(self.headers)
         headers.update(kwargs.pop("headers", {}) or {})
-        response = requests.request(
+        return session.request(
             method,
             f"{self.base}/{path.lstrip('/')}",
             headers=headers,
-            timeout=self.timeout,
+            timeout=(6.0, self.timeout),
+            verify=certifi.where(),
             **kwargs,
         )
-        response.raise_for_status()
-        if not response.content:
-            return None
-        try:
-            return response.json()
-        except Exception:
-            return response.text
+
+    def _request(self, method: str, path: str, **kwargs):
+        errors: List[str] = []
+        for mode, session in (("direct", self._direct_session), ("system-proxy", self._system_session)):
+            try:
+                response = self._request_once(session, method, path, **kwargs)
+                response.raise_for_status()
+                if not response.content:
+                    return None
+                try:
+                    return response.json()
+                except Exception:
+                    return response.text
+            except (SSLError, RequestsConnectionError) as exc:
+                errors.append(f"{mode}: {exc}")
+                continue
+        raise RequestsConnectionError(
+            "Supabase HTTPS connection failed in both direct and system-proxy modes. "
+            + " | ".join(errors)
+        )
+
+    def ping(self) -> bool:
+        self._request(
+            "GET",
+            "qmt_watch_requests",
+            params={"select": "bridge_id", "limit": "1"},
+        )
+        return True
 
     def request_symbol(self, symbol: str) -> None:
         payload = {"bridge_id": self.config.bridge_id, "symbol": str(symbol).upper()}
