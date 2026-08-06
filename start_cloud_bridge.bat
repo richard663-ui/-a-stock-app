@@ -24,9 +24,9 @@ if errorlevel 1 (
   )
 )
 
-if not exist ".streamlit\secrets.toml" (
-  echo [ERROR] Missing .streamlit\secrets.toml
-  echo Copy .streamlit\secrets.toml.example to secrets.toml and fill in Supabase values.
+echo Recovering local configuration...
+py .\services\bootstrap_bridge_config.py
+if errorlevel 1 (
   pause
   exit /b 1
 )
