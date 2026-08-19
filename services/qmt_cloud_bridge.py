@@ -167,7 +167,7 @@ def main() -> None:
                             true_l2=bool(direction.get("metrics", {}).get("true_l2")),
                             features=_feature_snapshot(direction, summary),
                             now_ts=now,
-                            bucket_seconds=10,
+                            bucket_seconds=60,
                         )
 
                 if not cached_validation or int(now) % 5 == 0:
