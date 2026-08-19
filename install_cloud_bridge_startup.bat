@@ -9,9 +9,7 @@ echo ========================================
 
 set "PYEXE="
 for /f "delims=" %%I in ('py -c "import sys; print(sys.executable)" 2^>nul') do set "PYEXE=%%I"
-if not defined PYEXE (
-  for /f "delims=" %%I in ('python -c "import sys; print(sys.executable)" 2^>nul') do set "PYEXE=%%I"
-)
+if not defined PYEXE for /f "delims=" %%I in ('python -c "import sys; print(sys.executable)" 2^>nul') do set "PYEXE=%%I"
 if not defined PYEXE if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set "PYEXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
 if not defined PYEXE (
   echo [ERROR] Python 3.12 could not be located.
@@ -24,17 +22,17 @@ if not exist "%PYEXE%" (
   exit /b 1
 )
 
-echo [1/6] Python: %PYEXE%
+echo [1/7] Python: %PYEXE%
 "%PYEXE%" -c "import pandas,numpy,requests,certifi; from xtquant import xtdata" >nul 2>&1
 if errorlevel 1 (
   echo [ERROR] Required local packages are missing.
   echo Required: pandas numpy requests certifi xtquant
-  echo Run repair_and_start_bridge.bat once, then retry this installer.
+  echo Run repair_and_start_bridge.bat once, then retry.
   pause
   exit /b 1
 )
 
-echo [2/6] Running deterministic V18 self-test...
+echo [2/7] Running deterministic V18 self-test...
 set "PYTHONPATH=%~dp0;%PYTHONPATH%"
 "%PYEXE%" "%~dp0services\v18_selftest.py"
 if errorlevel 1 (
@@ -44,7 +42,7 @@ if errorlevel 1 (
 )
 
 set "PERSIST=%USERPROFILE%\.a_stock_qmt\secrets.toml"
-echo [3/6] Checking persistent configuration...
+echo [3/7] Checking persistent configuration...
 if not exist "%PERSIST%" (
   echo [ERROR] Missing: %PERSIST%
   echo Run repair_and_start_bridge.bat once. Do not paste the secret key into chat.
@@ -55,8 +53,13 @@ if not exist "%PERSIST%" (
 set "INSTALLDIR=%LOCALAPPDATA%\AStockQMT"
 set "STARTUPDIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "STARTFILE=%STARTUPDIR%\AStockQMTCloudBridge.cmd"
+set "LOGFILE=%INSTALLDIR%\runtime\bridge_console.log"
 
-echo [4/6] Copying stable runtime to %INSTALLDIR% ...
+echo [4/7] Stopping any old bridge process...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$self=$PID; Get-CimInstance Win32_Process ^| Where-Object { $_.ProcessId -ne $self -and $_.CommandLine -match 'qmt_cloud_bridge\.py' } ^| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+timeout /t 1 /nobreak >nul
+
+echo [5/7] Copying stable runtime to %INSTALLDIR% ...
 if not exist "%INSTALLDIR%" mkdir "%INSTALLDIR%" >nul 2>&1
 robocopy "%~dp0modules" "%INSTALLDIR%\modules" /MIR /NFL /NDL /NJH /NJS /NP >nul
 if errorlevel 8 (
@@ -72,7 +75,7 @@ if errorlevel 8 (
 )
 if not exist "%INSTALLDIR%\runtime" mkdir "%INSTALLDIR%\runtime" >nul 2>&1
 
-echo [5/6] Writing Windows Startup launcher...
+echo [6/7] Writing Windows Startup launcher...
 (
   echo @echo off
   echo set "PYTHONPATH=%INSTALLDIR%;%%PYTHONPATH%%"
@@ -80,7 +83,7 @@ echo [5/6] Writing Windows Startup launcher...
   echo set "no_proxy=.supabase.co,supabase.co"
   echo cd /d "%INSTALLDIR%"
   echo if not exist "%INSTALLDIR%\runtime" mkdir "%INSTALLDIR%\runtime" ^>nul 2^>^&1
-  echo "%PYEXE%" -u "%INSTALLDIR%\services\qmt_cloud_bridge.py" ^>^> "%INSTALLDIR%\runtime\bridge_console.log" 2^>^&1
+  echo "%PYEXE%" -u "%INSTALLDIR%\services\qmt_cloud_bridge.py" ^>^> "%LOGFILE%" 2^>^&1
 ) > "%STARTFILE%"
 if not exist "%STARTFILE%" (
   echo [ERROR] Startup launcher was not created.
@@ -89,15 +92,23 @@ if not exist "%STARTFILE%" (
 )
 schtasks /Delete /TN "AStockQMTCloudBridge" /F >nul 2>&1
 
-echo [6/6] Starting V18 bridge now...
+echo [7/7] Starting and verifying V18 bridge...
+> "%LOGFILE%" echo ===== V18 install %DATE% %TIME% =====
 start "AStockQMTBridge" /min cmd /c ""%STARTFILE%""
-timeout /t 4 /nobreak >nul
+timeout /t 5 /nobreak >nul
+findstr /C:"QMT cloud bridge V18 Final started" "%LOGFILE%" >nul 2>&1
+if errorlevel 1 (
+  echo [WARN] Installer finished, but the V18 start line was not confirmed yet.
+  echo Run check_v18_final.bat. Its output will show the exact failing layer.
+) else (
+  echo [PASS] V18 bridge process confirmed in log.
+)
 
 echo.
 echo [OK] V18 Final installed.
 echo Stable runtime: %INSTALLDIR%
 echo Startup file:   %STARTFILE%
-echo Bridge log:     %INSTALLDIR%\runtime\bridge_console.log
+echo Bridge log:     %LOGFILE%
 echo Prediction DB:  %INSTALLDIR%\runtime\one_minute_predictions.sqlite3
 echo.
 echo QMT must be open and logged in for live Tick/Level-2 data.
