@@ -2,6 +2,8 @@
 """Persistent local bridge: Guosheng QMT -> Supabase -> Streamlit Cloud.
 
 Read-only: this module never imports xttrader and never sends orders.
+V18 also streams documented Level-2 market data when the broker entitlement is
+available; unavailable L2 periods degrade gracefully to the existing tick feed.
 """
 from __future__ import annotations
 
@@ -22,6 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
 from xtquant import xtdata
 
 from modules.cloud_bridge import CloudBridge, load_bridge_config
+from modules.qmt_level2 import QMTLevel2Manager
 
 
 def _clean(value: Any) -> Any:
@@ -166,13 +169,15 @@ def main() -> None:
         raise SystemExit("Bridge configuration is incomplete. Run repair_and_start_bridge.bat once.")
 
     bridge = CloudBridge(config)
+    l2 = QMTLevel2Manager()
     current_symbol = ""
     subscription_id: Optional[int] = None
     rows: deque = deque(maxlen=600)
     last_publish = 0.0
+    last_l2_publish = 0.0
     last_print = 0.0
 
-    print("QMT cloud bridge started. Read-only mode.")
+    print("QMT cloud bridge V18 started. Read-only mode.")
     print(f"Bridge ID: {config.bridge_id}")
 
     while True:
@@ -191,13 +196,18 @@ def main() -> None:
                     subscription_id = xtdata.subscribe_quote(current_symbol, period="tick", count=-1)
                 except Exception as exc:
                     subscription_id = None
-                    print(f"Live subscription warning: {exc}")
-                time.sleep(0.6)
+                    print(f"Live tick subscription warning: {exc}")
+                time.sleep(0.5)
                 for item in backfill_ticks(current_symbol):
                     _append_unique(rows, item)
                 if rows:
                     bridge.publish_ticks(current_symbol, list(rows), status="loading")
                     print(f"Backfilled {len(rows)} ticks")
+
+                l2_status = l2.switch(current_symbol)
+                caps = l2_status.get("capabilities", {})
+                available = [name for name, item in caps.items() if item.get("available")]
+                print("Level-2 available: " + (", ".join(available) if available else "none yet"))
 
             data = xtdata.get_full_tick([current_symbol]) or {}
             tick = data.get(current_symbol) or {}
@@ -208,15 +218,35 @@ def main() -> None:
             if now - last_publish >= 1.0:
                 bridge.publish_ticks(current_symbol, list(rows), status="online")
                 last_publish = now
+
+            if now - last_l2_publish >= 1.0:
+                l2_snapshot = l2.snapshot()
+                summary = l2_snapshot.get("summary", {})
+                bridge.publish_level2(
+                    current_symbol,
+                    summary=summary,
+                    capabilities=l2_snapshot.get("capabilities", {}),
+                    recent_transactions=l2_snapshot.get("recent_transactions", []),
+                    recent_orders=l2_snapshot.get("recent_orders", []),
+                    quoteaux=l2_snapshot.get("quoteaux", {}),
+                    orderqueue=l2_snapshot.get("orderqueue", {}),
+                    status="online" if summary.get("ok") else "waiting_l2",
+                )
+                last_l2_publish = now
+
             if now - last_print >= 5.0:
                 latest = rows[-1] if rows else {}
+                l2_snapshot = l2.snapshot()
+                s = l2_snapshot.get("summary", {})
                 print(
                     f"{datetime.now().strftime('%H:%M:%S')} {current_symbol} "
-                    f"price={latest.get('lastPrice')} samples={len(rows)}"
+                    f"price={latest.get('lastPrice')} samples={len(rows)} "
+                    f"L2={s.get('direction', 'WATCH')} agreement={s.get('agreement', 0)}%"
                 )
                 last_print = now
         except KeyboardInterrupt:
             print("Bridge stopped")
+            l2.stop()
             break
         except Exception as exc:
             print(f"bridge error: {exc}")
