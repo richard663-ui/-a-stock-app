@@ -2,9 +2,8 @@
 """XtQuant Level-2 subscription manager.
 
 Read-only. On the ROG it subscribes to documented QMT/XtData Level-2 periods.
-On Streamlit Cloud, where xtquant is normally unavailable, this module must
-remain importable so the app can use the Supabase cloud bridge instead of
-crashing during module import.
+On Streamlit Cloud, where xtquant is normally unavailable, this module remains
+importable so the app can use the Supabase cloud bridge instead of crashing.
 """
 from __future__ import annotations
 
@@ -28,6 +27,7 @@ except Exception as exc:  # Streamlit Cloud / non-QMT environments
 from modules.level2_engine import analyze_level2
 
 L2_PERIODS = (
+    "l2quote",
     "l2transaction",
     "l2order",
     "l2quoteaux",
@@ -91,6 +91,7 @@ class QMTLevel2Manager:
             for p in L2_PERIODS
         }
         self.buffers: Dict[str, deque] = {
+            "l2quote": deque(maxlen=1200),
             "l2transaction": deque(maxlen=6000),
             "l2order": deque(maxlen=6000),
             "l2quoteaux": deque(maxlen=1200),
@@ -165,11 +166,9 @@ class QMTLevel2Manager:
                 for p in L2_PERIODS
             }
 
-        # Streamlit Cloud uses Supabase and never needs a local XtQuant session.
         if not self.available_runtime:
             return self.status()
 
-        # Backfill first so the local page starts with intraday context.
         for period in L2_PERIODS:
             try:
                 result = xtdata.get_market_data_ex(
@@ -187,8 +186,7 @@ class QMTLevel2Manager:
                 with self._lock:
                     self.capabilities[period]["error"] = f"backfill: {exc}"
 
-        # Then subscribe to each independent Level-2 feed. One unavailable feed
-        # never disables the others.
+        # XtData documents count=0 as the normal live-only subscription mode.
         for period in L2_PERIODS:
             try:
                 seq = xtdata.subscribe_quote(
@@ -225,6 +223,7 @@ class QMTLevel2Manager:
             data = {k: list(v) for k, v in self.buffers.items()}
             capabilities = _clean(self.capabilities)
         summary = analyze_level2(
+            quotes=data["l2quote"],
             transactions=data["l2transaction"],
             orders=data["l2order"],
             quoteaux=data["l2quoteaux"],
