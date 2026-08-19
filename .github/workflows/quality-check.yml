@@ -2,7 +2,7 @@ name: Production quality check
 
 on:
   push:
-    branches: [main, level2-v18, v18-final]
+    branches: [main, level2-v18, v18-final, v18-hotfix-cloud-import]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -31,9 +31,23 @@ jobs:
           test -f services/qmt_cloud_bridge.py
           test -f services/qmt_capability_probe.py
           test -f services/v18_selftest.py
+          test -f services/v18_doctor.py
+          test -f check_v18_final.bat
           test -f install_cloud_bridge_startup.bat
           test -f repair_and_start_bridge.bat
       - name: Install self-test dependencies
         run: python -m pip install -q pandas numpy
+      - name: Verify Streamlit-Cloud-safe Level-2 import without xtquant
+        run: |
+          python - <<'PY'
+          from modules.qmt_level2 import QMTLevel2Manager, XTQUANT_OK
+          assert XTQUANT_OK is False, 'CI unexpectedly has xtquant; cloud-safe absence test is not exercising fallback'
+          manager = QMTLevel2Manager()
+          status = manager.switch('000400.SZ')
+          assert status['runtime_available'] is False
+          snap = manager.snapshot()
+          assert snap['summary']['ok'] is False
+          print('[PASS] qmt_level2 imports and degrades safely without xtquant')
+          PY
       - name: Run deterministic V18 self-test
         run: python services/v18_selftest.py
