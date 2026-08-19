@@ -5,14 +5,20 @@ The production accuracy statistic uses non-overlapping one-minute prediction
 buckets. Predictions are labelled only near the intended +60s horizon; stale
 predictions after a bridge/QMT outage are expired instead of being incorrectly
 labelled with a much later price.
+
+Important Windows detail: sqlite3.Connection used as a context manager commits
+or rolls back but does not close the file handle. Every database operation here
+therefore uses an explicit closing context so temporary/self-test databases can
+be removed immediately on Windows and production WAL files are not leaked.
 """
 from __future__ import annotations
 
 import json
 import sqlite3
 import time
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Iterator
 
 
 class PredictionJournal:
@@ -26,8 +32,21 @@ class PredictionJournal:
         con.row_factory = sqlite3.Row
         return con
 
+    @contextmanager
+    def _session(self) -> Iterator[sqlite3.Connection]:
+        """Transaction context that always closes the SQLite handle."""
+        con = self._connect()
+        try:
+            yield con
+            con.commit()
+        except Exception:
+            con.rollback()
+            raise
+        finally:
+            con.close()
+
     def _init_db(self) -> None:
-        with self._connect() as con:
+        with self._session() as con:
             con.executescript(
                 """
                 PRAGMA journal_mode=WAL;
@@ -57,7 +76,6 @@ class PredictionJournal:
                     ON predictions(symbol, high_confidence, true_l2, matured, created_ts);
                 """
             )
-            # Forward-compatible migration for a database created by an earlier V18 build.
             columns = {str(r[1]) for r in con.execute("PRAGMA table_info(predictions)").fetchall()}
             if "label_delay_seconds" not in columns:
                 con.execute("ALTER TABLE predictions ADD COLUMN label_delay_seconds REAL")
@@ -82,7 +100,7 @@ class PredictionJournal:
         bucket_seconds = max(10, int(bucket_seconds))
         bucket_ts = int(now_ts // bucket_seconds * bucket_seconds)
         payload = json.dumps(features or {}, ensure_ascii=False, separators=(",", ":"), default=str)
-        with self._connect() as con:
+        with self._session() as con:
             con.execute(
                 """
                 INSERT OR IGNORE INTO predictions (
@@ -107,11 +125,7 @@ class PredictionJournal:
         max_label_lag_seconds: int = 8,
         flat_band_pct: float = 0.01,
     ) -> int:
-        """Label predictions close to +60s and expire stale labels after outages.
-
-        `max_label_lag_seconds` prevents a prediction created before a QMT/bridge
-        outage from being scored against a price many minutes later.
-        """
+        """Label predictions close to +60s and expire stale labels after outages."""
         current_price = float(current_price or 0)
         if current_price <= 0:
             return 0
@@ -123,8 +137,7 @@ class PredictionJournal:
         symbol = str(symbol).upper()
         updated = 0
 
-        with self._connect() as con:
-            # First invalidate predictions whose intended horizon was missed.
+        with self._session() as con:
             con.execute(
                 """
                 UPDATE predictions
@@ -174,7 +187,7 @@ class PredictionJournal:
         symbol = str(symbol).upper()
 
         def query(where_extra: str = "") -> tuple[int, int, float | None]:
-            with self._connect() as con:
+            with self._session() as con:
                 row = con.execute(
                     f"""
                     SELECT COUNT(*) AS n,
@@ -196,7 +209,7 @@ class PredictionJournal:
         high_n, high_w, high_ret = query("AND high_confidence=1")
         l2_n, l2_w, l2_ret = query("AND high_confidence=1 AND true_l2=1")
 
-        with self._connect() as con:
+        with self._session() as con:
             expired = int(con.execute(
                 "SELECT COUNT(*) FROM predictions WHERE symbol=? AND actual_direction='EXPIRED'",
                 (symbol,),
@@ -220,8 +233,9 @@ class PredictionJournal:
 
     def export_csv(self, output: str | Path = "runtime/one_minute_predictions.csv") -> Path:
         output = Path(output)
-        with self._connect() as con, output.open("w", encoding="utf-8-sig", newline="") as f:
+        with self._session() as con:
             rows = con.execute("SELECT * FROM predictions ORDER BY created_ts").fetchall()
+        with output.open("w", encoding="utf-8-sig", newline="") as f:
             if not rows:
                 f.write("")
                 return output
