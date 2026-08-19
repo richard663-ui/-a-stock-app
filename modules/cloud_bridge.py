@@ -156,7 +156,7 @@ def _build_session(*, trust_env: bool) -> requests.Session:
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     session.headers.update({
-        "User-Agent": "AStock-QMT-Bridge/17.0",
+        "User-Agent": "AStock-QMT-Bridge/18.0",
         "Accept": "application/json",
         "Connection": "close",
     })
@@ -266,6 +266,49 @@ class CloudBridge:
                 "bridge_id": f"eq.{self.config.bridge_id}",
                 "symbol": f"eq.{str(symbol).upper()}",
                 "select": "symbol,status,updated_at,ticks",
+                "limit": "1",
+            },
+        ) or []
+        return rows[0] if rows else {}
+
+    def publish_level2(
+        self,
+        symbol: str,
+        *,
+        summary: Dict[str, Any],
+        capabilities: Dict[str, Any],
+        recent_transactions: List[Dict[str, Any]] | None = None,
+        recent_orders: List[Dict[str, Any]] | None = None,
+        quoteaux: Dict[str, Any] | None = None,
+        orderqueue: Dict[str, Any] | None = None,
+        status: str = "online",
+    ) -> None:
+        payload = {
+            "bridge_id": self.config.bridge_id,
+            "symbol": str(symbol).upper(),
+            "status": status,
+            "summary": summary or {},
+            "capabilities": capabilities or {},
+            "recent_transactions": list(recent_transactions or [])[-120:],
+            "recent_orders": list(recent_orders or [])[-120:],
+            "quoteaux": quoteaux or {},
+            "orderqueue": orderqueue or {},
+        }
+        self._request(
+            "POST",
+            "qmt_l2_cache?on_conflict=bridge_id,symbol",
+            json=payload,
+            headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+        )
+
+    def fetch_level2(self, symbol: str) -> Dict[str, Any]:
+        rows = self._request(
+            "GET",
+            "qmt_l2_cache",
+            params={
+                "bridge_id": f"eq.{self.config.bridge_id}",
+                "symbol": f"eq.{str(symbol).upper()}",
+                "select": "symbol,status,updated_at,summary,capabilities,recent_transactions,recent_orders,quoteaux,orderqueue",
                 "limit": "1",
             },
         ) or []

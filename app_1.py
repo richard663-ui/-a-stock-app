@@ -1,3 +1,3 @@
 # -*- coding: utf-8 -*-
-"""Streamlit deployment entrypoint for V17."""
-from app_v17 import *  # noqa: F401,F403
+"""Streamlit deployment entrypoint for V18 Final."""
+from app_v18_final import *  # noqa: F401,F403
