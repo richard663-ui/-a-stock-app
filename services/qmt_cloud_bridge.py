@@ -26,6 +26,7 @@ from modules.direction_v18 import analyze_direction_v18
 from modules.prediction_journal import PredictionJournal
 from modules.qmt_level2 import QMTLevel2Manager
 from modules.qmt_live import normalize_tick
+from modules.runtime_guard import acquire_bridge_lock
 
 
 def _backfill(symbol: str, count: int = 300) -> List[Dict]:
@@ -87,6 +88,11 @@ def _feature_snapshot(direction: Dict, l2_summary: Dict) -> Dict:
 
 
 def main() -> None:
+    process_lock = acquire_bridge_lock()
+    if process_lock is None:
+        print("Another AStockQMT bridge is already running. Exiting this duplicate process.")
+        return
+
     config = load_bridge_config()
     if not config.ok:
         raise SystemExit("Bridge configuration is incomplete. Run repair_and_start_bridge.bat once.")
@@ -116,6 +122,7 @@ def main() -> None:
                         pass
                 current_symbol = requested
                 rows.clear()
+                cached_validation = {}
                 print(f"Switching to {current_symbol}")
 
                 try:
@@ -163,8 +170,6 @@ def main() -> None:
                             bucket_seconds=10,
                         )
 
-                # Validation is cheap enough every five seconds and becomes part of
-                # the same L2 payload read by Streamlit Cloud.
                 if not cached_validation or int(now) % 5 == 0:
                     cached_validation = journal.stats(current_symbol, limit=5000)
                 summary["validation"] = cached_validation
