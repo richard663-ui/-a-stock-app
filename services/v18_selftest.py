@@ -53,6 +53,7 @@ def main() -> int:
     vwap = analyze_vwap_state(ticks)
     assert vwap["ok"] and vwap["vwap"] > 0
 
+    # Uses the same queue-array shape shown by XtData's documented L2 example.
     l2 = analyze_level2(
         transactions=[
             {"time": 1700000000000, "tradeFlag": 1, "price": 22.0, "volume": 1000, "amount": 2_200_000},
@@ -68,8 +69,21 @@ def main() -> int:
             {"time": 1700000000000, "withdrawBidAmount": 100, "withdrawOffAmount": 100, "totalBidQuantity": 10000, "totalOffQuantity": 7000},
             {"time": 1700000002000, "withdrawBidAmount": 150, "withdrawOffAmount": 400, "totalBidQuantity": 12000, "totalOffQuantity": 6500},
         ],
+        transactioncount=[
+            {"time": 1700000002000, "bidMostAmount": 1_200_000, "bidBigAmount": 800_000,
+             "bidMediumAmount": 300_000, "bidSmallAmount": 100_000,
+             "offMostAmount": 300_000, "offBigAmount": 200_000,
+             "offMediumAmount": 100_000, "offSmallAmount": 50_000},
+        ],
+        orderqueue=[
+            {"time": 1700000002000, "bidLevelVolume": [600, 300, 100],
+             "offerLevelVolume": [100, 100, 100]},
+        ],
     )
     assert l2["ok"]
+    assert l2["metrics"]["queue_bid_volume"] == 1000
+    assert l2["metrics"]["queue_offer_volume"] == 300
+    assert l2["metrics"]["big_buy_pct"] > 50
 
     direction = analyze_direction_v18(ticks, l2)
     assert "direction_60" in direction and "condition_agreement" in direction
@@ -93,10 +107,19 @@ def main() -> int:
         assert stats["true_l2_high_conf_samples"] == 1
         assert stats["true_l2_high_conf_accuracy_pct"] == 100.0
 
+        # A prediction missed by far more than the +60s horizon must not be
+        # scored using a much later price after a bridge/QMT outage.
+        journal.record(symbol="600406.SH", price=20.0, direction="UP", agreement=95,
+                       high_confidence=True, true_l2=True, features={}, now_ts=2000.0)
+        journal.mature(symbol="600406.SH", current_price=22.0, now_ts=2200.0)
+        stale_stats = journal.stats("600406.SH")
+        assert stale_stats["all_samples"] == 0
+        assert stale_stats["expired_samples"] == 1
+
     print("[PASS] V18 setup/VWAP engine")
-    print("[PASS] V18 Level-2 engine")
+    print("[PASS] V18 Level-2 engine incl. queue arrays")
     print("[PASS] V18 direction interface")
-    print("[PASS] V18 prediction journal")
+    print("[PASS] V18 prediction journal incl. outage expiry")
     print("RESULT: SELFTEST PASS")
     return 0
 
