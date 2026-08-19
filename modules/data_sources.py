@@ -53,7 +53,8 @@ def fetch_em_ulist_snapshot(clean_codes: List[str]) -> Dict[str, Dict[str, Any]]
         secids = ",".join(eastmoney_secid(c) for c in batch)
         url = "https://push2.eastmoney.com/api/qt/ulist.np/get"
         params = {"fltt": 2, "invt": 2, "fields": fields, "secids": secids}
-        r = safe_get(url, params=params, timeout=5, retries=1)
+        # A stock switch should never block the Streamlit page for many seconds.
+        r = safe_get(url, params=params, timeout=3, retries=1)
         if not r:
             continue
         try:
@@ -83,7 +84,7 @@ def fetch_em_single_snapshot(code: str) -> Dict[str, Any]:
     url = "https://push2.eastmoney.com/api/qt/stock/get"
     fields = "f57,f58,f43,f170,f169,f47,f48,f168,f164,f162,f167,f116,f117"
     params = {"secid": eastmoney_secid(code), "fields": fields, "fltt": 2, "invt": 2}
-    r = safe_get(url, params=params, timeout=5, retries=1)
+    r = safe_get(url, params=params, timeout=3, retries=1)
     if not r:
         return {}
     try:
@@ -116,7 +117,7 @@ def fetch_tencent_snapshot(codes: List[str]) -> Dict[str, Dict[str, Any]]:
     if not codes:
         return result
     q = ",".join(tencent_symbol(c) for c in codes)
-    r = safe_get("https://qt.gtimg.cn/q=" + q, timeout=5, retries=1)
+    r = safe_get("https://qt.gtimg.cn/q=" + q, timeout=3, retries=1)
     if not r:
         return result
     try:
@@ -133,7 +134,6 @@ def fetch_tencent_snapshot(codes: List[str]) -> Dict[str, Dict[str, Any]]:
             pct = None
             if price is not None and prev not in [None, 0]:
                 pct = (price - prev) / prev * 100
-            # 腾讯字段较多且会变，这里只取稳定字段。
             result[code] = {
                 "code": code, "name": parts[1], "price": price, "pct": pct,
                 "change": (price - prev) if price is not None and prev is not None else None,
@@ -189,7 +189,8 @@ def fetch_tencent_kline(code: str, count: int = 260) -> pd.DataFrame:
     symbol = tencent_symbol(code)
     url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
     params = {"param": f"{symbol},day,,,{count},qfq"}
-    r = safe_get(url, params=params, timeout=8, retries=2)
+    # One bounded attempt is preferable to a 15-20 second blank-looking first load.
+    r = safe_get(url, params=params, timeout=4, retries=1)
     if not r:
         return pd.DataFrame()
     try:
@@ -241,4 +242,3 @@ def load_baostock_industry() -> pd.DataFrame:
         except Exception:
             pass
         return pd.DataFrame()
-
