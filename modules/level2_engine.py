@@ -8,7 +8,7 @@ No trading calls live in this module.
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Mapping, Sequence
+from typing import Any, Dict, List, Mapping, Sequence
 
 import math
 
@@ -22,10 +22,13 @@ def _f(value: Any, default: float = 0.0) -> float:
 
 
 def _sum_value(value: Any) -> float:
-    """XtData queue fields are arrays; scalar fields are accepted too."""
     if isinstance(value, (list, tuple)):
         return sum(_f(x) for x in value)
     return _f(value)
+
+
+def _list_f(value: Any) -> List[float]:
+    return [_f(x) for x in value] if isinstance(value, (list, tuple)) else []
 
 
 def _i(value: Any, default: int = 0) -> int:
@@ -74,7 +77,6 @@ def _recent(rows: Sequence[Mapping[str, Any]], seconds: int = 60) -> List[Mappin
     stamped = [(r, _ts_ms(r)) for r in rows]
     valid = [x for x in stamped if x[1] > 0]
     if not valid:
-        # A bounded fallback is safer than treating an entire intraday buffer as 60s.
         return list(rows[-120:])
     end = max(ts for _, ts in valid)
     start = end - int(seconds) * 1000
@@ -83,9 +85,7 @@ def _recent(rows: Sequence[Mapping[str, Any]], seconds: int = 60) -> List[Mappin
 
 def _amount(row: Mapping[str, Any]) -> float:
     amount = _f(row.get("amount"))
-    if amount > 0:
-        return amount
-    return _f(row.get("price")) * _f(row.get("volume"))
+    return amount if amount > 0 else _f(row.get("price")) * _f(row.get("volume"))
 
 
 def _pct(part: float, total: float, default: float = 50.0) -> float:
@@ -97,18 +97,27 @@ def _latest(rows: Sequence[Mapping[str, Any]]) -> Mapping[str, Any]:
 
 
 def _category_total(row: Mapping[str, Any], side: str, suffix: str = "") -> float:
-    """Sum Most/Big/Medium/Small when TotalAmount is absent in a QMT build."""
     total = _f(row.get(f"{side}TotalAmount{suffix}"))
     if total > 0:
         return total
-    return sum(
-        _f(row.get(f"{side}{bucket}Amount{suffix}"))
-        for bucket in ("Most", "Big", "Medium", "Small")
-    )
+    return sum(_f(row.get(f"{side}{bucket}Amount{suffix}")) for bucket in ("Most", "Big", "Medium", "Small"))
+
+
+def _depth10_pressure(row: Mapping[str, Any]) -> tuple[float, float, float]:
+    bids = _list_f(row.get("bidVol"))[:10]
+    asks = _list_f(row.get("askVol"))[:10]
+    if not bids and not asks:
+        return 0.0, 0.0, 50.0
+    # Nearby levels matter more, but deeper Level-2 depth still contributes.
+    weights = [1.00, .90, .80, .70, .62, .54, .47, .40, .34, .28]
+    b = sum((bids[i] if i < len(bids) else 0.0) * weights[i] for i in range(10))
+    a = sum((asks[i] if i < len(asks) else 0.0) * weights[i] for i in range(10))
+    return b, a, _pct(b, b + a)
 
 
 def analyze_level2(
     *,
+    quotes: Sequence[Mapping[str, Any]] | None = None,
     transactions: Sequence[Mapping[str, Any]] | None = None,
     orders: Sequence[Mapping[str, Any]] | None = None,
     quoteaux: Sequence[Mapping[str, Any]] | None = None,
@@ -116,6 +125,7 @@ def analyze_level2(
     orderqueue: Sequence[Mapping[str, Any]] | None = None,
     window_seconds: int = 60,
 ) -> Dict[str, Any]:
+    qt = _recent(list(quotes or []), window_seconds)
     tx = _recent(list(transactions or []), window_seconds)
     od = _recent(list(orders or []), window_seconds)
     qa = _recent(list(quoteaux or []), window_seconds)
@@ -123,6 +133,7 @@ def analyze_level2(
     oq = _recent(list(orderqueue or []), window_seconds)
 
     available = {
+        "l2quote": bool(qt),
         "l2transaction": bool(tx),
         "l2order": bool(od),
         "l2quoteaux": bool(qa),
@@ -130,14 +141,10 @@ def analyze_level2(
         "l2orderqueue": bool(oq),
     }
 
-    # 1) Real aggressive trades. XtData documents tradeFlag 1=外盘/主动买,
-    # 2=内盘/主动卖, 3=深市撤单.
     active_buy = sum(_amount(r) for r in tx if _i(r.get("tradeFlag")) == 1)
     active_sell = sum(_amount(r) for r in tx if _i(r.get("tradeFlag")) == 2)
     tx_cancel_count = sum(1 for r in tx if _i(r.get("tradeFlag")) == 3)
 
-    # Prefer transaction-count incremental amounts when the QMT build exposes
-    # them. Otherwise retain actual l2transaction aggregation.
     tc_last = _latest(tc)
     tc_buy = _category_total(tc_last, "bid", "Dx")
     tc_sell = _category_total(tc_last, "off", "Dx")
@@ -151,7 +158,6 @@ def analyze_level2(
     active_buy_pct = _pct(active_buy, directional_amount)
     active_net = active_buy - active_sell
 
-    # 2) Official big + very-large order buckets.
     big_buy = _f(tc_last.get("bidBigAmountDx")) + _f(tc_last.get("bidMostAmountDx"))
     big_sell = _f(tc_last.get("offBigAmountDx")) + _f(tc_last.get("offMostAmountDx"))
     if big_buy + big_sell <= 0:
@@ -163,31 +169,29 @@ def analyze_level2(
     most_buy = _f(tc_last.get("bidMostAmountDx")) or _f(tc_last.get("bidMostAmount"))
     most_sell = _f(tc_last.get("offMostAmountDx")) or _f(tc_last.get("offMostAmount"))
 
-    # 3) Real order submissions/cancellations. XtData documents cancellation
-    # direction here for Shanghai; Shenzhen cancellation events are in trades.
     buy_order_vol = sum(_f(r.get("volume")) for r in od if _i(r.get("entrustDirection")) == 1)
     sell_order_vol = sum(_f(r.get("volume")) for r in od if _i(r.get("entrustDirection")) == 2)
     cancel_buy_vol = sum(_f(r.get("volume")) for r in od if _i(r.get("entrustDirection")) == 3)
     cancel_sell_vol = sum(_f(r.get("volume")) for r in od if _i(r.get("entrustDirection")) == 4)
 
-    # 4) quoteaux withdrawal amounts are cumulative intraday; use 60s deltas.
     qa_first, qa_last = (qa[0], qa[-1]) if qa else ({}, {})
     withdraw_buy_delta = max(0.0, _f(qa_last.get("withdrawBidAmount")) - _f(qa_first.get("withdrawBidAmount")))
     withdraw_sell_delta = max(0.0, _f(qa_last.get("withdrawOffAmount")) - _f(qa_first.get("withdrawOffAmount")))
     total_bid = _f(qa_last.get("totalBidQuantity"))
     total_offer = _f(qa_last.get("totalOffQuantity"))
     total_book_buy_pct = _pct(total_bid, total_bid + total_offer)
-
     if withdraw_buy_delta + withdraw_sell_delta <= 0 and cancel_buy_vol + cancel_sell_vol > 0:
         withdraw_buy_delta = cancel_buy_vol
         withdraw_sell_delta = cancel_sell_vol
     cancel_sell_support_pct = _pct(withdraw_sell_delta, withdraw_buy_delta + withdraw_sell_delta)
 
-    # 5) XtData l2orderqueue bid/offer volumes are arrays of orders at best price.
     oq_last = _latest(oq)
     qbid = _sum_value(oq_last.get("bidLevelVolume"))
     qoff = _sum_value(oq_last.get("offerLevelVolume"))
     queue_buy_pct = _pct(qbid, qbid + qoff)
+
+    quote_last = _latest(qt)
+    depth10_bid, depth10_offer, depth10_buy_pct = _depth10_pressure(quote_last)
 
     up_votes = 0
     down_votes = 0
@@ -225,6 +229,12 @@ def analyze_level2(
             up_votes += 1; reasons_up.append("全盘口委买量占优")
         elif total_book_buy_pct <= 42:
             down_votes += 1; reasons_down.append("全盘口委卖量占优")
+
+    if depth10_bid + depth10_offer > 0:
+        if depth10_buy_pct >= 60:
+            up_votes += 1; reasons_up.append("L2十档买盘承接更强")
+        elif depth10_buy_pct <= 40:
+            down_votes += 1; reasons_down.append("L2十档卖盘压力更强")
 
     if qbid + qoff > 0:
         if queue_buy_pct >= 60:
@@ -282,6 +292,9 @@ def analyze_level2(
             "total_bid_quantity": total_bid,
             "total_offer_quantity": total_offer,
             "total_book_buy_pct": total_book_buy_pct,
+            "depth10_bid_weighted": depth10_bid,
+            "depth10_offer_weighted": depth10_offer,
+            "depth10_buy_pct": depth10_buy_pct,
             "queue_bid_volume": qbid,
             "queue_offer_volume": qoff,
             "queue_buy_pct": queue_buy_pct,
