@@ -39,7 +39,6 @@ def _i(value: Any, default: int = 0) -> int:
 
 
 def _ts_ms(row: Mapping[str, Any]) -> int:
-    """Normalize XtData numeric timestamps or common string/index timetags."""
     value = row.get("time") or row.get("timestamp") or row.get("stime") or 0
     try:
         x = float(value)
@@ -49,17 +48,13 @@ def _ts_ms(row: Mapping[str, Any]) -> int:
             return int(x)
     except Exception:
         pass
-
     text = str(value or "").strip()
     if not text:
         return 0
     for fmt in (
-        "%Y%m%d%H%M%S.%f",
-        "%Y%m%d%H%M%S",
-        "%Y%m%d %H:%M:%S.%f",
-        "%Y%m%d %H:%M:%S",
-        "%Y-%m-%d %H:%M:%S.%f",
-        "%Y-%m-%d %H:%M:%S",
+        "%Y%m%d%H%M%S.%f", "%Y%m%d%H%M%S",
+        "%Y%m%d %H:%M:%S.%f", "%Y%m%d %H:%M:%S",
+        "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
     ):
         try:
             return int(datetime.strptime(text, fmt).timestamp() * 1000)
@@ -103,12 +98,38 @@ def _category_total(row: Mapping[str, Any], side: str, suffix: str = "") -> floa
     return sum(_f(row.get(f"{side}{bucket}Amount{suffix}")) for bucket in ("Most", "Big", "Medium", "Small"))
 
 
+def _tc_window_amount(rows: Sequence[Mapping[str, Any]], side: str) -> float:
+    """Return amount attributable to this analysis window, never all-day total."""
+    if not rows:
+        return 0.0
+    dx = sum(_category_total(row, side, "Dx") for row in rows)
+    if dx > 0:
+        return dx
+    if len(rows) >= 2:
+        first = _category_total(rows[0], side)
+        last = _category_total(rows[-1], side)
+        return max(0.0, last - first)
+    return 0.0
+
+
+def _tc_window_bucket(rows: Sequence[Mapping[str, Any]], side: str, bucket: str) -> float:
+    if not rows:
+        return 0.0
+    dx = sum(_f(row.get(f"{side}{bucket}AmountDx")) for row in rows)
+    if dx > 0:
+        return dx
+    if len(rows) >= 2:
+        first = _f(rows[0].get(f"{side}{bucket}Amount"))
+        last = _f(rows[-1].get(f"{side}{bucket}Amount"))
+        return max(0.0, last - first)
+    return 0.0
+
+
 def _depth10_pressure(row: Mapping[str, Any]) -> tuple[float, float, float]:
     bids = _list_f(row.get("bidVol"))[:10]
     asks = _list_f(row.get("askVol"))[:10]
     if not bids and not asks:
         return 0.0, 0.0, 50.0
-    # Nearby levels matter more, but deeper Level-2 depth still contributes.
     weights = [1.00, .90, .80, .70, .62, .54, .47, .40, .34, .28]
     b = sum((bids[i] if i < len(bids) else 0.0) * weights[i] for i in range(10))
     a = sum((asks[i] if i < len(asks) else 0.0) * weights[i] for i in range(10))
@@ -141,16 +162,15 @@ def analyze_level2(
         "l2orderqueue": bool(oq),
     }
 
+    # Real aggressive trades from l2transaction.
     active_buy = sum(_amount(r) for r in tx if _i(r.get("tradeFlag")) == 1)
     active_sell = sum(_amount(r) for r in tx if _i(r.get("tradeFlag")) == 2)
     tx_cancel_count = sum(1 for r in tx if _i(r.get("tradeFlag")) == 3)
 
-    tc_last = _latest(tc)
-    tc_buy = _category_total(tc_last, "bid", "Dx")
-    tc_sell = _category_total(tc_last, "off", "Dx")
-    if tc_buy + tc_sell <= 0 and not tx:
-        tc_buy = _category_total(tc_last, "bid")
-        tc_sell = _category_total(tc_last, "off")
+    # When transaction-count is available, aggregate its incremental fields over
+    # the whole 60s window; if only cumulative fields exist, use last-first.
+    tc_buy = _tc_window_amount(tc, "bid")
+    tc_sell = _tc_window_amount(tc, "off")
     if tc_buy + tc_sell > 0:
         active_buy, active_sell = tc_buy, tc_sell
 
@@ -158,16 +178,13 @@ def analyze_level2(
     active_buy_pct = _pct(active_buy, directional_amount)
     active_net = active_buy - active_sell
 
-    big_buy = _f(tc_last.get("bidBigAmountDx")) + _f(tc_last.get("bidMostAmountDx"))
-    big_sell = _f(tc_last.get("offBigAmountDx")) + _f(tc_last.get("offMostAmountDx"))
-    if big_buy + big_sell <= 0:
-        big_buy = _f(tc_last.get("bidBigAmount")) + _f(tc_last.get("bidMostAmount"))
-        big_sell = _f(tc_last.get("offBigAmount")) + _f(tc_last.get("offMostAmount"))
+    big_buy = _tc_window_bucket(tc, "bid", "Big") + _tc_window_bucket(tc, "bid", "Most")
+    big_sell = _tc_window_bucket(tc, "off", "Big") + _tc_window_bucket(tc, "off", "Most")
     big_total = big_buy + big_sell
     big_buy_pct = _pct(big_buy, big_total)
     big_net = big_buy - big_sell
-    most_buy = _f(tc_last.get("bidMostAmountDx")) or _f(tc_last.get("bidMostAmount"))
-    most_sell = _f(tc_last.get("offMostAmountDx")) or _f(tc_last.get("offMostAmount"))
+    most_buy = _tc_window_bucket(tc, "bid", "Most")
+    most_sell = _tc_window_bucket(tc, "off", "Most")
 
     buy_order_vol = sum(_f(r.get("volume")) for r in od if _i(r.get("entrustDirection")) == 1)
     sell_order_vol = sum(_f(r.get("volume")) for r in od if _i(r.get("entrustDirection")) == 2)
@@ -255,6 +272,7 @@ def analyze_level2(
     if agreement < 80 or max(up_votes, down_votes) < 4:
         direction = "WATCH"
 
+    tc_last = _latest(tc)
     fund_label = "真实资金偏流入" if active_buy_pct >= 60 else "真实资金偏流出" if active_buy_pct <= 40 else "真实资金暂均衡"
     large_label = "大单偏买" if big_buy_pct >= 60 else "大单偏卖" if big_buy_pct <= 40 else "大单均衡"
     cancel_label = "撤卖更多，偏强" if cancel_sell_support_pct >= 60 else "撤买更多，偏弱" if cancel_sell_support_pct <= 40 else "撤单均衡"
