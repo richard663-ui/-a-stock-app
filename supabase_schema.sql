@@ -1,5 +1,5 @@
 -- Run this once in a dedicated Supabase project's SQL Editor.
--- The app and local bridge use the service-role key stored only in secrets.
+-- The app and local bridge use the service-role/secret key stored only in secrets.
 
 create table if not exists public.qmt_watch_requests (
     bridge_id text primary key,
@@ -19,6 +19,7 @@ create table if not exists public.qmt_live_cache (
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
+set search_path = public, pg_temp
 as $$
 begin
   new.updated_at = now();
@@ -29,6 +30,7 @@ $$;
 create or replace function public.touch_requested_at()
 returns trigger
 language plpgsql
+set search_path = public, pg_temp
 as $$
 begin
   new.requested_at = now();
@@ -50,5 +52,6 @@ alter table public.qmt_watch_requests enable row level security;
 alter table public.qmt_live_cache enable row level security;
 
 -- Intentionally no anon/authenticated policies.
--- Only the service-role key can access these tables, and that key must stay in
--- Streamlit Secrets / local secrets.toml, never in GitHub.
+-- With RLS enabled and no public policies, browser clients cannot read these tables.
+-- The server-side secret/service-role key is kept only in Streamlit Secrets and the
+-- local persistent secrets.toml; it must never be committed to GitHub.
