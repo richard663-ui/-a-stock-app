@@ -2,7 +2,7 @@ name: Production quality check
 
 on:
   push:
-    branches: [main]
+    branches: [main, level2-v18]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -16,13 +16,17 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile Python source
-        run: python -m compileall -q app_1.py app_v17.py modules services
+        run: python -m compileall -q app_1.py app_v17.py app_v18.py modules services
       - name: Verify required production files
         run: |
           test -f app_1.py
           test -f app_v17.py
+          test -f app_v18.py
           test -f modules/cloud_bridge.py
           test -f modules/short_direction.py
+          test -f modules/direction_v18.py
+          test -f modules/level2_engine.py
+          test -f modules/qmt_level2.py
           test -f services/qmt_cloud_bridge.py
           test -f services/qmt_capability_probe.py
           test -f install_cloud_bridge_startup.bat
