@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""V18 mobile/live dashboard: progressive render, deliberate stock switching, responsive cards."""
+"""V18 mobile/live dashboard.
+
+Key rule: changing stock symbols must never trigger a full-app rerun. Sidebar,
+real-time panels, and slow/static panels are independent Streamlit fragments.
+"""
 from __future__ import annotations
 
 import html
@@ -20,121 +24,48 @@ from modules.signals import make_action
 from modules.ui_blocks import plot_qishi
 from modules.utils import fmt_num, fmt_pct, normalize_code
 
+LIVE_REFRESH_SECONDS = 3
+STATIC_REFRESH_SECONDS = 5
+
 st.set_page_config(page_title="A股盯盘 V18", page_icon="📈", layout="wide")
 require_password()
 
 st.markdown(
     """
     <style>
-    .block-container {
-        max-width: 1440px;
-        padding-top: .75rem;
-        padding-bottom: 2.2rem;
-    }
+    .block-container {max-width: 1440px; padding-top: .75rem; padding-bottom: 2.2rem;}
     h1 {letter-spacing: -0.02em; margin-bottom: .25rem !important;}
-    .v18-subtitle {
-        color: var(--text-color);
-        opacity: .66;
-        font-size: .92rem;
-        line-height: 1.55;
-        margin: 0 0 .75rem 0;
-    }
+    .v18-subtitle {opacity: .66; font-size: .92rem; line-height: 1.55; margin: 0 0 .75rem 0;}
     .ticker-strip {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .4rem .8rem;
-        align-items: center;
-        border: 1px solid rgba(128,128,128,.22);
-        background: var(--secondary-background-color);
-        border-radius: 12px;
-        padding: .68rem .85rem;
-        margin: .35rem 0 .85rem 0;
-        font-size: .88rem;
-        line-height: 1.5;
-        white-space: normal;
-        overflow: visible;
+        display: flex; flex-wrap: wrap; gap: .4rem .8rem; align-items: center;
+        border: 1px solid rgba(128,128,128,.22); background: var(--secondary-background-color);
+        border-radius: 12px; padding: .68rem .85rem; margin: .35rem 0 .85rem 0;
+        font-size: .88rem; line-height: 1.5; white-space: normal; overflow: visible;
     }
     .ticker-main {font-weight: 760;}
-    .section-head {
-        display: flex;
-        align-items: baseline;
-        gap: .5rem;
-        margin: 1.15rem 0 .55rem 0;
-    }
-    .section-no {
-        font-size: .86rem;
-        font-weight: 760;
-        opacity: .58;
-        min-width: 1.6rem;
-    }
-    .section-title {
-        font-size: 1.12rem;
-        font-weight: 780;
-        line-height: 1.35;
-    }
+    .section-head {display: flex; align-items: baseline; gap: .5rem; margin: 1.15rem 0 .55rem 0;}
+    .section-no {font-size: .86rem; font-weight: 760; opacity: .58; min-width: 1.6rem;}
+    .section-title {font-size: 1.12rem; font-weight: 780; line-height: 1.35;}
     .metric-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: .72rem;
-        margin: .2rem 0 .55rem 0;
+        display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .72rem; margin: .2rem 0 .55rem 0;
     }
     .v18-card {
-        min-width: 0;
-        min-height: 112px;
-        border: 1px solid rgba(128,128,128,.20);
-        border-radius: 14px;
-        background: var(--secondary-background-color);
-        padding: .82rem .88rem;
-        box-shadow: 0 1px 2px rgba(0,0,0,.025);
+        min-width: 0; min-height: 112px; border: 1px solid rgba(128,128,128,.20);
+        border-radius: 14px; background: var(--secondary-background-color);
+        padding: .82rem .88rem; box-shadow: 0 1px 2px rgba(0,0,0,.025);
     }
-    .v18-label {
-        font-size: .79rem;
-        opacity: .62;
-        line-height: 1.35;
-        margin-bottom: .42rem;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-        word-break: break-word;
+    .v18-label, .v18-value, .v18-sub {
+        white-space: normal !important; overflow: visible !important;
+        text-overflow: clip !important; word-break: break-word; overflow-wrap: anywhere;
     }
-    .v18-value {
-        font-size: 1.17rem;
-        font-weight: 780;
-        line-height: 1.38;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-        word-break: break-word;
-        overflow-wrap: anywhere;
-    }
-    .v18-sub {
-        margin-top: .42rem;
-        font-size: .79rem;
-        line-height: 1.45;
-        opacity: .67;
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-        word-break: break-word;
-        overflow-wrap: anywhere;
-    }
+    .v18-label {font-size: .79rem; opacity: .62; line-height: 1.35; margin-bottom: .42rem;}
+    .v18-value {font-size: 1.17rem; font-weight: 780; line-height: 1.38;}
+    .v18-sub {margin-top: .42rem; font-size: .79rem; line-height: 1.45; opacity: .67;}
     .notice-box {
-        border-left: 3px solid rgba(128,128,128,.38);
-        background: var(--secondary-background-color);
-        border-radius: 8px;
-        padding: .62rem .8rem;
-        margin: .45rem 0 .65rem 0;
-        font-size: .88rem;
-        line-height: 1.55;
-        white-space: normal;
-        overflow-wrap: anywhere;
-    }
-    [data-testid="stMetricValue"],
-    [data-testid="stMetricLabel"],
-    [data-testid="stMetricDelta"] {
-        white-space: normal !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
+        border-left: 3px solid rgba(128,128,128,.38); background: var(--secondary-background-color);
+        border-radius: 8px; padding: .62rem .8rem; margin: .45rem 0 .65rem 0;
+        font-size: .88rem; line-height: 1.55; white-space: normal; overflow-wrap: anywhere;
     }
     @media (max-width: 980px) {
         .metric-grid {grid-template-columns: repeat(2, minmax(0, 1fr));}
@@ -160,65 +91,6 @@ def _bridge() -> CloudBridge:
     return CloudBridge(cfg)
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def _load_static_pack(code: str) -> Dict[str, Any]:
-    """Load slow/static inputs separately so live cards can render first."""
-    snapshot: Dict[str, Any] = {}
-    daily = pd.DataFrame()
-    errors = []
-
-    try:
-        snapshot = dict(fetch_em_snapshot((code,)).get(code, {}) or {})
-    except Exception as exc:
-        errors.append(f"快照：{type(exc).__name__}")
-
-    try:
-        daily = fetch_tencent_kline(code, 260)
-    except Exception as exc:
-        errors.append(f"日K：{type(exc).__name__}")
-        daily = pd.DataFrame()
-
-    qishi = analyze_qishi(daily) if daily is not None and not daily.empty else {
-        "ok": False,
-        "latest_score": 0,
-        "latest_state": "数据不足",
-        "fund_score": 0,
-        "risk_state": "数据不足",
-        "reasons": [],
-        "df": pd.DataFrame(),
-        "consecutive_red": 0,
-    }
-    macd = _macd(daily)
-
-    try:
-        industry, concepts, industry_src = detect_industry_concepts(code, snapshot)
-    except Exception:
-        industry, concepts, industry_src = "待识别", [], "暂不可用"
-
-    try:
-        catalyst = analyze_event_catalyst(code, "", concepts)
-    except Exception:
-        catalyst = {"label": "暂无", "score": 0, "reasons": []}
-
-    try:
-        event_certainty = event_certainty_grade("", [], catalyst)
-    except Exception:
-        event_certainty = {"certainty": "低", "label": "暂无明确硬催化"}
-
-    return {
-        "snapshot": snapshot,
-        "daily": daily,
-        "qishi": qishi,
-        "macd": macd,
-        "industry": industry,
-        "concepts": concepts,
-        "industry_src": industry_src,
-        "catalyst": catalyst,
-        "event_certainty": event_certainty,
-        "errors": errors,
-    }
-
-
 def _symbol(code: str) -> str:
     code = normalize_code(code)
     if code.startswith(("6", "68", "5", "9")):
@@ -241,6 +113,47 @@ def _macd(df: pd.DataFrame) -> Dict[str, str]:
     return {"label": label, "detail": f"{zone}｜DIF-DEA {now:+.3f}"}
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _load_static_pack(code: str) -> Dict[str, Any]:
+    """Fetch slower day-K/fundamental inputs. Failure degrades only these panels."""
+    snapshot: Dict[str, Any] = {}
+    daily = pd.DataFrame()
+    errors = []
+    try:
+        snapshot = dict(fetch_em_snapshot((code,)).get(code, {}) or {})
+    except Exception as exc:
+        errors.append(f"快照：{type(exc).__name__}")
+    try:
+        daily = fetch_tencent_kline(code, 260)
+    except Exception as exc:
+        errors.append(f"日K：{type(exc).__name__}")
+        daily = pd.DataFrame()
+
+    qishi = analyze_qishi(daily) if daily is not None and not daily.empty else {
+        "ok": False, "latest_score": 0, "latest_state": "数据不足", "fund_score": 0,
+        "risk_state": "数据不足", "reasons": [], "df": pd.DataFrame(), "consecutive_red": 0,
+    }
+    macd = _macd(daily)
+    try:
+        industry, concepts, industry_src = detect_industry_concepts(code, snapshot)
+    except Exception:
+        industry, concepts, industry_src = "待识别", [], "暂不可用"
+    try:
+        catalyst = analyze_event_catalyst(code, "", concepts)
+    except Exception:
+        catalyst = {"label": "暂无", "score": 0, "reasons": []}
+    try:
+        event_certainty = event_certainty_grade("", [], catalyst)
+    except Exception:
+        event_certainty = {"certainty": "低", "label": "暂无明确硬催化"}
+
+    return {
+        "snapshot": snapshot, "daily": daily, "qishi": qishi, "macd": macd,
+        "industry": industry, "concepts": concepts, "industry_src": industry_src,
+        "catalyst": catalyst, "event_certainty": event_certainty, "errors": errors,
+    }
+
+
 def _funding(metrics: Dict[str, Any], l2: Dict[str, Any]) -> Dict[str, Any]:
     if l2.get("ok"):
         m = l2.get("metrics", {}) or {}
@@ -248,15 +161,13 @@ def _funding(metrics: Dict[str, Any], l2: Dict[str, Any]) -> Dict[str, Any]:
         big = float(m.get("big_buy_pct", 50) or 50)
         return {
             "score": max(0, min(100, 50 + .9 * (active - 50) + .7 * (big - 50))),
-            "label": l2.get("fund_label", "真实L2资金"),
-            "reasons": l2.get("reasons", []),
+            "label": l2.get("fund_label", "真实L2资金"), "reasons": l2.get("reasons", []),
         }
     buy = float(metrics.get("buy_pct", 50) or 50)
     book = float(metrics.get("buy_pressure_pct", 50) or 50)
     return {
         "score": max(0, min(100, 50 + .9 * (buy - 50) + .55 * (book - 50))),
-        "label": "Tick资金估算",
-        "reasons": [],
+        "label": "Tick资金估算", "reasons": [],
     }
 
 
@@ -280,15 +191,14 @@ def _section(no: str, title: str) -> None:
 
 
 def _grid(cards) -> None:
-    blocks = []
-    for label, value, sub in cards:
-        blocks.append(
-            '<div class="v18-card">'
-            f'<div class="v18-label">{html.escape(str(label))}</div>'
-            f'<div class="v18-value">{html.escape(str(value))}</div>'
-            f'<div class="v18-sub">{html.escape(str(sub or ""))}</div>'
-            '</div>'
-        )
+    blocks = [
+        '<div class="v18-card">'
+        f'<div class="v18-label">{html.escape(str(label))}</div>'
+        f'<div class="v18-value">{html.escape(str(value))}</div>'
+        f'<div class="v18-sub">{html.escape(str(sub or ""))}</div>'
+        '</div>'
+        for label, value, sub in cards
+    ]
     st.markdown('<div class="metric-grid">' + ''.join(blocks) + '</div>', unsafe_allow_html=True)
 
 
@@ -321,19 +231,21 @@ def _fetch_live(symbol: str) -> Dict[str, Any]:
     return {
         "tick_payload": tick_payload if isinstance(tick_payload, dict) else {},
         "l2_payload": l2_payload if isinstance(l2_payload, dict) else {},
-        "ticks": ticks,
-        "l2": l2 if isinstance(l2, dict) else {},
-        "short": short if isinstance(short, dict) else {},
-        "metrics": metrics,
-        "vwap": vwap if isinstance(vwap, dict) else {},
-        "snapshot": live_snapshot,
+        "ticks": ticks, "l2": l2 if isinstance(l2, dict) else {},
+        "short": short if isinstance(short, dict) else {}, "metrics": metrics,
+        "vwap": vwap if isinstance(vwap, dict) else {}, "snapshot": live_snapshot,
     }
 
 
-if "active_code" not in st.session_state:
-    st.session_state["active_code"] = "000400"
-if "stock_names" not in st.session_state:
-    st.session_state["stock_names"] = {}
+# Session defaults are created once. Changing widgets inside fragments does NOT rerun the app.
+st.session_state.setdefault("active_code", "000400")
+st.session_state.setdefault("search_code", st.session_state["active_code"])
+st.session_state.setdefault("stock_names", {})
+st.session_state.setdefault("has_position", False)
+st.session_state.setdefault("cost", 0.0)
+st.session_state.setdefault("position_pct", 0.0)
+st.session_state.setdefault("last_live", {})
+st.session_state.setdefault("switch_message", "")
 
 st.title("A股盯盘 V18")
 st.markdown(
@@ -341,54 +253,57 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-with st.sidebar:
+
+@st.fragment
+def _sidebar_controls() -> None:
     st.header("股票搜索")
-    with st.form("stock_switch_form", clear_on_submit=False):
-        raw_code = st.text_input(
-            "6位股票代码",
-            value=st.session_state["active_code"],
-            max_chars=6,
-            help="输入完整6位代码后点“切换股票”。不会再在输入过程中反复重载页面。",
-        )
-        submitted = st.form_submit_button("切换股票", use_container_width=True, type="primary")
-    if submitted:
+    raw_code = st.text_input(
+        "6位股票代码", key="search_code", max_chars=6,
+        help="输入完整6位代码后点“切换股票”。切股只更新局部区域，不再重载整页。",
+    )
+    if st.button("切换股票", use_container_width=True, type="primary"):
         candidate = str(raw_code).strip()
         if len(candidate) == 6 and candidate.isdigit():
-            st.session_state["active_code"] = candidate
+            if candidate != st.session_state["active_code"]:
+                st.session_state["active_code"] = candidate
+                st.session_state["last_live"] = {}
+                st.session_state["switch_message"] = f"已切换到 {candidate}，实时区将在约{LIVE_REFRESH_SECONDS}秒内更新。"
+            else:
+                st.session_state["switch_message"] = f"当前已经是 {candidate}。"
         else:
-            st.error("请输入完整6位数字股票代码。")
+            st.session_state["switch_message"] = "请输入完整6位数字股票代码。"
+    if st.session_state.get("switch_message"):
+        st.caption(st.session_state["switch_message"])
 
-    has_position = st.checkbox("已有仓位", False)
-    cost = st.number_input("成本价", min_value=0.0, value=0.0, step=0.01)
-    position_pct = st.number_input("持仓比例%", 0.0, 100.0, 0.0, 5.0)
-    refresh_seconds = st.selectbox("实时刷新", [3, 5, 10, 30], index=1, format_func=lambda x: f"每{x}秒")
-    st.caption("手机建议5秒；ROG后台仍每秒采样。")
+    st.checkbox("已有仓位", key="has_position")
+    st.number_input("成本价", min_value=0.0, step=0.01, key="cost")
+    st.number_input("持仓比例%", 0.0, 100.0, 5.0, key="position_pct")
+    st.caption(f"实时区每{LIVE_REFRESH_SECONDS}秒刷新；ROG后台仍每秒采样。")
+
+
+with st.sidebar:
+    _sidebar_controls()
     logout_button()
 
-code = st.session_state["active_code"]
-symbol = _symbol(code)
-stock_name = st.session_state["stock_names"].get(code, code)
 
-st.markdown(
-    f'<div class="ticker-strip"><span class="ticker-main">{html.escape(stock_name)} · {html.escape(symbol)}</span>'
-    '<span>切股后实时区先显示，日K与基本面随后加载</span></div>',
-    unsafe_allow_html=True,
-)
-
-
-@st.fragment(run_every=refresh_seconds)
+@st.fragment(run_every=LIVE_REFRESH_SECONDS)
 def _live_panels() -> None:
+    """Only this block reruns every few seconds; stock switching never clears the page."""
+    code = st.session_state["active_code"]
+    symbol = _symbol(code)
+    stock_name = st.session_state["stock_names"].get(code, code)
+
+    st.markdown(
+        f'<div class="ticker-strip"><span class="ticker-main">{html.escape(stock_name)} · {html.escape(symbol)}</span>'
+        '<span>实时区独立刷新 · 切股不重载整页</span></div>',
+        unsafe_allow_html=True,
+    )
     try:
         live = _fetch_live(symbol)
         st.session_state["last_live"] = {"symbol": symbol, "data": live}
-
-        tick_payload = live["tick_payload"]
-        l2_payload = live["l2_payload"]
-        l2 = live["l2"]
-        short = live["short"]
-        metrics = live["metrics"]
-        vwap = live["vwap"]
-        snap = live["snapshot"]
+        tick_payload, l2_payload = live["tick_payload"], live["l2_payload"]
+        l2, short = live["l2"], live["short"]
+        metrics, vwap, snap = live["metrics"], live["vwap"], live["snapshot"]
 
         validation = l2.get("validation", {}) if isinstance(l2, dict) else {}
         n = int(validation.get("true_l2_high_conf_samples", 0) or 0)
@@ -401,7 +316,6 @@ def _live_panels() -> None:
             f'<span>刷新 {datetime.now().strftime("%H:%M:%S")}</span></div>',
             unsafe_allow_html=True,
         )
-
         _section("①", "实时结论与1分钟方向")
         _grid([
             ("当前价", fmt_num(snap.get("price")), f"今日 {fmt_pct(snap.get('pct'))}｜{snap.get('source', '等待')}"),
@@ -435,84 +349,92 @@ def _live_panels() -> None:
         st.session_state["last_live"] = {"symbol": symbol, "data": {}}
         _section("①", "实时结论与1分钟方向")
         _grid([
-            ("当前状态", "实时连接暂不可用", "页面保留，不会白屏"),
+            ("当前状态", "实时连接暂不可用", "页面其他区域保持不动"),
             ("股票", symbol, "下一刷新周期自动重试"),
-            ("故障类型", type(exc).__name__, "请看下方详细信息"),
-            ("刷新频率", f"每{refresh_seconds}秒", "无需重新输入股票代码"),
+            ("故障类型", type(exc).__name__, "仅实时区降级"),
+            ("刷新频率", f"每{LIVE_REFRESH_SECONDS}秒", "无需重新输入股票代码"),
         ])
         _notice(f"实时刷新失败：{type(exc).__name__}: {exc}")
 
 
+@st.fragment(run_every=STATIC_REFRESH_SECONDS)
+def _static_panels() -> None:
+    """Slow day-K/setup/fundamental content refreshes independently from live data."""
+    code = st.session_state["active_code"]
+    symbol = _symbol(code)
+
+    with st.spinner(f"正在加载 {code} 的日K、Setup与基本面…"):
+        static = _load_static_pack(code)
+
+    snapshot = dict(static.get("snapshot", {}) or {})
+    qishi = static.get("qishi", {}) or {}
+    macd = static.get("macd", {}) or {}
+    industry = static.get("industry", "待识别")
+    industry_src = static.get("industry_src", "暂不可用")
+    catalyst = static.get("catalyst", {}) or {}
+    event_certainty = static.get("event_certainty", {}) or {}
+
+    if snapshot.get("name"):
+        st.session_state["stock_names"][code] = str(snapshot.get("name"))
+
+    last_live_state = st.session_state.get("last_live", {})
+    live = last_live_state.get("data", {}) if last_live_state.get("symbol") == symbol else {}
+    live_snapshot = live.get("snapshot", {}) if isinstance(live, dict) else {}
+    if live_snapshot.get("price"):
+        snapshot["price"] = live_snapshot.get("price")
+        snapshot["pct"] = live_snapshot.get("pct")
+        snapshot["source"] = live_snapshot.get("source")
+
+    metrics = live.get("metrics", {}) if isinstance(live, dict) else {}
+    l2 = live.get("l2", {}) if isinstance(live, dict) else {}
+    vwap = live.get("vwap", {}) if isinstance(live, dict) else {}
+    funding = _funding(metrics or {}, l2 or {})
+    setup = grade_setup(
+        qishi=qishi, macd=macd, catalyst=catalyst,
+        vwap=vwap or {"state": "等待", "distance_pct": 0},
+        short_metrics=metrics or {}, l2_summary=l2 or {},
+    )
+    action = make_action(
+        snapshot, qishi, catalyst, funding,
+        bool(st.session_state.get("has_position", False)),
+        float(st.session_state.get("cost", 0.0) or 0.0),
+        float(st.session_state.get("position_pct", 0.0) or 0.0),
+    )
+
+    _section("③", "Setup、波段与趋势")
+    _grid([
+        ("Setup评级", f"{setup.get('grade', 'C')}｜{setup.get('score', 0)}/100", setup.get("trade_state", "等待更多确认")),
+        ("今日动作", f"{action.get('buy_grade', 'C')}｜{action.get('buy_label', '观察')}", f"新仓建议 {action.get('new_pos', '0%')}"),
+        ("AI起势", action.get("q_state", "数据不足"), f"起势分 {float(qishi.get('latest_score', 0) or 0):.0f}/100"),
+        ("MACD", macd.get("label", "数据不足"), macd.get("detail", "")),
+    ])
+    _notice(action.get("holding_advice", "未输入持仓，按新开仓逻辑处理。"))
+    if qishi.get("ok"):
+        plot_qishi(qishi, title=f"{snapshot.get('name', code)} {code}")
+    else:
+        st.info("日K暂未取到；实时方向和Level-2仍可继续使用。")
+
+    _section("④", "事件催化与基本面")
+    _grid([
+        ("行业", industry, f"来源 {industry_src}"),
+        ("事件催化", catalyst.get("label", "暂无"), f"催化分 {catalyst.get('score', 0)}/100"),
+        ("事件确定性", event_certainty.get("certainty", "低"), event_certainty.get("label", "暂无明确硬催化")),
+        ("估值", f"PE {fmt_num(snapshot.get('pe_dynamic'))}", f"PB {fmt_num(snapshot.get('pb'))}"),
+    ])
+    if static.get("errors"):
+        st.caption("静态数据部分降级：" + "；".join(static.get("errors", [])))
+
+    with st.expander("查看买卖条件与风控位"):
+        st.write("**买入/加仓条件**")
+        for item in action.get("buy_zone", []):
+            st.write("- " + item)
+        st.write("**卖出/风控条件**")
+        for item in action.get("sell_zone", []):
+            st.write("- " + item)
+        st.caption("页面更新时间：" + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+
+# These fragments are independent. A stock switch reruns only the sidebar fragment;
+# live/static panels notice the new session-state code on their own timers.
 _live_panels()
-
-# Slow/static content deliberately comes AFTER the live panels. A new stock can no longer
-# leave the screen empty while Eastmoney/Tencent data are being fetched.
-with st.spinner(f"正在加载 {code} 的日K、Setup与基本面…"):
-    static = _load_static_pack(code)
-
-snapshot = dict(static.get("snapshot", {}) or {})
-daily = static.get("daily", pd.DataFrame())
-qishi = static.get("qishi", {}) or {}
-macd = static.get("macd", {}) or {}
-industry = static.get("industry", "待识别")
-industry_src = static.get("industry_src", "暂不可用")
-catalyst = static.get("catalyst", {}) or {}
-event_certainty = static.get("event_certainty", {}) or {}
-
-if snapshot.get("name"):
-    st.session_state["stock_names"][code] = str(snapshot.get("name"))
-
-last_live_state = st.session_state.get("last_live", {})
-live = last_live_state.get("data", {}) if last_live_state.get("symbol") == symbol else {}
-live_snapshot = live.get("snapshot", {}) if isinstance(live, dict) else {}
-if live_snapshot.get("price"):
-    snapshot["price"] = live_snapshot.get("price")
-    snapshot["pct"] = live_snapshot.get("pct")
-    snapshot["source"] = live_snapshot.get("source")
-
-metrics = live.get("metrics", {}) if isinstance(live, dict) else {}
-l2 = live.get("l2", {}) if isinstance(live, dict) else {}
-vwap = live.get("vwap", {}) if isinstance(live, dict) else {}
-funding = _funding(metrics or {}, l2 or {})
-setup = grade_setup(
-    qishi=qishi,
-    macd=macd,
-    catalyst=catalyst,
-    vwap=vwap or {"state": "等待", "distance_pct": 0},
-    short_metrics=metrics or {},
-    l2_summary=l2 or {},
-)
-action = make_action(snapshot, qishi, catalyst, funding, has_position, cost, position_pct)
-
-_section("③", "Setup、波段与趋势")
-_grid([
-    ("Setup评级", f"{setup.get('grade', 'C')}｜{setup.get('score', 0)}/100", setup.get("trade_state", "等待更多确认")),
-    ("今日动作", f"{action.get('buy_grade', 'C')}｜{action.get('buy_label', '观察')}", f"新仓建议 {action.get('new_pos', '0%')}"),
-    ("AI起势", action.get("q_state", "数据不足"), f"起势分 {float(qishi.get('latest_score', 0) or 0):.0f}/100"),
-    ("MACD", macd.get("label", "数据不足"), macd.get("detail", "")),
-])
-_notice(action.get("holding_advice", "未输入持仓，按新开仓逻辑处理。"))
-if qishi.get("ok"):
-    plot_qishi(qishi, title=f"{snapshot.get('name', code)} {code}")
-else:
-    st.info("日K暂未取到；实时方向和Level-2仍可继续使用。")
-
-_section("④", "事件催化与基本面")
-_grid([
-    ("行业", industry, f"来源 {industry_src}"),
-    ("事件催化", catalyst.get("label", "暂无"), f"催化分 {catalyst.get('score', 0)}/100"),
-    ("事件确定性", event_certainty.get("certainty", "低"), event_certainty.get("label", "暂无明确硬催化")),
-    ("估值", f"PE {fmt_num(snapshot.get('pe_dynamic'))}", f"PB {fmt_num(snapshot.get('pb'))}"),
-])
-
-if static.get("errors"):
-    st.caption("静态数据部分降级：" + "；".join(static.get("errors", [])))
-
-with st.expander("查看买卖条件与风控位"):
-    st.write("**买入/加仓条件**")
-    for item in action.get("buy_zone", []):
-        st.write("- " + item)
-    st.write("**卖出/风控条件**")
-    for item in action.get("sell_zone", []):
-        st.write("- " + item)
-    st.caption("页面更新时间：" + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+_static_panels()
