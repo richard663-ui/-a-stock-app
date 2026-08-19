@@ -9,11 +9,16 @@ on:
       - 'modules/data_sources.py'
       - '.github/workflows/macd-study.yml'
 
+permissions:
+  contents: write
+
 jobs:
   study:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: level2-v18
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -36,3 +41,15 @@ jobs:
             runtime/macd_event_study_summary.csv
             runtime/macd_precross_events.csv
             runtime/macd_precross_summary.csv
+      - name: Commit reproducible summaries
+        run: |
+          mkdir -p research
+          cp runtime/macd_event_study_summary.csv research/macd_event_study_summary.csv
+          cp runtime/macd_precross_summary.csv research/macd_precross_summary.csv
+          cp runtime/macd_event_study_events.csv research/macd_event_study_events.csv
+          cp runtime/macd_precross_events.csv research/macd_precross_events.csv
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add research/
+          git diff --cached --quiet || git commit -m 'Update MACD event-study results'
+          git push origin HEAD:level2-v18
