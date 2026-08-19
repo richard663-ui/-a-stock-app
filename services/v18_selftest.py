@@ -53,8 +53,12 @@ def main() -> int:
     vwap = analyze_vwap_state(ticks)
     assert vwap["ok"] and vwap["vwap"] > 0
 
-    # Uses the same queue-array shape shown by XtData's documented L2 example.
     l2 = analyze_level2(
+        quotes=[
+            {"time": 1700000002000,
+             "bidVol": [900, 850, 800, 750, 700, 650, 600, 550, 500, 450],
+             "askVol": [300, 320, 340, 360, 380, 400, 420, 440, 460, 480]},
+        ],
         transactions=[
             {"time": 1700000000000, "tradeFlag": 1, "price": 22.0, "volume": 1000, "amount": 2_200_000},
             {"time": 1700000001000, "tradeFlag": 1, "price": 22.01, "volume": 900, "amount": 1_980_900},
@@ -81,6 +85,8 @@ def main() -> int:
         ],
     )
     assert l2["ok"]
+    assert l2["available"]["l2quote"] is True
+    assert l2["metrics"]["depth10_buy_pct"] > 50
     assert l2["metrics"]["queue_bid_volume"] == 1000
     assert l2["metrics"]["queue_offer_volume"] == 300
     assert l2["metrics"]["big_buy_pct"] > 50
@@ -107,8 +113,6 @@ def main() -> int:
         assert stats["true_l2_high_conf_samples"] == 1
         assert stats["true_l2_high_conf_accuracy_pct"] == 100.0
 
-        # A prediction missed by far more than the +60s horizon must not be
-        # scored using a much later price after a bridge/QMT outage.
         journal.record(symbol="600406.SH", price=20.0, direction="UP", agreement=95,
                        high_confidence=True, true_l2=True, features={}, now_ts=2000.0)
         journal.mature(symbol="600406.SH", current_price=22.0, now_ts=2200.0)
@@ -117,7 +121,7 @@ def main() -> int:
         assert stale_stats["expired_samples"] == 1
 
     print("[PASS] V18 setup/VWAP engine")
-    print("[PASS] V18 Level-2 engine incl. queue arrays")
+    print("[PASS] V18 Level-2 engine incl. 10-level depth + queue arrays")
     print("[PASS] V18 direction interface")
     print("[PASS] V18 prediction journal incl. outage expiry")
     print("RESULT: SELFTEST PASS")
