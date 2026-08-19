@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """Auditable 60-second prediction journal for V18.
 
-Predictions are written locally on the ROG and labelled after the 60-second
-horizon. The database stores the feature snapshot used at prediction time so
-future models can be trained without reconstructing history from screenshots.
+The production accuracy statistic uses non-overlapping one-minute prediction
+buckets. Predictions are labelled only near the intended +60s horizon; stale
+predictions after a bridge/QMT outage are expired instead of being incorrectly
+labelled with a much later price.
 """
 from __future__ import annotations
 
@@ -44,6 +45,7 @@ class PredictionJournal:
                     future_ts REAL,
                     future_price REAL,
                     future_return_pct REAL,
+                    label_delay_seconds REAL,
                     actual_direction TEXT,
                     correct INTEGER,
                     matured INTEGER NOT NULL DEFAULT 0,
@@ -55,6 +57,10 @@ class PredictionJournal:
                     ON predictions(symbol, high_confidence, true_l2, matured, created_ts);
                 """
             )
+            # Forward-compatible migration for a database created by an earlier V18 build.
+            columns = {str(r[1]) for r in con.execute("PRAGMA table_info(predictions)").fetchall()}
+            if "label_delay_seconds" not in columns:
+                con.execute("ALTER TABLE predictions ADD COLUMN label_delay_seconds REAL")
 
     def record(
         self,
@@ -67,11 +73,13 @@ class PredictionJournal:
         true_l2: bool,
         features: Dict[str, Any] | None = None,
         now_ts: float | None = None,
-        bucket_seconds: int = 10,
+        bucket_seconds: int = 60,
     ) -> None:
+        """Record at most one auditable prediction per symbol per time bucket."""
         if direction not in {"UP", "DOWN"} or float(price or 0) <= 0:
             return
         now_ts = float(now_ts or time.time())
+        bucket_seconds = max(10, int(bucket_seconds))
         bucket_ts = int(now_ts // bucket_seconds * bucket_seconds)
         payload = json.dumps(features or {}, ensure_ascii=False, separators=(",", ":"), default=str)
         with self._connect() as con:
@@ -96,28 +104,47 @@ class PredictionJournal:
         current_price: float,
         now_ts: float | None = None,
         horizon_seconds: int = 60,
+        max_label_lag_seconds: int = 8,
         flat_band_pct: float = 0.01,
     ) -> int:
-        """Label all predictions whose horizon has elapsed using the first loop price after due time.
+        """Label predictions close to +60s and expire stale labels after outages.
 
-        A tiny flat band avoids counting effectively unchanged prices as a lucky
-        directional hit. Flat observations are matured but excluded from accuracy.
+        `max_label_lag_seconds` prevents a prediction created before a QMT/bridge
+        outage from being scored against a price many minutes later.
         """
         current_price = float(current_price or 0)
         if current_price <= 0:
             return 0
         now_ts = float(now_ts or time.time())
-        cutoff = now_ts - int(horizon_seconds)
+        horizon_seconds = int(horizon_seconds)
+        max_label_lag_seconds = max(1, int(max_label_lag_seconds))
+        due_cutoff = now_ts - horizon_seconds
+        stale_cutoff = now_ts - horizon_seconds - max_label_lag_seconds
+        symbol = str(symbol).upper()
         updated = 0
+
         with self._connect() as con:
+            # First invalidate predictions whose intended horizon was missed.
+            con.execute(
+                """
+                UPDATE predictions
+                SET future_ts=?, label_delay_seconds=?, actual_direction='EXPIRED',
+                    correct=NULL, matured=1
+                WHERE symbol=? AND matured=0 AND created_ts < ?
+                """,
+                (now_ts, float(max_label_lag_seconds + 1), symbol, stale_cutoff),
+            )
+
             rows = con.execute(
                 """
-                SELECT id, price, direction FROM predictions
-                WHERE symbol = ? AND matured = 0 AND created_ts <= ?
+                SELECT id, created_ts, price, direction FROM predictions
+                WHERE symbol=? AND matured=0 AND created_ts <= ?
+                  AND created_ts >= ?
                 ORDER BY created_ts ASC LIMIT 1000
                 """,
-                (str(symbol).upper(), cutoff),
+                (symbol, due_cutoff, stale_cutoff),
             ).fetchall()
+
             for row in rows:
                 start = float(row["price"] or 0)
                 if start <= 0:
@@ -130,14 +157,15 @@ class PredictionJournal:
                 else:
                     actual = "FLAT"
                 correct = None if actual == "FLAT" else int(actual == row["direction"])
+                delay = max(0.0, now_ts - float(row["created_ts"]) - horizon_seconds)
                 con.execute(
                     """
                     UPDATE predictions
                     SET future_ts=?, future_price=?, future_return_pct=?,
-                        actual_direction=?, correct=?, matured=1
+                        label_delay_seconds=?, actual_direction=?, correct=?, matured=1
                     WHERE id=?
                     """,
-                    (now_ts, current_price, ret, actual, correct, int(row["id"])),
+                    (now_ts, current_price, ret, delay, actual, correct, int(row["id"])),
                 )
                 updated += 1
         return updated
@@ -168,6 +196,12 @@ class PredictionJournal:
         high_n, high_w, high_ret = query("AND high_confidence=1")
         l2_n, l2_w, l2_ret = query("AND high_confidence=1 AND true_l2=1")
 
+        with self._connect() as con:
+            expired = int(con.execute(
+                "SELECT COUNT(*) FROM predictions WHERE symbol=? AND actual_direction='EXPIRED'",
+                (symbol,),
+            ).fetchone()[0] or 0)
+
         def acc(n: int, w: int) -> float | None:
             return (w / n * 100.0) if n else None
 
@@ -181,6 +215,7 @@ class PredictionJournal:
             "true_l2_high_conf_samples": l2_n,
             "true_l2_high_conf_accuracy_pct": acc(l2_n, l2_w),
             "true_l2_high_conf_avg_return_pct": l2_ret,
+            "expired_samples": expired,
         }
 
     def export_csv(self, output: str | Path = "runtime/one_minute_predictions.csv") -> Path:

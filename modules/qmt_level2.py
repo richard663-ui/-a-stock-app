@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """XtQuant Level-2 subscription manager.
 
-Read-only. Subscribes only to market-data periods documented by XtData and keeps
-rolling in-memory buffers. If a period is unavailable, the rest of the system
-continues normally and reports that capability as unavailable.
+Read-only. On the ROG it subscribes to documented QMT/XtData Level-2 periods.
+On Streamlit Cloud, where xtquant is normally unavailable, this module remains
+importable so the app can use the Supabase cloud bridge instead of crashing.
 """
 from __future__ import annotations
 
@@ -14,11 +14,20 @@ from collections import deque
 from typing import Any, Dict, Iterable, List, Mapping
 
 import pandas as pd
-from xtquant import xtdata
+
+try:
+    from xtquant import xtdata
+    XTQUANT_OK = True
+    XTQUANT_ERROR = ""
+except Exception as exc:  # Streamlit Cloud / non-QMT environments
+    xtdata = None
+    XTQUANT_OK = False
+    XTQUANT_ERROR = str(exc)
 
 from modules.level2_engine import analyze_level2
 
 L2_PERIODS = (
+    "l2quote",
     "l2transaction",
     "l2order",
     "l2quoteaux",
@@ -76,17 +85,23 @@ class QMTLevel2Manager:
         self._lock = threading.RLock()
         self.symbol = ""
         self._sub_ids: Dict[str, int] = {}
+        default_error = "" if XTQUANT_OK else f"xtquant unavailable: {XTQUANT_ERROR}"
         self.capabilities: Dict[str, Dict[str, Any]] = {
-            p: {"available": False, "subscription_id": None, "error": "not tested"}
+            p: {"available": False, "subscription_id": None, "error": default_error}
             for p in L2_PERIODS
         }
         self.buffers: Dict[str, deque] = {
+            "l2quote": deque(maxlen=1200),
             "l2transaction": deque(maxlen=6000),
             "l2order": deque(maxlen=6000),
             "l2quoteaux": deque(maxlen=1200),
             "l2transactioncount": deque(maxlen=1200),
             "l2orderqueue": deque(maxlen=1200),
         }
+
+    @property
+    def available_runtime(self) -> bool:
+        return bool(XTQUANT_OK and xtdata is not None)
 
     def _append(self, period: str, rows: Iterable[Mapping[str, Any]]) -> None:
         with self._lock:
@@ -95,14 +110,13 @@ class QMTLevel2Manager:
                 item = _clean(dict(row))
                 if not item:
                     continue
-                # Deduplicate on common exchange identifiers/time.
                 if buf:
                     prev = buf[-1]
-                    keys = (
+                    key_name = (
                         "tradeIndex" if period == "l2transaction" else
                         "entrustNo" if period == "l2order" else "time"
                     )
-                    if item.get(keys) is not None and item.get(keys) == prev.get(keys):
+                    if item.get(key_name) is not None and item.get(key_name) == prev.get(key_name):
                         continue
                 buf.append(item)
 
@@ -126,6 +140,8 @@ class QMTLevel2Manager:
         with self._lock:
             ids = list(self._sub_ids.values())
             self._sub_ids.clear()
+        if not self.available_runtime:
+            return
         for seq in ids:
             try:
                 xtdata.unsubscribe_quote(seq)
@@ -144,12 +160,15 @@ class QMTLevel2Manager:
             self.symbol = symbol
             for buf in self.buffers.values():
                 buf.clear()
+            unavailable_error = "" if self.available_runtime else f"xtquant unavailable: {XTQUANT_ERROR}"
             self.capabilities = {
-                p: {"available": False, "subscription_id": None, "error": ""}
+                p: {"available": False, "subscription_id": None, "error": unavailable_error}
                 for p in L2_PERIODS
             }
 
-        # Backfill first. Level-2 is intraday-only, so this seeds the live page fast.
+        if not self.available_runtime:
+            return self.status()
+
         for period in L2_PERIODS:
             try:
                 result = xtdata.get_market_data_ex(
@@ -167,7 +186,7 @@ class QMTLevel2Manager:
                 with self._lock:
                     self.capabilities[period]["error"] = f"backfill: {exc}"
 
-        # Then subscribe. subscribe_quote uses the period-specific callback structure.
+        # XtData documents count=0 as the normal live-only subscription mode.
         for period in L2_PERIODS:
             try:
                 seq = xtdata.subscribe_quote(
@@ -178,15 +197,13 @@ class QMTLevel2Manager:
                     self.capabilities[period]["subscription_id"] = seq
                     if isinstance(seq, int) and seq > 0:
                         self._sub_ids[period] = seq
-                    else:
-                        if not self.capabilities[period]["available"]:
-                            self.capabilities[period]["error"] = f"subscribe returned {seq}"
+                    elif not self.capabilities[period]["available"]:
+                        self.capabilities[period]["error"] = f"subscribe returned {seq}"
             except Exception as exc:
                 with self._lock:
                     if not self.capabilities[period]["available"]:
                         self.capabilities[period]["error"] = f"subscribe: {exc}"
 
-        # Let callbacks receive an initial packet when QMT provides one.
         time.sleep(0.25)
         return self.status()
 
@@ -194,6 +211,8 @@ class QMTLevel2Manager:
         with self._lock:
             return {
                 "symbol": self.symbol,
+                "runtime_available": self.available_runtime,
+                "runtime_error": "" if self.available_runtime else XTQUANT_ERROR,
                 "capabilities": _clean(self.capabilities),
                 "counts": {k: len(v) for k, v in self.buffers.items()},
                 "available_count": sum(1 for x in self.capabilities.values() if x.get("available")),
@@ -204,6 +223,7 @@ class QMTLevel2Manager:
             data = {k: list(v) for k, v in self.buffers.items()}
             capabilities = _clean(self.capabilities)
         summary = analyze_level2(
+            quotes=data["l2quote"],
             transactions=data["l2transaction"],
             orders=data["l2order"],
             quoteaux=data["l2quoteaux"],
@@ -213,6 +233,7 @@ class QMTLevel2Manager:
         )
         return {
             "symbol": self.symbol,
+            "runtime_available": self.available_runtime,
             "summary": summary,
             "capabilities": capabilities,
             "recent_transactions": data["l2transaction"][-120:],
