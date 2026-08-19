@@ -2,13 +2,13 @@ name: Production quality check
 
 on:
   push:
-    branches: [main, level2-v18]
+    branches: [main, level2-v18, v18-final]
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
-  syntax-and-structure:
+  syntax-structure-selftest:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,18 +16,24 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile Python source
-        run: python -m compileall -q app_1.py app_v17.py app_v18.py modules services
+        run: python -m compileall -q app_1.py app_v17.py app_v18.py app_v18_final.py modules services
       - name: Verify required production files
         run: |
           test -f app_1.py
-          test -f app_v17.py
-          test -f app_v18.py
+          test -f app_v18_final.py
           test -f modules/cloud_bridge.py
           test -f modules/short_direction.py
           test -f modules/direction_v18.py
           test -f modules/level2_engine.py
           test -f modules/qmt_level2.py
+          test -f modules/setup_vwap.py
+          test -f modules/prediction_journal.py
           test -f services/qmt_cloud_bridge.py
           test -f services/qmt_capability_probe.py
+          test -f services/v18_selftest.py
           test -f install_cloud_bridge_startup.bat
           test -f repair_and_start_bridge.bat
+      - name: Install self-test dependencies
+        run: python -m pip install -q pandas numpy
+      - name: Run deterministic V18 self-test
+        run: python services/v18_selftest.py
