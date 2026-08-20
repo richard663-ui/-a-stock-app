@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta http-equiv="Cache-Control" content="no-store, max-age=0">
+<title>A股实时 V18 Mobile</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f5f6f8;color:#101828;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.hidden{display:none!important}.app{max-width:720px;margin:0 auto;padding:18px 14px 42px}.login{max-width:430px;margin:0 auto;padding:18vh 22px 30px}.panel,.card{background:#fff;border:1px solid #e4e7ec;border-radius:16px}.panel{padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.05)}h1{font-size:24px;margin:0 0 8px}.sub{font-size:14px;color:#667085;margin-bottom:20px}.login input,.login button,.search input,.search button{height:46px;border-radius:12px;font-size:16px}.login input{width:100%;border:1px solid #d0d5dd;padding:0 14px}.login button{width:100%;border:0;background:#101828;color:#fff;font-weight:750;margin-top:12px}.err{min-height:20px;margin-top:10px;color:#b42318;font-size:13px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.title{font-size:22px;font-weight:800}.pill{font-size:12px;padding:6px 9px;border-radius:999px;background:#eafaf0;color:#067647;white-space:nowrap}.pill.bad{background:#fef3f2;color:#b42318}.search{display:flex;gap:8px;margin-bottom:12px}.search input{flex:1;min-width:0;border:1px solid #d0d5dd;padding:0 13px;background:#fff}.search button{border:0;padding:0 16px;background:#101828;color:#fff;font-weight:750}.symbol{font-size:13px;color:#667085;margin:0 2px 10px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.card{padding:14px;min-height:105px}.wide{grid-column:1/-1}.k{font-size:12px;color:#667085;margin-bottom:7px}.v{font-size:21px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}.s{font-size:12px;color:#667085;margin-top:7px;line-height:1.4}.up{color:#b42318}.down{color:#067647}.warn{margin-bottom:10px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;border-radius:12px;padding:10px 12px;font-size:12px}.notice{margin-top:10px;background:#fff;border:1px solid #e4e7ec;border-radius:13px;padding:11px 13px;font-size:12px;color:#475467;line-height:1.45}.foot{display:flex;justify-content:space-between;gap:10px;color:#98a2b3;font-size:11px;margin-top:12px}.logout{margin-top:14px;border:0;background:transparent;color:#667085;text-decoration:underline;font-size:12px;padding:4px}.splash{max-width:430px;margin:30vh auto 0;text-align:center;color:#667085;font-size:14px}@media(max-width:370px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.v{font-size:19px}}
+</style>
+</head>
+<body>
+<div id="boot" class="splash">正在连接...</div>
+<div id="login" class="login hidden"><div class="panel"><h1>A股盯盘 V18</h1><div class="sub">手机稳定版 · QMT实时数据</div><input id="pw" type="password" autocomplete="current-password" placeholder="手机版访问码"><button id="go">进入</button><div id="err" class="err"></div></div></div>
+<div id="dash" class="app hidden">
+  <div class="top"><div class="title">A股实时 V18</div><div id="pill" class="pill">连接中</div></div>
+  <div id="warn" class="warn hidden"></div>
+  <div class="search"><input id="code" inputmode="numeric" maxlength="6" placeholder="6位股票代码"><button id="switch">切换</button></div>
+  <div id="symbol" class="symbol">等待QMT...</div>
+  <div class="grid">
+    <div class="card"><div class="k">当前价</div><div id="price" class="v">--</div><div id="pct" class="s">--</div></div>
+    <div class="card"><div class="k">未来1分钟</div><div id="one" class="v">等待</div><div id="agreement" class="s">条件一致度 --</div></div>
+    <div class="card"><div class="k">VWAP</div><div id="vwap" class="v">--</div><div id="vwapd" class="s">--</div></div>
+    <div class="card"><div class="k">盘口买方</div><div id="book" class="v">--</div><div id="l2state" class="s">等待数据</div></div>
+    <div class="card wide"><div class="k">Level-2资金</div><div id="fund" class="v">--</div><div id="fundsub" class="s">真实L2未就绪时不冒充主力资金</div></div>
+  </div>
+  <div class="notice">本页面是纯静态前端 + HTTP API，不使用 Streamlit WebSocket。网络短暂中断时保留上一帧并自动重连。</div>
+  <div class="foot"><span id="updated">--</span><span id="latency">--</span></div>
+  <button id="logout" class="logout">退出手机版</button>
+</div>
+<script>
+const API='https://chjzlcqortgbtxooannu.supabase.co/functions/v1/astock-mobile';
+const KEY='astock_mobile_session_v2';
+const $=id=>document.getElementById(id);
+let token=localStorage.getItem(KEY)||'';
+let timer=null,busy=false,lastGood=0;
+function show(which){$('boot').classList.add('hidden');$('login').classList.toggle('hidden',which!=='login');$('dash').classList.toggle('hidden',which!=='dash');}
+function headers(json=false){const h={'x-astock-session':token};if(json)h['content-type']='application/json';return h;}
+function fmt(x,d=2){const n=Number(x);return Number.isFinite(n)?n.toFixed(d):'--';}
+function setWarn(text){if(text){$('warn').textContent=text;$('warn').classList.remove('hidden');}else{$('warn').classList.add('hidden');}}
+function paint(d){lastGood=Date.now();$('symbol').textContent=d.symbol+' · '+(d.true_l2?'真实Level-2':'QMT Tick模式');$('code').value=(d.symbol||'').slice(0,6);$('price').textContent=fmt(d.price,2);const p=Number(d.pct);$('pct').textContent=Number.isFinite(p)?('今日 '+(p>=0?'+':'')+p.toFixed(2)+'%'):'--';$('pct').className='s '+(p>0?'up':p<0?'down':'');const one=d.one_minute||{};$('one').textContent=one.label||'等待';$('one').className='v '+(one.direction==='UP'?'up':one.direction==='DOWN'?'down':'');$('agreement').textContent='条件一致度 '+(one.agreement??'--')+'%'+(one.high_confidence?' · 高置信':'');$('vwap').textContent=fmt(d.vwap,2);const vd=Number(d.vwap_distance_pct);$('vwapd').textContent=Number.isFinite(vd)?'偏离 '+(vd>=0?'+':'')+vd.toFixed(2)+'%':'--';const book=Number(d.book_buy_pct);$('book').textContent=Number.isFinite(book)?Math.round(book)+'%':'--';$('l2state').textContent=d.true_l2?'真实L2盘口':'五档Tick盘口';if(d.true_l2){$('fund').textContent='主动买 '+Math.round(Number(d.active_buy_pct)||50)+'%';$('fundsub').textContent='大单买方 '+Math.round(Number(d.big_buy_pct)||50)+'% · 十档买方 '+Math.round(Number(d.depth10_buy_pct)||50)+'%';}else{$('fund').textContent='等待真实L2';$('fundsub').textContent=d.l2_status==='waiting_l2'?'QMT接口暂未返回Level-2权限数据':'未使用伪造主力数据';}$('updated').textContent='数据 '+(d.data_time||'--');$('latency').textContent='延迟 '+Math.round(Number(d.stale_seconds)||0)+'s';$('pill').textContent=d.fresh?'实时':'数据延迟';$('pill').className='pill'+(d.fresh?'':' bad');setWarn(d.fresh?'':'QMT数据已超过5秒未更新，请检查ROG/QMT/网络。');}
+function schedule(){clearTimeout(timer);timer=setTimeout(poll,document.hidden?3000:1000);}
+async function poll(){if(!token){show('login');return;}if(busy){schedule();return;}busy=true;const c=new AbortController();const to=setTimeout(()=>c.abort(),2400);try{const r=await fetch(API+'/state',{headers:headers(),cache:'no-store',signal:c.signal});if(r.status===401){localStorage.removeItem(KEY);token='';show('login');return;}if(!r.ok)throw new Error('state '+r.status);paint(await r.json());}catch(e){if(lastGood){setWarn('网络短暂中断，继续显示上一帧并自动重试。');$('pill').textContent='重连中';$('pill').className='pill bad';}else{setWarn('暂时无法读取实时数据，正在自动重试。');}}finally{clearTimeout(to);busy=false;schedule();}}
+$('go').onclick=async()=>{const b=$('go'),e=$('err');b.disabled=true;e.textContent='';try{const r=await fetch(API+'/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:$('pw').value})});if(!r.ok){e.textContent='访问码错误';return;}const d=await r.json();if(!d.session)throw new Error('no session');token=d.session;localStorage.setItem(KEY,token);show('dash');poll();}catch{e.textContent='网络连接失败，请重试';}finally{b.disabled=false;}};
+$('switch').onclick=async()=>{const code=$('code').value.trim();if(!/^\d{6}$/.test(code)){alert('请输入6位股票代码');return;}const b=$('switch');b.disabled=true;try{const r=await fetch(API+'/switch',{method:'POST',headers:headers(true),body:JSON.stringify({code})});if(r.status===401){localStorage.removeItem(KEY);token='';show('login');return;}if(!r.ok)throw new Error('switch '+r.status);$('symbol').textContent='已请求切换 '+code+'，等待QMT...';setTimeout(poll,300);}catch{alert('切换失败，请重试');}finally{b.disabled=false;}};
+$('logout').onclick=()=>{localStorage.removeItem(KEY);token='';clearTimeout(timer);show('login');};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token)poll();});
+if(token){show('dash');poll();}else{show('login');}
+</script>
+</body>
+</html>
