@@ -1,4 +1,4 @@
-streamlit>=1.37.0
+streamlit==1.57.0
 pandas
 numpy
 requests>=2.32.3
