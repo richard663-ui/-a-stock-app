@@ -21,7 +21,11 @@ def _expected_password() -> str:
 
 
 def require_password() -> None:
-    """Stop the page until the correct password is entered."""
+    """Stop the page until the correct password is entered.
+
+    Successful login continues in the same script run instead of forcing a
+    second full-app rerun. This is friendlier to mobile Safari/WebKit sessions.
+    """
     if st.session_state.get("authenticated") is True:
         return
 
@@ -40,9 +44,9 @@ def require_password() -> None:
     if submitted:
         if hmac.compare_digest(str(entered), expected):
             st.session_state["authenticated"] = True
-            st.rerun()
-        else:
-            st.error("密码错误。")
+            return
+        st.error("密码错误。")
+
     st.stop()
 
 
