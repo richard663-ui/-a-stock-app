@@ -1,36 +1,111 @@
 <!doctype html>
-<html lang="zh-CN"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta http-equiv="Cache-Control" content="no-store,max-age=0"><title>A股实时 V18 Mobile</title>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta http-equiv="Cache-Control" content="no-store,max-age=0">
+<title>A股实时 V18 Mobile</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f5f6f8;color:#101828;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.hidden{display:none!important}.app{max-width:760px;margin:0 auto;padding:16px 12px 42px}.login{max-width:430px;margin:0 auto;padding:18vh 22px 30px}.panel,.card{background:#fff;border:1px solid #e4e7ec;border-radius:16px}.panel{padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.05)}h1{font-size:24px;margin:0 0 8px}.sub{font-size:14px;color:#667085;margin-bottom:20px}.login input,.login button,.search input,.search button{height:46px;border-radius:12px;font-size:16px}.login input{width:100%;border:1px solid #d0d5dd;padding:0 14px}.login button{width:100%;border:0;background:#101828;color:#fff;font-weight:750;margin-top:12px}.err{min-height:20px;margin-top:10px;color:#b42318;font-size:13px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.title{font-size:22px;font-weight:800}.pill{font-size:12px;padding:6px 9px;border-radius:999px;background:#eafaf0;color:#067647;white-space:nowrap}.pill.bad{background:#fef3f2;color:#b42318}.search{display:flex;gap:8px;margin-bottom:8px}.search input{flex:1;min-width:0;border:1px solid #d0d5dd;padding:0 13px;background:#fff}.search button{border:0;padding:0 16px;background:#101828;color:#fff;font-weight:750}.symbol{font-size:13px;color:#667085;margin:0 2px 4px}.switchmsg{font-size:12px;color:#475467;min-height:18px;margin:0 2px 10px}.section{font-size:13px;font-weight:800;color:#344054;margin:16px 2px 8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.card{padding:13px;min-height:101px}.wide{grid-column:1/-1}.k{font-size:12px;color:#667085;margin-bottom:7px}.v{font-size:20px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}.s{font-size:12px;color:#667085;margin-top:7px;line-height:1.4}.up{color:#b42318}.down{color:#067647}.warn{margin-bottom:10px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;border-radius:12px;padding:10px 12px;font-size:12px}.notice{margin-top:10px;background:#fff;border:1px solid #e4e7ec;border-radius:13px;padding:11px 13px;font-size:12px;color:#475467;line-height:1.45}.foot{display:flex;justify-content:space-between;gap:10px;color:#98a2b3;font-size:11px;margin-top:12px}.logout{margin-top:14px;border:0;background:transparent;color:#667085;text-decoration:underline;font-size:12px;padding:4px}.splash{max-width:430px;margin:30vh auto 0;text-align:center;color:#667085;font-size:14px}@media(max-width:370px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.v{font-size:19px}}
-</style></head><body>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#f5f6f8;color:#101828;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.hidden{display:none!important}.app{max-width:760px;margin:0 auto;padding:16px 12px 42px}.login{max-width:430px;margin:0 auto;padding:18vh 22px 30px}.panel,.card{background:#fff;border:1px solid #e4e7ec;border-radius:16px}.panel{padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.05)}h1{font-size:24px;margin:0 0 8px}.sub{font-size:14px;color:#667085;margin-bottom:20px}.login input,.login button,.search input,.search button{height:46px;border-radius:12px;font-size:16px}.login input{width:100%;border:1px solid #d0d5dd;padding:0 14px}.login button{width:100%;border:0;background:#101828;color:#fff;font-weight:750;margin-top:12px}.err{min-height:20px;margin-top:10px;color:#b42318;font-size:13px}.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}.title{font-size:22px;font-weight:800}.pill{font-size:12px;padding:6px 9px;border-radius:999px;background:#eafaf0;color:#067647;white-space:nowrap}.pill.bad{background:#fef3f2;color:#b42318}.search{display:flex;gap:8px;margin-bottom:8px}.search input{flex:1;min-width:0;border:1px solid #d0d5dd;padding:0 13px;background:#fff}.search button{border:0;padding:0 16px;background:#101828;color:#fff;font-weight:750}.symbol{font-size:13px;color:#667085;margin:0 2px 4px}.switchmsg{font-size:12px;color:#475467;min-height:18px;margin:0 2px 10px}.section{font-size:13px;font-weight:800;color:#344054;margin:16px 2px 8px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.card{padding:13px;min-height:101px}.wide{grid-column:1/-1}.k{font-size:12px;color:#667085;margin-bottom:7px}.v{font-size:20px;font-weight:800;line-height:1.25;overflow-wrap:anywhere}.s{font-size:12px;color:#667085;margin-top:7px;line-height:1.45}.up{color:#b42318}.down{color:#067647}.warn{margin-bottom:10px;background:#fffaeb;border:1px solid #fedf89;color:#93370d;border-radius:12px;padding:10px 12px;font-size:12px}.notice{margin-top:10px;background:#fff;border:1px solid #e4e7ec;border-radius:13px;padding:11px 13px;font-size:12px;color:#475467;line-height:1.5}.foot{display:flex;justify-content:space-between;gap:10px;color:#98a2b3;font-size:11px;margin-top:12px}.logout{margin-top:14px;border:0;background:transparent;color:#667085;text-decoration:underline;font-size:12px;padding:4px}.splash{max-width:430px;margin:30vh auto 0;text-align:center;color:#667085;font-size:14px}.tiny{font-size:11px;color:#98a2b3}.tag{display:inline-block;font-size:11px;padding:2px 6px;border-radius:999px;background:#f2f4f7;color:#475467;margin-right:4px}.macd-details{margin-top:8px;font-size:12px;color:#667085}.macd-details summary{cursor:pointer}.macd-details div{margin-top:6px;line-height:1.5}@media(max-width:370px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.v{font-size:19px}}
+</style>
+</head>
+<body>
 <div id="boot" class="splash">正在连接...</div>
 <div id="login" class="login hidden"><div class="panel"><h1>A股盯盘 V18</h1><div class="sub">手机稳定版 · QMT实时数据</div><input id="pw" type="password" autocomplete="current-password" placeholder="手机版访问码"><button id="go">进入</button><div id="err" class="err"></div></div></div>
 <div id="dash" class="app hidden">
-<div class="top"><div class="title">A股实时 V18</div><div id="pill" class="pill">连接中</div></div><div id="warn" class="warn hidden"></div>
-<div class="search"><input id="code" inputmode="numeric" maxlength="6" placeholder="6位股票代码"><button id="switch">切换</button></div><div id="symbol" class="symbol">等待QMT...</div><div id="switchmsg" class="switchmsg"></div>
-<div class="section">① 实时价格与固定预测</div><div class="grid">
-<div class="card"><div class="k">当前价</div><div id="price" class="v">--</div><div id="pct" class="s">--</div></div>
-<div class="card"><div class="k">未来1分钟</div><div id="one" class="v">等待</div><div id="oneSub" class="s">等待信号</div></div>
-<div class="card"><div class="k">未来2分钟</div><div id="two" class="v">等待</div><div id="twoSub" class="s">等待信号</div></div>
-<div class="card"><div class="k">VWAP</div><div id="vwap" class="v">--</div><div id="vwapd" class="s">--</div></div>
+  <div class="top"><div class="title">A股实时 V18</div><div id="pill" class="pill">连接中</div></div>
+  <div id="warn" class="warn hidden"></div>
+  <div class="search"><input id="code" inputmode="numeric" maxlength="6" placeholder="6位股票代码"><button id="switch">切换</button></div>
+  <div id="symbol" class="symbol">等待QMT...</div><div id="switchmsg" class="switchmsg"></div>
+
+  <div class="section">① 实时价格与固定预测</div>
+  <div class="grid">
+    <div class="card"><div class="k">当前价</div><div id="price" class="v">--</div><div id="pct" class="s">--</div></div>
+    <div class="card"><div class="k">未来1分钟</div><div id="one" class="v">等待</div><div id="oneSub" class="s">等待信号</div></div>
+    <div class="card"><div class="k">未来2分钟</div><div id="two" class="v">等待</div><div id="twoSub" class="s">等待信号</div></div>
+    <div class="card"><div class="k">VWAP</div><div id="vwap" class="v">--</div><div id="vwapd" class="s">--</div></div>
+  </div>
+
+  <div class="section">② MACD趋势背景</div>
+  <div class="grid">
+    <div class="card wide"><div class="k">MACD综合</div><div id="macdSummary" class="v">加载中</div><div id="macdResonance" class="s">日线 / 60m / 30m / 15m 独立计算</div></div>
+    <div class="card"><div class="k">日线 MACD</div><div id="macdDay" class="v">--</div><div id="macdDaySub" class="s">--</div></div>
+    <div class="card"><div class="k">60分钟 MACD</div><div id="macd60" class="v">--</div><div id="macd60Sub" class="s">--</div></div>
+    <div class="card"><div class="k">30分钟 MACD</div><div id="macd30" class="v">--</div><div id="macd30Sub" class="s">--</div></div>
+    <div class="card"><div class="k">15分钟 MACD</div><div id="macd15" class="v">--</div><div id="macd15Sub" class="s">--</div></div>
+    <div class="card wide"><div class="k">MACD 对短线预测的作用</div><div id="macdImpact" class="v">仅作小幅确认</div><div id="macdImpactSub" class="s">不能单独把“观望”变成涨跌；只在短线证据已经较强时小幅加减分。</div></div>
+  </div>
+  <details class="macd-details"><summary>查看 DIF / DEA / 柱体细节</summary><div id="macdRaw">等待MACD数据...</div></details>
+
+  <div class="section">③ 短线动量与盘口</div>
+  <div class="grid">
+    <div class="card wide"><div class="k">近30秒 / 60秒 / 120秒价格动量</div><div id="momentum" class="v">--</div><div class="s">已发生的价格变化，不是预测。</div></div>
+    <div class="card"><div class="k">五档盘口买方</div><div id="book" class="v">--</div><div class="s">挂单量占比，可撤单，不等于真实成交。</div></div>
+    <div class="card"><div class="k">买一 / 卖一</div><div id="best" class="v">--</div><div id="spread" class="s">价差 --</div></div>
+    <div class="card"><div class="k">日内位置</div><div id="range" class="v">--</div><div id="rangeSub" class="s">日低 → 日高</div></div>
+    <div class="card"><div class="k">成交额</div><div id="amount" class="v">--</div><div id="ohl" class="s">开 / 高 / 低 --</div></div>
+  </div>
+
+  <div class="section">④ 前向验证</div>
+  <div class="grid">
+    <div class="card"><div class="k">60秒正式预测</div><div id="valid60" class="v">等待样本</div><div id="valid60Sub" class="s">只统计到期后的正式信号。</div></div>
+    <div class="card"><div class="k">120秒正式预测</div><div id="valid120" class="v">等待样本</div><div id="valid120Sub" class="s">只统计到期后的正式信号。</div></div>
+  </div>
+
+  <div id="l2section" class="hidden"><div class="section">⑤ 真实 Level-2</div><div class="grid"><div class="card wide"><div class="k">真实Level-2资金</div><div id="fund" class="v">--</div><div id="fundsub" class="s">--</div></div></div></div>
+
+  <div class="notice">核心仍是未来1分钟 / 2分钟。MACD只做趋势背景和小幅确认，避免把日线指标硬套成60秒预测；没有真实Level-2时整块自动隐藏。正式预测一旦发布，在对应有效期内固定不改答案。</div>
+  <div class="foot"><span id="updated">--</span><span id="latency">--</span></div>
+  <button id="logout" class="logout">退出手机版</button>
 </div>
-<div class="section">② 短线动量与盘口</div><div class="grid">
-<div class="card wide"><div class="k">近30秒 / 60秒 / 120秒价格动量</div><div id="momentum" class="v">--</div><div class="s">已发生的价格变化，不是预测。</div></div>
-<div class="card"><div class="k">五档盘口买方</div><div id="book" class="v">--</div><div class="s">挂单量占比，可撤单，不等于真实成交。</div></div>
-<div class="card"><div class="k">买一 / 卖一</div><div id="best" class="v">--</div><div id="spread" class="s">价差 --</div></div>
-<div class="card"><div class="k">日内位置</div><div id="range" class="v">--</div><div id="rangeSub" class="s">日低 → 日高</div></div>
-<div class="card"><div class="k">成交额</div><div id="amount" class="v">--</div><div id="ohl" class="s">开 / 高 / 低 --</div></div>
-</div>
-<div class="section">③ 模型验证</div><div class="grid"><div class="card wide"><div class="k">1分钟前向验证</div><div id="valid" class="v">等待样本</div><div id="validSub" class="s">历史验证不等于未来准确率。</div></div></div>
-<div id="l2section" class="hidden"><div class="section">④ 真实 Level-2</div><div class="grid"><div class="card wide"><div class="k">真实Level-2资金</div><div id="fund" class="v">--</div><div id="fundsub" class="s">--</div></div></div></div>
-<div class="notice">1分钟和2分钟现在采用“固定预测”：一旦发布，在对应有效期内不会因为每个tick来回改答案；底层实时倾向仍每秒更新并显示在预测下方。没有真实Level-2权限时整块自动隐藏。</div>
-<div class="foot"><span id="updated">--</span><span id="latency">--</span></div><button id="logout" class="logout">退出手机版</button></div>
 <script>
-const API='https://chjzlcqortgbtxooannu.supabase.co/functions/v1/astock-mobile',KEY='astock_mobile_session_v2',$=id=>document.getElementById(id);let token=localStorage.getItem(KEY)||'',timer=null,busy=false,lastGood=0,editingCode=false,pendingCode='';
-function show(w){$('boot').classList.add('hidden');$('login').classList.toggle('hidden',w!=='login');$('dash').classList.toggle('hidden',w!=='dash')}function headers(j=false){const h={'x-astock-session':token};if(j)h['content-type']='application/json';return h}function fmt(x,d=2){const n=Number(x);return Number.isFinite(n)?n.toFixed(d):'--'}function signed(x,d=2){const n=Number(x);return Number.isFinite(n)?((n>=0?'+':'')+n.toFixed(d)+'%'):'--'}function money(x){const n=Number(x);if(!Number.isFinite(n))return'--';const a=Math.abs(n),s=n<0?'-':'';if(a>=1e8)return s+(a/1e8).toFixed(2)+'亿';if(a>=1e4)return s+(a/1e4).toFixed(1)+'万';return s+a.toFixed(0)}function cnDir(d){return d==='UP'?'偏涨':d==='DOWN'?'偏跌':'观察'}function dirClass(d){return d==='UP'?'up':d==='DOWN'?'down':''}function setWarn(t){if(t){$('warn').textContent=t;$('warn').classList.remove('hidden')}else $('warn').classList.add('hidden')}
-function signalSub(sig,h){if(!sig)return'等待信号';if(sig.locked){const live=cnDir(sig.live_direction),rem=Math.max(0,Number(sig.remaining_seconds)||0);return'固定预测 · 剩余 '+rem+'秒 · 实时倾向 '+live+(sig.agreement!=null?' · 一致度 '+sig.agreement+'%':'')}return(sig.label||'观察')+(sig.agreement!=null?' · 一致度 '+sig.agreement+'%':'')}
-function paint(d){lastGood=Date.now();const bc=(d.symbol||'').slice(0,6);if(pendingCode&&bc===pendingCode){$('switchmsg').textContent='已切换到 '+pendingCode;pendingCode=''}if(!editingCode&&!pendingCode&&bc)$('code').value=bc;$('symbol').textContent=(d.symbol||'--')+' · QMT实时数据';$('price').textContent=fmt(d.price);const p=Number(d.pct);$('pct').textContent=Number.isFinite(p)?'今日 '+(p>=0?'+':'')+p.toFixed(2)+'%':'--';$('pct').className='s '+(p>0?'up':p<0?'down':'');const one=d.one_minute||{},two=d.two_minute||{};$('one').textContent=one.label||'等待';$('one').className='v '+dirClass(one.direction);$('oneSub').textContent=signalSub(one,60);$('two').textContent=two.label||'等待';$('two').className='v '+dirClass(two.direction);$('twoSub').textContent=signalSub(two,120);$('vwap').textContent=fmt(d.vwap);$('vwapd').textContent=Number.isFinite(Number(d.vwap_distance_pct))?'现价相对VWAP '+signed(d.vwap_distance_pct):'--';$('momentum').textContent=signed(d.momentum_30s_pct)+' / '+signed(d.momentum_60s_pct)+' / '+signed(d.momentum_120s_pct);const book=Number(d.book_buy_pct);$('book').textContent=Number.isFinite(book)?Math.round(book)+'%':'--';$('best').textContent=fmt(d.bid1)+' / '+fmt(d.ask1);$('spread').textContent='价差 '+fmt(d.spread)+(Number.isFinite(Number(d.spread_bp))?' · '+Number(d.spread_bp).toFixed(1)+'bp':'');const rp=Number(d.range_position_pct);$('range').textContent=Number.isFinite(rp)?Math.max(0,Math.min(100,rp)).toFixed(0)+'%':'--';$('rangeSub').textContent='日低 '+fmt(d.low)+' · 日高 '+fmt(d.high);$('amount').textContent=money(d.amount);$('ohl').textContent='开 '+fmt(d.open)+' · 高 '+fmt(d.high)+' · 低 '+fmt(d.low);const v=d.validation||{},samples=Number(v.all_samples),acc=Number(v.all_accuracy_pct);if(Number.isFinite(samples)&&samples>0){$('valid').textContent=(Number.isFinite(acc)?acc.toFixed(1)+'%':'--')+' · '+samples+'个样本';$('validSub').textContent='成熟样本 '+samples+' · 过期 '+(Number(v.expired_samples)||0)+'；只看真实前向验证。'}else{$('valid').textContent='等待样本';$('validSub').textContent='预测成熟后自动记录对错。'}if(d.true_l2){$('l2section').classList.remove('hidden');$('fund').textContent='主动买 '+Math.round(Number(d.active_buy_pct)||50)+'%';$('fundsub').textContent='大单买方 '+Math.round(Number(d.big_buy_pct)||50)+'% · 十档买方 '+Math.round(Number(d.depth10_buy_pct)||50)+'%'}else $('l2section').classList.add('hidden');$('updated').textContent='数据 '+(d.data_time||'--');$('latency').textContent='延迟 '+Math.round(Number(d.stale_seconds)||0)+'s';$('pill').textContent=d.fresh?'实时':'数据延迟';$('pill').className='pill'+(d.fresh?'':' bad');setWarn(d.fresh?'':'QMT数据已超过5秒未更新，请检查ROG/QMT/网络。')}
-function schedule(){clearTimeout(timer);timer=setTimeout(poll,document.hidden?3000:1000)}async function poll(){if(!token){show('login');return}if(busy){schedule();return}busy=true;const c=new AbortController(),to=setTimeout(()=>c.abort(),2400);try{const r=await fetch(API+'/state',{headers:headers(),cache:'no-store',signal:c.signal});if(r.status===401){localStorage.removeItem(KEY);token='';show('login');return}if(!r.ok)throw 0;paint(await r.json())}catch{if(lastGood){setWarn('网络短暂中断，继续显示上一帧并自动重试。');$('pill').textContent='重连中';$('pill').className='pill bad'}else setWarn('暂时无法读取实时数据，正在自动重试。')}finally{clearTimeout(to);busy=false;schedule()}}
-$('code').addEventListener('focus',()=>editingCode=true);$('code').addEventListener('input',()=>editingCode=true);$('code').addEventListener('blur',()=>editingCode=false);$('go').onclick=async()=>{const b=$('go'),e=$('err');b.disabled=true;e.textContent='';try{const r=await fetch(API+'/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:$('pw').value})});if(!r.ok){e.textContent='访问码错误';return}const d=await r.json();token=d.session||'';if(!token)throw 0;localStorage.setItem(KEY,token);show('dash');poll()}catch{e.textContent='网络连接失败，请重试'}finally{b.disabled=false}};$('switch').onclick=async()=>{const code=$('code').value.trim();if(!/^\d{6}$/.test(code)){alert('请输入6位股票代码');return}const b=$('switch');b.disabled=true;pendingCode=code;$('switchmsg').textContent='正在切换到 '+code+'...';try{const r=await fetch(API+'/switch',{method:'POST',headers:headers(true),body:JSON.stringify({code})});const d=await r.json().catch(()=>({}));if(r.status===401){localStorage.removeItem(KEY);token='';show('login');return}if(!r.ok||!d.ok)throw 0;$('switchmsg').textContent='切换请求已发送：'+code+'，等待ROG/QMT响应';setTimeout(poll,250)}catch{pendingCode='';$('switchmsg').textContent='切换失败，请再点一次';alert('切换失败，请重试')}finally{b.disabled=false}};$('logout').onclick=()=>{localStorage.removeItem(KEY);token='';clearTimeout(timer);show('login')};document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token)poll()});if(token){show('dash');poll()}else show('login');
-</script></body></html>
+const API='https://chjzlcqortgbtxooannu.supabase.co/functions/v1/astock-mobile';
+const KEY='astock_mobile_session_v2';
+const $=id=>document.getElementById(id);
+let token=localStorage.getItem(KEY)||'';
+let timer=null,busy=false,lastGood=0,editingCode=false,pendingCode='';
+let contextBusy=false,contextTimer=null,lastContextAt=0,lastContextSymbol='';
+function show(w){$('boot').classList.add('hidden');$('login').classList.toggle('hidden',w!=='login');$('dash').classList.toggle('hidden',w!=='dash')}
+function headers(j=false){const h={'x-astock-session':token};if(j)h['content-type']='application/json';return h}
+function fmt(x,d=2){const v=Number(x);return Number.isFinite(v)?v.toFixed(d):'--'}
+function signed(x,d=2){const v=Number(x);return Number.isFinite(v)?((v>=0?'+':'')+v.toFixed(d)+'%'):'--'}
+function money(x){const v=Number(x);if(!Number.isFinite(v))return'--';const a=Math.abs(v),s=v<0?'-':'';if(a>=1e8)return s+(a/1e8).toFixed(2)+'亿';if(a>=1e4)return s+(a/1e4).toFixed(1)+'万';return s+a.toFixed(0)}
+function cnDir(d){return d==='UP'?'偏涨':d==='DOWN'?'偏跌':'观察'}
+function dirClass(d){return d==='UP'?'up':d==='DOWN'?'down':''}
+function setWarn(t){if(t){$('warn').textContent=t;$('warn').classList.remove('hidden')}else $('warn').classList.add('hidden')}
+function signalSub(sig){if(!sig)return'等待信号';const adj=Number(sig.macd_adjustment)||0,macd=adj?(' · MACD '+(adj>0?'+':'')+adj):'';if(sig.locked){const live=cnDir(sig.live_direction),rem=Math.max(0,Number(sig.remaining_seconds)||0);return'固定预测 · 剩余 '+rem+'秒 · 实时倾向 '+live+(sig.agreement!=null?' · 一致度 '+sig.agreement+'%':'')+macd}return(sig.label||'观察')+(sig.agreement!=null?' · 一致度 '+sig.agreement+'%':'')+macd}
+function statText(s){const n=Number(s?.scored_samples),a=Number(s?.accuracy_pct);return Number.isFinite(n)&&n>0?(Number.isFinite(a)?a.toFixed(1)+'%':'--')+' · '+n+'个已判定':'等待样本'}
+function statSub(s){const all=Number(s?.samples)||0,flat=Number(s?.flat_samples)||0;return'总记录 '+all+' · 平盘/噪声 '+flat+'；样本少时不要解读命中率。'}
+function paint(d){
+  lastGood=Date.now();const bc=(d.symbol||'').slice(0,6);
+  if(pendingCode&&bc===pendingCode){$('switchmsg').textContent='已切换到 '+pendingCode;pendingCode='';pollContext(true)}
+  if(!editingCode&&!pendingCode&&bc)$('code').value=bc;
+  $('symbol').textContent=(d.symbol||'--')+' · QMT实时数据';
+  $('price').textContent=fmt(d.price);const p=Number(d.pct);$('pct').textContent=Number.isFinite(p)?'今日 '+(p>=0?'+':'')+p.toFixed(2)+'%':'--';$('pct').className='s '+(p>0?'up':p<0?'down':'');
+  const one=d.one_minute||{},two=d.two_minute||{};$('one').textContent=one.label||'等待';$('one').className='v '+dirClass(one.direction);$('oneSub').textContent=signalSub(one);$('two').textContent=two.label||'等待';$('two').className='v '+dirClass(two.direction);$('twoSub').textContent=signalSub(two);
+  $('vwap').textContent=fmt(d.vwap);$('vwapd').textContent=Number.isFinite(Number(d.vwap_distance_pct))?'现价相对VWAP '+signed(d.vwap_distance_pct):'--';
+  $('momentum').textContent=signed(d.momentum_30s_pct)+' / '+signed(d.momentum_60s_pct)+' / '+signed(d.momentum_120s_pct);
+  const book=Number(d.book_buy_pct);$('book').textContent=Number.isFinite(book)?Math.round(book)+'%':'--';$('best').textContent=fmt(d.bid1)+' / '+fmt(d.ask1);$('spread').textContent='价差 '+fmt(d.spread)+(Number.isFinite(Number(d.spread_bp))?' · '+Number(d.spread_bp).toFixed(1)+'bp':'');
+  const rp=Number(d.range_position_pct);$('range').textContent=Number.isFinite(rp)?Math.max(0,Math.min(100,rp)).toFixed(0)+'%':'--';$('rangeSub').textContent='日低 '+fmt(d.low)+' · 日高 '+fmt(d.high);$('amount').textContent=money(d.amount);$('ohl').textContent='开 '+fmt(d.open)+' · 高 '+fmt(d.high)+' · 低 '+fmt(d.low);
+  const sv=d.selective_validation||{};$('valid60').textContent=statText(sv.h60);$('valid60Sub').textContent=statSub(sv.h60);$('valid120').textContent=statText(sv.h120);$('valid120Sub').textContent=statSub(sv.h120);
+  const fc=d.forecast_context||{},a60=Number(fc.adjustment_60)||0,a120=Number(fc.adjustment_120)||0;$('macdImpact').textContent=(a60||a120)?('1分钟 '+(a60>=0?'+':'')+a60+' · 2分钟 '+(a120>=0?'+':'')+a120):'当前不加分';$('macdImpactSub').textContent=(fc.macd_summary?fc.macd_summary+' · ':'')+'MACD仅限小幅确认，不能独立触发预测。';
+  if(d.true_l2){$('l2section').classList.remove('hidden');$('fund').textContent='主动买 '+Math.round(Number(d.active_buy_pct)||50)+'%';$('fundsub').textContent='大单买方 '+Math.round(Number(d.big_buy_pct)||50)+'% · 十档买方 '+Math.round(Number(d.depth10_buy_pct)||50)+'%'}else $('l2section').classList.add('hidden');
+  $('updated').textContent='数据 '+(d.data_time||'--');$('latency').textContent='延迟 '+Math.round(Number(d.stale_seconds)||0)+'s';$('pill').textContent=d.fresh?'实时':'数据延迟';$('pill').className='pill'+(d.fresh?'':' bad');setWarn(d.fresh?'':'QMT数据已超过5秒未更新，请检查ROG/QMT/网络。');
+  if(bc&&bc!==lastContextSymbol&&Date.now()-lastContextAt>1500)pollContext(true);
+}
+function tfPaint(prefix,tf){const el=$(prefix),sub=$(prefix+'Sub');if(!tf||!tf.ok){el.textContent='数据不足';sub.textContent='腾讯K线暂未返回';return}el.textContent=tf.pattern||tf.label||'--';sub.textContent=(tf.zone||'--')+' · '+(tf.hist_state||'--')+' · 分 '+Math.round(Number(tf.score)||0)}
+function paintContext(c){lastContextAt=Date.now();lastContextSymbol=(c.symbol||'').slice(0,6);$('macdSummary').textContent=c.summary||'MACD中性';$('macdSummary').className='v '+(Number(c.score)>20?'up':Number(c.score)<-20?'down':'');$('macdResonance').textContent=(c.resonance||'周期分化')+' · 综合分 '+Math.round(Number(c.score)||0)+' · '+(c.source||'公开K线');const t=c.timeframes||{};tfPaint('macdDay',t.day);tfPaint('macd60',t.m60);tfPaint('macd30',t.m30);tfPaint('macd15',t.m15);const rows=[['日',t.day],['60m',t.m60],['30m',t.m30],['15m',t.m15]].map(([k,v])=>{const x=v||{};return '<span class="tag">'+k+'</span>DIF '+fmt(x.dif,4)+' / DEA '+fmt(x.dea,4)+' / 柱 '+fmt(x.hist,4)});$('macdRaw').innerHTML=rows.join('<br>')+'<br><span class="tiny">高位/水上/水下等状态来自同一套12-26-9 MACD结构，不代表未来60秒必然涨跌。</span>'}
+function schedule(){clearTimeout(timer);timer=setTimeout(poll,document.hidden?3000:1000)}
+function scheduleContext(){clearTimeout(contextTimer);contextTimer=setTimeout(()=>pollContext(false),document.hidden?90000:30000)}
+async function poll(){if(!token){show('login');return}if(busy){schedule();return}busy=true;const c=new AbortController(),to=setTimeout(()=>c.abort(),2400);try{const r=await fetch(API+'/state',{headers:headers(),cache:'no-store',signal:c.signal});if(r.status===401){localStorage.removeItem(KEY);token='';show('login');return}if(!r.ok)throw 0;paint(await r.json())}catch{if(lastGood){setWarn('网络短暂中断，继续显示上一帧并自动重试。');$('pill').textContent='重连中';$('pill').className='pill bad'}else setWarn('暂时无法读取实时数据，正在自动重试。')}finally{clearTimeout(to);busy=false;schedule()}}
+async function pollContext(force=false){if(!token||contextBusy)return;contextBusy=true;const c=new AbortController(),to=setTimeout(()=>c.abort(),5200);try{const r=await fetch(API+'/context'+(force?'?force=1':''),{headers:headers(),cache:'no-store',signal:c.signal});if(r.status===401)return;if(!r.ok)throw 0;paintContext(await r.json())}catch{if(!lastContextAt){$('macdSummary').textContent='MACD暂不可用';$('macdResonance').textContent='不影响实时行情与1/2分钟核心预测'}}finally{clearTimeout(to);contextBusy=false;scheduleContext()}}
+$('code').addEventListener('focus',()=>editingCode=true);$('code').addEventListener('input',()=>editingCode=true);$('code').addEventListener('blur',()=>editingCode=false);
+$('go').onclick=async()=>{const b=$('go'),e=$('err');b.disabled=true;e.textContent='';try{const r=await fetch(API+'/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:$('pw').value})});if(!r.ok){e.textContent='访问码错误';return}const d=await r.json();token=d.session||'';if(!token)throw 0;localStorage.setItem(KEY,token);show('dash');poll();pollContext(true)}catch{e.textContent='网络连接失败，请重试'}finally{b.disabled=false}};
+$('switch').onclick=async()=>{const code=$('code').value.trim();if(!/^\d{6}$/.test(code)){alert('请输入6位股票代码');return}const b=$('switch');b.disabled=true;pendingCode=code;$('switchmsg').textContent='正在切换到 '+code+'...';try{const r=await fetch(API+'/switch',{method:'POST',headers:headers(true),body:JSON.stringify({code})});const d=await r.json().catch(()=>({}));if(r.status===401){localStorage.removeItem(KEY);token='';show('login');return}if(!r.ok||!d.ok)throw 0;$('switchmsg').textContent='切换请求已发送：'+code+'，等待ROG/QMT响应';lastContextSymbol='';setTimeout(poll,250);setTimeout(()=>pollContext(true),700)}catch{pendingCode='';$('switchmsg').textContent='切换失败，请再点一次';alert('切换失败，请重试')}finally{b.disabled=false}};
+$('logout').onclick=()=>{localStorage.removeItem(KEY);token='';clearTimeout(timer);clearTimeout(contextTimer);show('login')};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token){poll();if(Date.now()-lastContextAt>45000)pollContext(false)}});
+if(token){show('dash');poll();pollContext(false)}else show('login');
+</script>
+</body>
+</html>
