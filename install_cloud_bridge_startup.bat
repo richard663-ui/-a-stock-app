@@ -75,7 +75,7 @@ if errorlevel 8 (
 )
 if not exist "%INSTALLDIR%\runtime" mkdir "%INSTALLDIR%\runtime" >nul 2>&1
 
-echo [6/7] Writing Windows Startup launcher...
+echo [6/7] Writing Windows Startup launcher with watchdog...
 (
   echo @echo off
   echo set "PYTHONPATH=%INSTALLDIR%;%%PYTHONPATH%%"
@@ -83,7 +83,11 @@ echo [6/7] Writing Windows Startup launcher...
   echo set "no_proxy=.supabase.co,supabase.co"
   echo cd /d "%INSTALLDIR%"
   echo if not exist "%INSTALLDIR%\runtime" mkdir "%INSTALLDIR%\runtime" ^>nul 2^>^&1
+  echo :astock_loop
   echo "%PYEXE%" -u "%INSTALLDIR%\services\qmt_cloud_bridge.py" ^>^> "%LOGFILE%" 2^>^&1
+  echo echo [%%DATE%% %%TIME%%] bridge exited code %%ERRORLEVEL%% - restarting in 3 seconds ^>^> "%LOGFILE%"
+  echo timeout /t 3 /nobreak ^>nul
+  echo goto astock_loop
 ) > "%STARTFILE%"
 if not exist "%STARTFILE%" (
   echo [ERROR] Startup launcher was not created.
@@ -110,6 +114,7 @@ echo Stable runtime: %INSTALLDIR%
 echo Startup file:   %STARTFILE%
 echo Bridge log:     %LOGFILE%
 echo Prediction DB:  %INSTALLDIR%\runtime\one_minute_predictions.sqlite3
+echo Watchdog:       ON - bridge restarts automatically after an unexpected exit.
 echo.
 echo QMT must be open and logged in for live Tick/Level-2 data.
 echo After this install, the downloaded ZIP folder is no longer used by the bridge.
