@@ -7,6 +7,11 @@ set "STATUS=%USERPROFILE%\AStockData\recorder_status.json"
 set "LOGFILE=%INSTALLDIR%\runtime\research_recorder.log"
 set "RECORDER=%INSTALLDIR%\services\qmt_research_recorder.py"
 
+set "PYEXE="
+for /f "delims=" %%I in ('py -c "import sys; print(sys.executable)" 2^>nul') do set "PYEXE=%%I"
+if not defined PYEXE for /f "delims=" %%I in ('python -c "import sys; print(sys.executable)" 2^>nul') do set "PYEXE=%%I"
+if not defined PYEXE if exist "%LOCALAPPDATA%\Programs\Python\Python312\python.exe" set "PYEXE=%LOCALAPPDATA%\Programs\Python\Python312\python.exe"
+
 echo ========================================
 echo A-Stock Research Recorder Check
 echo ========================================
@@ -33,7 +38,11 @@ echo.
 if exist "%LOGFILE%" (
   echo Last recorder log lines:
   echo ----------------------------------------
-  powershell -NoProfile -Command "Get-Content -LiteralPath '%LOGFILE%' -Tail 20" 2>nul
+  if defined PYEXE (
+    "%PYEXE%" -c "from pathlib import Path; p=Path(r'%LOGFILE%'); print(''.join(p.read_text(encoding='utf-8',errors='replace').splitlines(True)[-20:]), end='')"
+  ) else (
+    echo [WARN] Python not found, cannot show log tail.
+  )
   echo ----------------------------------------
 ) else (
   echo [WARN] Recorder log does not exist yet.
