@@ -118,8 +118,10 @@ def score_rows(rows: Iterable[Dict[str, Any]], macd_context: Any = None) -> Dict
         "confidence_60": c60["confidence_score"], "confidence_120": c120["confidence_score"],
         "confidence_tier_60": c60["confidence_tier"], "confidence_tier_120": c120["confidence_tier"],
         "confidence_components_60": c60, "confidence_components_120": c120,
+        "macd_calibration_score": (ctx or {}).get("score"),
         "macd_calibration_summary": (ctx or {}).get("summary"),
         "macd_calibration_resonance": (ctx or {}).get("resonance"),
+        "macd_calibration_timeframes": (ctx or {}).get("timeframes") or {},
         "macd_calibration_version": (ctx or {}).get("calibration_version"),
         "model_version": MODEL_VERSION,
     })
