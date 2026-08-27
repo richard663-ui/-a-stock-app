@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 """Guosheng QMT -> Supabase bridge for V18 Final.
 
-Read-only market-data bridge. Network I/O is isolated from the QMT sampling
-loop so a slow Supabase request cannot freeze local tick collection.
+Read-only market-data bridge. Cloud I/O is isolated from QMT sampling.
+2026-08-27 reliability patch:
+- never publish an empty/stale QMT feed as "online";
+- retry QMT tick subscription automatically after service disconnects;
+- preserve five-level order-book-only changes in the rolling tick buffer;
+- recover automatically after QMT/xtquant comes back without a Windows reboot.
 """
 from __future__ import annotations
 
@@ -34,6 +38,34 @@ CLOUD_TICK_LIMIT = 600
 WATCH_POLL_SECONDS = 0.8
 LIVE_BUILD_SECONDS = 1.0
 L2_BUILD_SECONDS = 2.0
+QMT_RETRY_SECONDS = 3.0
+QMT_HEALTH_GRACE_SECONDS = 5.0
+QMT_SELF_HEAL_MARKER = "QMT self-heal: ON"
+
+
+def _tuple5(v) -> tuple:
+    if not isinstance(v, (list, tuple)):
+        return ()
+    out = []
+    for x in list(v)[:5]:
+        try:
+            out.append(float(x))
+        except Exception:
+            out.append(None)
+    return tuple(out)
+
+
+def _row_signature(row: Dict) -> tuple:
+    return (
+        row.get("captured_at"),
+        row.get("lastPrice"),
+        row.get("volume"),
+        row.get("amount"),
+        _tuple5(row.get("bidPrice")),
+        _tuple5(row.get("bidVol")),
+        _tuple5(row.get("askPrice")),
+        _tuple5(row.get("askVol")),
+    )
 
 
 def _backfill(symbol: str, count: int = 300) -> List[Dict]:
@@ -50,7 +82,7 @@ def _backfill(symbol: str, count: int = 300) -> List[Dict]:
         seen = set()
         for idx, row in frame.tail(count).iterrows():
             item = normalize_tick(symbol, row.to_dict(), fallback_time=idx)
-            key = (item.get("captured_at"), item.get("lastPrice"), item.get("volume"))
+            key = _row_signature(item)
             if key in seen:
                 continue
             seen.add(key)
@@ -65,13 +97,7 @@ def _backfill(symbol: str, count: int = 300) -> List[Dict]:
 def _append_unique(rows: deque, row: Dict) -> None:
     if not row:
         return
-    if not rows:
-        rows.append(row)
-        return
-    prev = rows[-1]
-    if (row.get("captured_at"), row.get("lastPrice"), row.get("volume")) != (
-        prev.get("captured_at"), prev.get("lastPrice"), prev.get("volume")
-    ):
+    if not rows or _row_signature(row) != _row_signature(rows[-1]):
         rows.append(row)
 
 
@@ -95,7 +121,6 @@ def _feature_snapshot(direction: Dict, l2_summary: Dict) -> Dict:
 
 
 def _offer_latest(q: queue.Queue, payload: Dict) -> None:
-    """Keep only the newest cloud payload; never block the QMT sampling loop."""
     try:
         q.put_nowait(payload)
         return
@@ -138,7 +163,7 @@ def _tick_upload_worker(config, q: queue.Queue, stop: threading.Event) -> None:
         if item is None:
             break
         try:
-            bridge.publish_ticks(item["symbol"], item["ticks"], status=item.get("status", "online"))
+            bridge.publish_ticks(item["symbol"], item["ticks"], status=item.get("status", "waiting_qmt"))
         except Exception as exc:
             print(f"tick upload warning: {exc}")
 
@@ -165,6 +190,28 @@ def _l2_upload_worker(config, q: queue.Queue, stop: threading.Event) -> None:
             )
         except Exception as exc:
             print(f"l2 upload warning: {exc}")
+
+
+def _subscribe_tick(symbol: str, old_sub: Optional[int] = None) -> Optional[int]:
+    if old_sub is not None:
+        try:
+            xtdata.unsubscribe_quote(old_sub)
+        except Exception:
+            pass
+    try:
+        sub = xtdata.subscribe_quote(symbol, period="tick", count=-1)
+        if sub is None:
+            raise RuntimeError("subscribe_quote returned None")
+        try:
+            if int(sub) < 0:
+                raise RuntimeError(f"subscribe_quote returned {sub}")
+        except (TypeError, ValueError):
+            pass
+        print(f"Tick subscription active for {symbol}: {sub}")
+        return sub
+    except Exception as exc:
+        print(f"Tick subscription warning for {symbol}: {exc}")
+        return None
 
 
 def main() -> None:
@@ -198,35 +245,36 @@ def main() -> None:
     last_build = 0.0
     last_l2_build = 0.0
     last_print = 0.0
+    last_sub_attempt = 0.0
+    last_qmt_success = 0.0
+    last_qmt_error = ""
     cached_validation: Dict = {}
 
     print("QMT cloud bridge V18 Final started. Read-only mode.")
     print(f"Bridge ID: {config.bridge_id}")
     print("Cloud I/O isolation: ON")
+    print(QMT_SELF_HEAL_MARKER)
 
     try:
         while True:
             requested = (requested_state.get("symbol") or current_symbol or "000400.SZ").upper()
+            now = time.time()
+
             if requested != current_symbol:
-                if tick_sub is not None:
-                    try:
-                        xtdata.unsubscribe_quote(tick_sub)
-                    except Exception:
-                        pass
                 current_symbol = requested
                 rows.clear()
                 cached_validation = {}
+                last_qmt_success = 0.0
+                last_qmt_error = ""
                 print(f"Switching to {current_symbol}")
 
-                try:
-                    tick_sub = xtdata.subscribe_quote(current_symbol, period="tick", count=-1)
-                except Exception as exc:
-                    tick_sub = None
-                    print(f"Tick subscription warning: {exc}")
-
+                tick_sub = _subscribe_tick(current_symbol, tick_sub)
+                last_sub_attempt = now
                 time.sleep(0.35)
-                rows.extend(_backfill(current_symbol, 300))
-                if rows:
+                backfilled = _backfill(current_symbol, 300)
+                if backfilled:
+                    rows.extend(backfilled)
+                    last_qmt_success = time.time()
                     _offer_latest(tick_upload_q, {
                         "symbol": current_symbol,
                         "ticks": list(rows)[-CLOUD_TICK_LIMIT:],
@@ -239,15 +287,37 @@ def main() -> None:
                 available = [name for name, item in caps.items() if item.get("available")]
                 print("Level-2 available: " + (", ".join(available) if available else "none yet"))
 
+            qmt_poll_ok = False
             try:
                 tick_data = xtdata.get_full_tick([current_symbol]) or {}
                 tick = tick_data.get(current_symbol) or {}
                 if tick:
+                    qmt_poll_ok = True
+                    last_qmt_success = now
+                    last_qmt_error = ""
                     _append_unique(rows, normalize_tick(current_symbol, tick))
+                else:
+                    last_qmt_error = "empty get_full_tick"
             except Exception as exc:
-                print(f"QMT tick warning: {exc}")
+                msg = str(exc)
+                if msg != last_qmt_error:
+                    print(f"QMT tick warning: {msg}")
+                last_qmt_error = msg
+
+            if not qmt_poll_ok and now - last_sub_attempt >= QMT_RETRY_SECONDS:
+                tick_sub = _subscribe_tick(current_symbol, tick_sub)
+                last_sub_attempt = now
+                recovered = _backfill(current_symbol, 300)
+                if recovered:
+                    for item in recovered:
+                        _append_unique(rows, item)
+                    last_qmt_success = time.time()
+                    print(f"QMT recovery backfill: {len(rows)} buffered ticks")
 
             now = time.time()
+            qmt_healthy = bool(last_qmt_success and now - last_qmt_success <= QMT_HEALTH_GRACE_SECONDS)
+            feed_status = "online" if qmt_healthy and rows else ("qmt_disconnected" if rows else "waiting_qmt")
+
             if now - last_build >= LIVE_BUILD_SECONDS:
                 latest = rows[-1] if rows else {}
                 current_price = _price(latest)
@@ -255,7 +325,7 @@ def main() -> None:
                 summary = dict(l2_snapshot.get("summary", {}) or {})
                 direction = analyze_direction_v18(pd.DataFrame(list(rows)), summary)
 
-                if current_price > 0:
+                if current_price > 0 and qmt_healthy:
                     journal.mature(symbol=current_symbol, current_price=current_price, now_ts=now)
                     if direction.get("direction_60") in {"UP", "DOWN"} and direction.get("live"):
                         journal.record(
@@ -273,23 +343,26 @@ def main() -> None:
                 if not cached_validation or int(now) % 5 == 0:
                     cached_validation = journal.stats(current_symbol, limit=5000)
                 summary["validation"] = cached_validation
+                summary["qmt_feed_status"] = feed_status
+                summary["qmt_feed_healthy"] = qmt_healthy
+                summary["buffered_ticks"] = len(rows)
                 summary["one_minute"] = {
-                    "direction": direction.get("direction_60"),
-                    "label": direction.get("label_60"),
-                    "agreement": direction.get("condition_agreement"),
-                    "high_confidence": direction.get("high_confidence"),
+                    "direction": direction.get("direction_60") if qmt_healthy else "WATCH",
+                    "label": direction.get("label_60") if qmt_healthy else "等待QMT行情",
+                    "agreement": direction.get("condition_agreement") if qmt_healthy else 0,
+                    "high_confidence": bool(direction.get("high_confidence")) if qmt_healthy else False,
                 }
                 summary["two_minute"] = {
-                    "direction": direction.get("direction_120"),
-                    "label": direction.get("label_120"),
-                    "agreement": direction.get("condition_agreement"),
+                    "direction": direction.get("direction_120") if qmt_healthy else "WATCH",
+                    "label": direction.get("label_120") if qmt_healthy else "等待QMT行情",
+                    "agreement": direction.get("condition_agreement") if qmt_healthy else 0,
                     "high_confidence": False,
                 }
 
                 _offer_latest(tick_upload_q, {
                     "symbol": current_symbol,
                     "ticks": list(rows)[-CLOUD_TICK_LIMIT:],
-                    "status": "online",
+                    "status": feed_status,
                 })
 
                 if now - last_l2_build >= L2_BUILD_SECONDS:
@@ -301,7 +374,9 @@ def main() -> None:
                         "recent_orders": l2_snapshot.get("recent_orders", []),
                         "quoteaux": l2_snapshot.get("quoteaux", {}),
                         "orderqueue": l2_snapshot.get("orderqueue", {}),
-                        "status": "online" if summary.get("ok") else "waiting_l2",
+                        "status": "online" if summary.get("ok") and qmt_healthy else (
+                            "waiting_l2" if qmt_healthy else "waiting_qmt"
+                        ),
                     })
                     last_l2_build = now
                 last_build = now
@@ -315,9 +390,9 @@ def main() -> None:
                 acc_text = f"{float(acc):.1f}%/{n}" if acc is not None and n else "pending"
                 print(
                     f"{datetime.now().strftime('%H:%M:%S')} {current_symbol} "
-                    f"price={latest.get('lastPrice')} samples={len(rows)} "
-                    f"1m={direction.get('label_60', 'waiting')} "
-                    f"agreement={direction.get('condition_agreement', 0)}% "
+                    f"feed={feed_status} price={latest.get('lastPrice')} samples={len(rows)} "
+                    f"1m={direction.get('label_60', 'waiting') if qmt_healthy else '等待QMT行情'} "
+                    f"agreement={direction.get('condition_agreement', 0) if qmt_healthy else 0}% "
                     f"validated={acc_text}"
                 )
                 last_print = now
