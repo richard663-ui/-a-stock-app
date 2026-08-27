@@ -359,11 +359,15 @@ def main() -> None:
                     "high_confidence": False,
                 }
 
-                _offer_latest(tick_upload_q, {
-                    "symbol": current_symbol,
-                    "ticks": list(rows)[-CLOUD_TICK_LIMIT:],
-                    "status": feed_status,
-                })
+                # Do not refresh qmt_live_cache while QMT is unhealthy. Let the
+                # existing cloud row become stale so mobile cannot mistake a
+                # heartbeat for fresh market data.
+                if qmt_healthy:
+                    _offer_latest(tick_upload_q, {
+                        "symbol": current_symbol,
+                        "ticks": list(rows)[-CLOUD_TICK_LIMIT:],
+                        "status": "online",
+                    })
 
                 if now - last_l2_build >= L2_BUILD_SECONDS:
                     _offer_latest(l2_upload_q, {
