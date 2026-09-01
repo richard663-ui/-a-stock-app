@@ -48,6 +48,14 @@ def _event_count() -> int:
     return total
 
 
+def _disagreement(rows: List[Dict[str, Any]], a: str, b: str) -> str:
+    paired = [r for r in rows if r.get(a) is not None and r.get(b) is not None]
+    if not paired:
+        return "--"
+    n = sum(int(r[a]) != int(r[b]) for r in paired)
+    return f"{100.0*n/len(paired):.1f}% ({n}/{len(paired)})"
+
+
 def main() -> None:
     rows = _rows()
     if not rows:
@@ -55,6 +63,7 @@ def main() -> None:
         print("Keep QMT logged in and run the L2 training recorder during market hours.")
         return
     days = sorted({Path(r["db"]).parent.name for r in rows})
+    valid_l2 = [r for r in rows if r["valid"] and r["true_l2"]]
     print("=" * 78)
     print("AStock Level-2 ML dataset status")
     print("=" * 78)
@@ -62,6 +71,8 @@ def main() -> None:
     print(f"Samples: {len(rows)}  Valid labels: {sum(r['valid'] for r in rows)}")
     print(f"True L2 samples: {sum(r['true_l2'] for r in rows)}  Core-L2 ready: {sum(r['core_l2_ready'] for r in rows)}")
     print(f"Persisted raw L2 events: {_event_count()}")
+    print(f"Label disagreement lastPrice vs point-mid: {_disagreement(valid_l2, 'last_label', 'mid_label')}")
+    print(f"Label disagreement point-mid vs smoothed-mid: {_disagreement(valid_l2, 'mid_label', 'smooth_label')}")
     print()
     for symbol in sorted({r["symbol"] for r in rows}):
         a = [r for r in rows if r["symbol"] == symbol]
@@ -73,13 +84,18 @@ def main() -> None:
             f"{symbol:<12} samples={len(a):<5} valid={len(valid):<5} trueL2={len(tl2):<5} "
             f"avgFeeds={avg_feeds:.1f} smoothLabels(-1/0/1)={labels.get('-1',0)}/{labels.get('0',0)}/{labels.get('1',0)}"
         )
+        if tl2:
+            print(
+                f"  label-noise: last-vs-mid={_disagreement(tl2, 'last_label', 'mid_label')}  "
+                f"mid-vs-smooth={_disagreement(tl2, 'mid_label', 'smooth_label')}"
+            )
     bad = Counter(str(r["invalid_reason"] or "UNKNOWN") for r in rows if not r["valid"] and r["invalid_reason"])
     if bad:
         print("\nInvalid labels:")
         for reason, n in bad.most_common():
             print(f"  {reason}: {n}")
     print("\nPrimary target = mean(mid-price +55s..+65s) versus entry mid-price.")
-    print("lastPrice@60s and point midPrice@60s remain only as comparison labels.")
+    print("lastPrice@60s and point midPrice@60s remain comparison labels so we can measure old-label noise directly.")
 
 
 if __name__ == "__main__":
