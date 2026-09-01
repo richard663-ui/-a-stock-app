@@ -14,7 +14,8 @@ set "WATCHDOG=%RUNTIME%\AStockL2TrainingWatchdog.cmd"
 set "STARTVBS=%STARTUPDIR%\AStockL2TrainingRecorder.vbs"
 set "LOGFILE=%RUNTIME%\l2_training_recorder.log"
 set "BASE=https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main"
-set "REC=%SERVICEDIR%\qmt_l2_training_recorder_v2.py"
+set "REC=%SERVICEDIR%\qmt_l2_training_recorder_v3.py"
+set "RECBASE=%SERVICEDIR%\qmt_l2_training_recorder_v2.py"
 set "TRAIN=%SERVICEDIR%\train_l2_60s_model_v2.py"
 set "STATUS=%SERVICEDIR%\l2_training_status_v2.py"
 
@@ -29,17 +30,19 @@ if not exist "%SERVICEDIR%" mkdir "%SERVICEDIR%"
 if not exist "%RUNTIME%" mkdir "%RUNTIME%"
 
 echo [1/6] Downloading...
-curl.exe -L --fail --retry 3 -o "%TEMP%\l2rec.py" "%BASE%/services/qmt_l2_training_recorder_v2.py" || goto :fail
+curl.exe -L --fail --retry 3 -o "%TEMP%\l2recv3.py" "%BASE%/services/qmt_l2_training_recorder_v3.py" || goto :fail
+curl.exe -L --fail --retry 3 -o "%TEMP%\l2recv2.py" "%BASE%/services/qmt_l2_training_recorder_v2.py" || goto :fail
 curl.exe -L --fail --retry 3 -o "%TEMP%\l2train.py" "%BASE%/services/train_l2_60s_model_v2.py" || goto :fail
 curl.exe -L --fail --retry 3 -o "%TEMP%\l2status.py" "%BASE%/services/l2_training_status_v2.py" || goto :fail
 curl.exe -L --fail --retry 3 -o "%TEMP%\mlreq.txt" "%BASE%/requirements_research_ml.txt" || goto :fail
 curl.exe -L --fail --retry 3 -o "%TEMP%\dir18.py" "%BASE%/modules/direction_v18.py" || goto :fail
 curl.exe -L --fail --retry 3 -o "%TEMP%\l2mod.py" "%BASE%/modules/qmt_level2.py" || goto :fail
 curl.exe -L --fail --retry 3 -o "%TEMP%\qmtlive.py" "%BASE%/modules/qmt_live.py" || goto :fail
-findstr /C:"l2-training-recorder-v2-20260901" "%TEMP%\l2rec.py" >nul || goto :fail
+findstr /C:"l2-training-recorder-v3-freshness-20260901" "%TEMP%\l2recv3.py" >nul || goto :fail
+findstr /C:"l2-training-recorder-v2-20260901" "%TEMP%\l2recv2.py" >nul || goto :fail
 
 echo [2/6] Syntax check...
-"%PYEXE%" -m py_compile "%TEMP%\l2rec.py" "%TEMP%\l2train.py" "%TEMP%\l2status.py" "%TEMP%\dir18.py" "%TEMP%\l2mod.py" "%TEMP%\qmtlive.py"
+"%PYEXE%" -m py_compile "%TEMP%\l2recv3.py" "%TEMP%\l2recv2.py" "%TEMP%\l2train.py" "%TEMP%\l2status.py" "%TEMP%\dir18.py" "%TEMP%\l2mod.py" "%TEMP%\qmtlive.py"
 if errorlevel 1 goto :syntax
 
 echo [3/6] ML dependencies...
@@ -48,7 +51,8 @@ if errorlevel 1 "%PYEXE%" -m pip install --disable-pip-version-check -r "%TEMP%\
 if errorlevel 1 goto :mlfail
 
 echo [4/6] Installing...
-copy /Y "%TEMP%\l2rec.py" "%REC%" >nul || goto :fail
+copy /Y "%TEMP%\l2recv3.py" "%REC%" >nul || goto :fail
+copy /Y "%TEMP%\l2recv2.py" "%RECBASE%" >nul || goto :fail
 copy /Y "%TEMP%\l2train.py" "%TRAIN%" >nul || goto :fail
 copy /Y "%TEMP%\l2status.py" "%STATUS%" >nul || goto :fail
 copy /Y "%TEMP%\dir18.py" "%MODULEDIR%\direction_v18.py" >nul || goto :fail
@@ -76,10 +80,11 @@ wscript.exe "%STARTVBS%"
 
 echo [6/6] Verifying...
 timeout /t 6 /nobreak >nul
-findstr /C:"l2-training-recorder-v2-20260901" "%LOGFILE%" >nul 2>&1
+findstr /C:"l2-training-recorder-v3-freshness-20260901" "%LOGFILE%" >nul 2>&1
 if errorlevel 1 (echo [WARN] Installed; marker not visible yet. Keep QMT logged in.) else (echo [PASS] L2 training recorder active.)
 echo.
 echo [OK] 301236.SZ priority, up to 8 watchlist stocks.
+echo Stale QMT ticks over 5 seconds are rejected during market hours.
 echo Primary label: smoothed mid-price around +60s.
 echo Old lastPrice label kept only as comparison. No ML model auto-deployed.
 pause
