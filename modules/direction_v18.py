@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """V18 60/120-second direction fusion.
 
-The 1-minute direction remains visible whenever live data are ready. Condition
-agreement is not historical accuracy. A high-confidence label additionally
-requires core Level-2 feed coverage, not merely one available L2 stream.
+The 1-minute direction remains the primary target. V9 adaptive mode keeps the
+same microstructure factors but normalizes price components by each symbol's
+recent realized movement and suppresses weak/conflicted candidates to WATCH.
+Condition agreement is not historical accuracy. A high-confidence label still
+requires core Level-2 feed coverage.
 """
 from __future__ import annotations
 
@@ -59,6 +61,41 @@ def _core_l2_ready(l2: Dict[str, Any]) -> bool:
     return secondary >= 2
 
 
+def _realized_move_scales(ticks: pd.DataFrame) -> Dict[str, float]:
+    """Robust symbol-local 30s/60s absolute-move scales from recent ticks."""
+    out = {"move30_pct": 0.08, "move60_pct": 0.12, "samples": 0}
+    if ticks is None or ticks.empty:
+        return out
+    try:
+        frame = ticks.copy()
+        ts = pd.to_datetime(frame.get("captured_at"), errors="coerce")
+        if ts.isna().all():
+            ts = pd.to_datetime(frame.get("timetag"), errors="coerce")
+        price = pd.to_numeric(frame.get("lastPrice"), errors="coerce")
+        good = pd.DataFrame({"ts": ts, "price": price}).dropna()
+        good = good[good["price"] > 0].sort_values("ts")
+        if len(good) < 12:
+            return out
+        end = good["ts"].iloc[-1]
+        good = good[good["ts"] >= end - pd.Timedelta(minutes=15)]
+        series = good.set_index("ts")["price"]
+        series = series[~series.index.duplicated(keep="last")].sort_index()
+        grid = series.resample("5s").last().ffill().dropna()
+        if len(grid) < 12:
+            return out
+        out["samples"] = int(len(grid))
+        for seconds, key, floor in ((30, "move30_pct", 0.06), (60, "move60_pct", 0.10)):
+            periods = max(1, seconds // 5)
+            moves = grid.pct_change(periods=periods).abs().dropna() * 100.0
+            if len(moves) >= 6:
+                q = float(moves.quantile(0.65))
+                if np.isfinite(q) and q > 0:
+                    out[key] = max(floor, q)
+    except Exception:
+        return out
+    return out
+
+
 def analyze_direction_v18(ticks: pd.DataFrame, l2: Dict[str, Any] | None = None) -> Dict[str, Any]:
     base = analyze_short_direction(ticks)
     out = dict(base)
@@ -83,10 +120,17 @@ def analyze_direction_v18(ticks: pd.DataFrame, l2: Dict[str, Any] | None = None)
     r120 = _f(m.get("change_120s_pct"))
     vwap_dist = _f(m.get("above_vwap_pct"))
     micro = _f(m.get("microprice_bias_pct"))
+    spread = max(0.0, _f(m.get("spread_pct")))
+
+    realized = _realized_move_scales(ticks)
+    scale30 = max(0.06, _f(realized.get("move30_pct"), 0.08), spread * 2.0)
+    scale60 = max(0.10, _f(realized.get("move60_pct"), 0.12), spread * 3.0)
+    vwap_scale = max(0.08, min(0.30, 0.65 * scale60))
+    micro_scale = max(0.02, min(0.10, max(spread * 1.25, 0.20 * scale30)))
 
     contributions: List[Tuple[str, float]] = [
-        ("30秒价格", _component(r30, 0.08, 1.0)),
-        ("60秒价格", _component(r60, 0.12, 1.0)),
+        ("30秒价格", _component(r30, scale30, 1.0)),
+        ("60秒价格", _component(r60, scale60, 1.0)),
     ]
     reasons_up: List[str] = []
     reasons_down: List[str] = []
@@ -132,48 +176,69 @@ def analyze_direction_v18(ticks: pd.DataFrame, l2: Dict[str, Any] | None = None)
             reasons_down.append(f"主动卖出估算{100-buy_pct:.0f}%")
 
     contributions.extend([
-        ("短VWAP", _component(vwap_dist, 0.15, 0.5)),
-        ("Microprice", _component(micro, 0.05, 0.5)),
+        ("短VWAP", _component(vwap_dist, vwap_scale, 0.5)),
+        ("Microprice", _component(micro, micro_scale, 0.5)),
     ])
 
     signed = float(sum(v for _, v in contributions))
     evidence = float(sum(abs(v) for _, v in contributions))
-    fallback = r30 + 0.5 * r60 + 0.2 * _f(base.get("score")) / 100.0
-    direction = _direction_from_score(signed, fallback=fallback)
+    fallback = r30 / scale30 + 0.5 * r60 / scale60 + 0.2 * _f(base.get("score")) / 100.0
+    raw_direction = _direction_from_score(signed, fallback=fallback)
+    sign = 1.0 if raw_direction == "UP" else -1.0
+    aligned_components = sum(1 for _, value in contributions if sign * value >= 0.25)
+    opposed_components = sum(1 for _, value in contributions if sign * value <= -0.25)
     agreement = 50 if evidence <= 1e-9 else int(round(50.0 + 50.0 * min(1.0, abs(signed) / evidence)))
     dominant_evidence = abs(signed)
 
-    if core_l2 and agreement >= 90 and dominant_evidence >= 4.0:
+    if core_l2 and agreement >= 90 and dominant_evidence >= 4.0 and aligned_components >= 4 and opposed_components <= 1:
         tier, high_conf = "高置信", True
-    elif agreement >= 72 and dominant_evidence >= 2.0:
+    elif agreement >= 72 and dominant_evidence >= 2.0 and aligned_components >= 3 and opposed_components <= 1:
         tier, high_conf = "中等", False
     else:
         tier, high_conf = "弱", False
 
+    selective_pass = tier != "弱"
+    direction = raw_direction if selective_pass else "WATCH"
     out["direction_60"] = direction
-    out["label_60"] = _label(direction, tier)
+    out["label_60"] = _label(raw_direction, tier) if selective_pass else "震荡｜观望"
     out["condition_agreement"] = agreement
-    out["signal_strength"] = agreement
+    out["signal_strength"] = agreement if selective_pass else 0
     out["confidence_tier"] = tier
     out["high_confidence"] = high_conf
     out["l2_confirmed"] = bool(high_conf and core_l2)
     out["level"] = "绿色" if direction == "UP" and high_conf else "红色" if direction == "DOWN" and high_conf else "灰色"
 
-    if direction == "UP":
+    if not selective_pass:
+        out["reasons"] = [
+            f"候选方向{raw_direction}",
+            f"同向证据{aligned_components}项/反向{opposed_components}项",
+            "弱信号已过滤，等待更清晰的1分钟机会",
+        ]
+        out["alert"] = "1分钟候选信号不足，自动WATCH，避免低质量频繁出手"
+    elif direction == "UP":
         out["reasons"] = list(dict.fromkeys(reasons_up + [f"近30秒{r30:+.2f}%", f"近60秒{r60:+.2f}%"]))[:3]
-        out["alert"] = "1分钟方向偏涨" + ("，核心Level-2高一致确认" if high_conf else "，尚未达到高置信门槛")
+        out["alert"] = "1分钟方向偏涨" + ("，核心Level-2高一致确认" if high_conf else "，已通过自适应筛选")
     else:
         out["reasons"] = list(dict.fromkeys(reasons_down + [f"近30秒{r30:+.2f}%", f"近60秒{r60:+.2f}%"]))[:3]
-        out["alert"] = "1分钟方向偏跌" + ("，核心Level-2高一致确认" if high_conf else "，尚未达到高置信门槛")
+        out["alert"] = "1分钟方向偏跌" + ("，核心Level-2高一致确认" if high_conf else "，已通过自适应筛选")
 
-    long_signed = signed + _component(r120, 0.20, 1.5)
-    direction120 = _direction_from_score(long_signed, fallback=r120)
-    out["direction_120"] = direction120
-    out["label_120"] = ("偏涨" if direction120 == "UP" else "偏跌") + ("｜中等" if agreement >= 72 else "｜弱")
+    long_signed = signed + _component(r120, max(0.16, scale60 * 1.6), 1.5)
+    raw_direction120 = _direction_from_score(long_signed, fallback=r120)
+    out["direction_120"] = raw_direction120 if selective_pass else "WATCH"
+    out["label_120"] = (("偏涨" if raw_direction120 == "UP" else "偏跌") + "｜中等") if selective_pass else "震荡｜观望"
 
     out["metrics"].update({
         "direction_signed_score": signed,
         "direction_evidence": evidence,
+        "raw_direction_60": raw_direction,
+        "selective_gate_60": selective_pass,
+        "aligned_components_60": aligned_components,
+        "opposed_components_60": opposed_components,
+        "adaptive_scale_30_pct": round(scale30, 6),
+        "adaptive_scale_60_pct": round(scale60, 6),
+        "adaptive_vwap_scale_pct": round(vwap_scale, 6),
+        "adaptive_micro_scale_pct": round(micro_scale, 6),
+        "adaptive_scale_samples": int(_f(realized.get("samples"), 0)),
         "l2_active_buy_pct": active,
         "l2_big_buy_pct": big,
         "l2_agreement": l2_agreement,
