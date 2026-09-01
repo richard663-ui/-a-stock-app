@@ -1,0 +1,26 @@
+name: Research Python syntax
+
+on:
+  pull_request:
+    paths:
+      - "services/qmt_l2_training_recorder_v2.py"
+      - "services/qmt_l2_training_recorder_v3.py"
+      - "services/train_l2_60s_model_v2.py"
+      - "services/l2_training_status_v2.py"
+      - ".github/workflows/research_python_syntax.yml"
+
+jobs:
+  pycompile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile research Python files
+        run: |
+          python -m py_compile \
+            services/qmt_l2_training_recorder_v2.py \
+            services/qmt_l2_training_recorder_v3.py \
+            services/train_l2_60s_model_v2.py \
+            services/l2_training_status_v2.py
