@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
-"""V5A research model: V4b direction + adaptive 60s selective gate + confidence.
+"""V5B research model: V4b direction + adaptive normalization + safety gate.
 
-The 60-second direction remains the primary research target. The model does not
-use a hand-tuned parameter table for individual stocks. Instead it estimates a
-symbol-local recent movement scale from the incoming tick history and filters
-weak/conflicted candidates to WATCH. MACD remains confidence context only.
+The 60-second direction remains the primary research target. V5B does not flip
+signals after one bad session and it does not add per-stock parameters. Instead
+it adds a deliberately conservative abstention layer learned from the 2026-09-02
+failure analysis: directional output is allowed only when all four independent
+factor groups agree, structural confidence is at least 65, and recent price
+movement is neither too ordinary nor an extreme overshoot relative to the
+symbol-local 30s/60s scale. Everything else becomes WATCH.
+
+This is a safety gate, not proof of alpha. MACD remains confidence context only.
 """
 from __future__ import annotations
 
@@ -13,7 +18,10 @@ from typing import Any, Dict, Iterable, List, Tuple
 
 import modules.research_forward_model_v4b as v4b
 
-MODEL_VERSION = "research-shadow-v5a-adaptive-normalized-selective-60s"
+MODEL_VERSION = "research-shadow-v5b-regime-safety-60s"
+SAFETY_MIN_CONFIDENCE = 65
+SAFETY_MIN_ABNORMALITY = 0.50
+SAFETY_MAX_ABNORMALITY = 1.50
 
 
 def _f(v: Any, d: float = 0.0) -> float:
@@ -175,7 +183,12 @@ def confidence(metrics: Dict[str, Any], ctx: Dict[str, Any], horizon: int) -> Di
 def _selective_60s_gate(metrics: Dict[str, Any], structural_confidence: Dict[str, Any], scales: Dict[str, float]) -> Dict[str, Any]:
     score = int(metrics.get("score60") or 0)
     if abs(score) < 15:
-        return {"pass": False, "reasons": ["neutral_score"], "price_abnormality": 0.0, "threshold": 20}
+        return {
+            "pass": False, "reasons": ["neutral_score"], "price_abnormality": 0.0,
+            "threshold": 20, "aligned_groups": 0, "opposed_groups": 0,
+            "safety_min_confidence": SAFETY_MIN_CONFIDENCE,
+            "safety_abnormality_band": [SAFETY_MIN_ABNORMALITY, SAFETY_MAX_ABNORMALITY],
+        }
     direction = 1 if score > 0 else -1
     groups = metrics.get("groups60") or {}
     aligned = sum(1 for k in ("momentum", "flow", "book", "location") if direction * _f(groups.get(k)) > 1.5)
@@ -191,17 +204,21 @@ def _selective_60s_gate(metrics: Dict[str, Any], structural_confidence: Dict[str
         threshold += 2
     if scale60 >= 0.40:
         threshold += 2
+
     reasons: List[str] = []
     if abs(score) < threshold:
         reasons.append("score_below_adaptive_threshold")
-    if aligned < 2:
-        reasons.append("insufficient_independent_groups")
-    if opposed > 1:
-        reasons.append("too_many_opposed_groups")
-    if confidence_score < 50:
-        reasons.append("low_structural_confidence")
-    if price_abnormality < 0.45 and aligned < 3:
-        reasons.append("ordinary_price_state_without_broad_support")
+    if aligned < 4:
+        reasons.append("not_all_four_factor_groups_aligned")
+    if opposed > 0:
+        reasons.append("opposed_factor_group_present")
+    if confidence_score < SAFETY_MIN_CONFIDENCE:
+        reasons.append("confidence_below_safety_floor")
+    if price_abnormality < SAFETY_MIN_ABNORMALITY:
+        reasons.append("movement_too_ordinary_for_directional_call")
+    elif price_abnormality > SAFETY_MAX_ABNORMALITY:
+        reasons.append("possible_overshoot_mean_reversion_risk")
+
     return {
         "pass": not reasons,
         "reasons": reasons,
@@ -212,6 +229,8 @@ def _selective_60s_gate(metrics: Dict[str, Any], structural_confidence: Dict[str
         "scale30_pct": round(scale30, 6),
         "scale60_pct": round(scale60, 6),
         "structural_confidence": confidence_score,
+        "safety_min_confidence": SAFETY_MIN_CONFIDENCE,
+        "safety_abnormality_band": [SAFETY_MIN_ABNORMALITY, SAFETY_MAX_ABNORMALITY],
     }
 
 
@@ -233,10 +252,13 @@ def score_rows(rows: Iterable[Dict[str, Any]], macd_context: Any = None) -> Dict
         "score60_candidate": candidate_score60,
         "selective_gate_60": bool(gate60["pass"]),
         "selective_gate_reasons_60": list(gate60.get("reasons") or []),
+        "regime_safety_gate_60": bool(gate60["pass"]),
         "adaptive_scale_30_pct": gate60.get("scale30_pct", scales.get("move30_pct")),
         "adaptive_scale_60_pct": gate60.get("scale60_pct", scales.get("move60_pct")),
         "price_abnormality_60": gate60.get("price_abnormality"),
         "adaptive_score_threshold_60": gate60.get("threshold"),
+        "safety_min_confidence_60": gate60.get("safety_min_confidence"),
+        "safety_abnormality_band_60": gate60.get("safety_abnormality_band"),
         "candidate_confidence_60": c60_candidate.get("confidence_score"),
         "confidence_60": c60["confidence_score"], "confidence_120": c120["confidence_score"],
         "confidence_tier_60": c60["confidence_tier"], "confidence_tier_120": c120["confidence_tier"],
