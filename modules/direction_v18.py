@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
-"""V18 60/120-second direction fusion.
+"""V18 60/120-second direction fusion with conservative V10 safety mode.
 
-The 1-minute direction remains the primary target. V9 adaptive mode keeps the
-same microstructure factors but normalizes price components by each symbol's
-recent realized movement and suppresses weak/conflicted candidates to WATCH.
-Condition agreement is not historical accuracy. A high-confidence label still
-requires core Level-2 feed coverage.
+The 1-minute direction remains the primary target. The production-facing output
+now uses a strict abstention layer: only core Level-2, high-agreement candidates
+with no opposed component and a symbol-normalized price abnormality inside the
+0.50-1.50 band may surface as UP/DOWN. Everything else becomes WATCH.
+
+This is intentionally conservative after the 2026-09-02 regime failure. It does
+not invert signals and does not claim the safety band is a calibrated alpha
+model. Condition agreement is not historical accuracy.
 """
 from __future__ import annotations
 
@@ -15,6 +18,9 @@ import numpy as np
 import pandas as pd
 
 from modules.short_direction import analyze_short_direction
+
+SAFETY_MIN_ABNORMALITY = 0.50
+SAFETY_MAX_ABNORMALITY = 1.50
 
 
 def _f(value: Any, default: float = 0.0) -> float:
@@ -127,6 +133,7 @@ def analyze_direction_v18(ticks: pd.DataFrame, l2: Dict[str, Any] | None = None)
     scale60 = max(0.10, _f(realized.get("move60_pct"), 0.12), spread * 3.0)
     vwap_scale = max(0.08, min(0.30, 0.65 * scale60))
     micro_scale = max(0.02, min(0.10, max(spread * 1.25, 0.20 * scale30)))
+    price_abnormality = 0.40 * abs(r30) / scale30 + 0.60 * abs(r60) / scale60
 
     contributions: List[Tuple[str, float]] = [
         ("30秒价格", _component(r30, scale30, 1.0)),
@@ -191,19 +198,32 @@ def analyze_direction_v18(ticks: pd.DataFrame, l2: Dict[str, Any] | None = None)
     dominant_evidence = abs(signed)
 
     if core_l2 and agreement >= 90 and dominant_evidence >= 4.0 and aligned_components >= 4 and opposed_components <= 1:
-        tier, high_conf = "高置信", True
+        tier, candidate_high_conf = "高置信", True
     elif agreement >= 72 and dominant_evidence >= 2.0 and aligned_components >= 3 and opposed_components <= 1:
-        tier, high_conf = "中等", False
+        tier, candidate_high_conf = "中等", False
     else:
-        tier, high_conf = "弱", False
+        tier, candidate_high_conf = "弱", False
 
-    selective_pass = tier != "弱"
+    safety_reasons: List[str] = []
+    if not core_l2:
+        safety_reasons.append("core_l2_not_ready")
+    if not candidate_high_conf:
+        safety_reasons.append("candidate_not_l2_high_confidence")
+    if opposed_components > 0:
+        safety_reasons.append("opposed_component_present")
+    if price_abnormality < SAFETY_MIN_ABNORMALITY:
+        safety_reasons.append("movement_too_ordinary")
+    elif price_abnormality > SAFETY_MAX_ABNORMALITY:
+        safety_reasons.append("possible_overshoot_mean_reversion")
+
+    selective_pass = not safety_reasons
     direction = raw_direction if selective_pass else "WATCH"
+    high_conf = bool(candidate_high_conf and selective_pass)
     out["direction_60"] = direction
-    out["label_60"] = _label(raw_direction, tier) if selective_pass else "震荡｜观望"
+    out["label_60"] = _label(raw_direction, "高置信") if selective_pass else "震荡｜保护性观望"
     out["condition_agreement"] = agreement
     out["signal_strength"] = agreement if selective_pass else 0
-    out["confidence_tier"] = tier
+    out["confidence_tier"] = "高置信" if selective_pass else "保护性WATCH"
     out["high_confidence"] = high_conf
     out["l2_confirmed"] = bool(high_conf and core_l2)
     out["level"] = "绿色" if direction == "UP" and high_conf else "红色" if direction == "DOWN" and high_conf else "灰色"
@@ -211,29 +231,34 @@ def analyze_direction_v18(ticks: pd.DataFrame, l2: Dict[str, Any] | None = None)
     if not selective_pass:
         out["reasons"] = [
             f"候选方向{raw_direction}",
-            f"同向证据{aligned_components}项/反向{opposed_components}项",
-            "弱信号已过滤，等待更清晰的1分钟机会",
+            f"一致度{agreement}%｜同向{aligned_components}项/反向{opposed_components}项",
+            f"价格异常度{price_abnormality:.2f}｜安全带{SAFETY_MIN_ABNORMALITY:.2f}-{SAFETY_MAX_ABNORMALITY:.2f}",
         ]
-        out["alert"] = "1分钟候选信号不足，自动WATCH，避免低质量频繁出手"
+        out["alert"] = "1分钟候选信号未通过保护门：只观察，不作为交易方向"
     elif direction == "UP":
         out["reasons"] = list(dict.fromkeys(reasons_up + [f"近30秒{r30:+.2f}%", f"近60秒{r60:+.2f}%"]))[:3]
-        out["alert"] = "1分钟方向偏涨" + ("，核心Level-2高一致确认" if high_conf else "，已通过自适应筛选")
+        out["alert"] = "1分钟方向偏涨，已通过核心L2与反转风险保护门"
     else:
         out["reasons"] = list(dict.fromkeys(reasons_down + [f"近30秒{r30:+.2f}%", f"近60秒{r60:+.2f}%"]))[:3]
-        out["alert"] = "1分钟方向偏跌" + ("，核心Level-2高一致确认" if high_conf else "，已通过自适应筛选")
+        out["alert"] = "1分钟方向偏跌，已通过核心L2与反转风险保护门"
 
     long_signed = signed + _component(r120, max(0.16, scale60 * 1.6), 1.5)
     raw_direction120 = _direction_from_score(long_signed, fallback=r120)
     out["direction_120"] = raw_direction120 if selective_pass else "WATCH"
-    out["label_120"] = (("偏涨" if raw_direction120 == "UP" else "偏跌") + "｜中等") if selective_pass else "震荡｜观望"
+    out["label_120"] = (("偏涨" if raw_direction120 == "UP" else "偏跌") + "｜观察") if selective_pass else "震荡｜观望"
 
     out["metrics"].update({
         "direction_signed_score": signed,
         "direction_evidence": evidence,
         "raw_direction_60": raw_direction,
         "selective_gate_60": selective_pass,
+        "regime_safety_gate_60": selective_pass,
+        "safety_gate_reasons_60": safety_reasons,
+        "candidate_high_confidence_60": candidate_high_conf,
         "aligned_components_60": aligned_components,
         "opposed_components_60": opposed_components,
+        "price_abnormality_60": round(price_abnormality, 4),
+        "safety_abnormality_band_60": [SAFETY_MIN_ABNORMALITY, SAFETY_MAX_ABNORMALITY],
         "adaptive_scale_30_pct": round(scale30, 6),
         "adaptive_scale_60_pct": round(scale60, 6),
         "adaptive_vwap_scale_pct": round(vwap_scale, 6),
