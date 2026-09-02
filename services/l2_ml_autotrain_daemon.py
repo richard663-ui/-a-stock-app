@@ -20,7 +20,7 @@ from modules.cloud_bridge import CloudBridge, load_bridge_config
 DATA_ROOT = Path.home() / "AStockData"
 MODEL_DIR = DATA_ROOT / "models" / "l2_60s"
 STATE_PATH = MODEL_DIR / "autotrain_state.json"
-TRAINER = Path(__file__).with_name("train_l2_60s_model_v3.py")
+TRAINER = Path(__file__).with_name("train_l2_60s_model_v4.py")
 CHECK_SECONDS = 60
 
 
@@ -51,7 +51,7 @@ def _slot(now: datetime) -> str:
 
 
 def _run_one(scope: str, minimum: int, log_handle) -> int:
-    cmd = [sys.executable, str(TRAINER), "--symbol", scope, "--min-samples", str(minimum)]
+    cmd = [sys.executable, str(TRAINER), "--symbol", scope, "--min-samples", str(minimum), "--hurdle-bp", "2.0"]
     log_handle.write("\n$ " + " ".join(cmd) + "\n")
     log_handle.flush()
     p = subprocess.run(cmd, stdout=log_handle, stderr=subprocess.STDOUT, text=True)
@@ -105,6 +105,7 @@ def _train(now: datetime, slot: str) -> None:
     log_path = MODEL_DIR / f"autotrain_{now.strftime('%Y-%m-%d')}_{slot}.log"
     with log_path.open("a", encoding="utf-8") as log:
         log.write(f"\n=== auto train {datetime.now().astimezone().isoformat(timespec='seconds')} ===\n")
+        log.write("Trainer V4: validation-only threshold selection + 2bp execution hurdle + stability diagnostics.\n")
         rc_priority = _run_one("301236.SZ", 200, log)
         if rc_priority == 0:
             _sync_report("301236.SZ", log)
@@ -117,7 +118,7 @@ def _train(now: datetime, slot: str) -> None:
 
 def main() -> None:
     print("AStock L2 ML auto-trainer started")
-    print("Schedules: 11:35 lunch + 15:10 after close. Reports sync to cloud; no auto deployment.")
+    print("Schedules: 11:35 lunch + 15:10 after close. V4 reports sync to cloud; no auto deployment.")
     while True:
         now = datetime.now()
         slot = _slot(now)
