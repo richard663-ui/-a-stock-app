@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""V5A launcher: V4b recorder integrity + adaptive 60s gate + rich minute-K MACD."""
+"""V5B launcher: V4b recorder integrity + strict 60s regime safety gate + MACD context."""
 from __future__ import annotations
 
 import services.qmt_research_recorder_v4b as v4b
@@ -7,8 +7,8 @@ import modules.research_forward_model_v5 as model
 from modules.macd_calibration_v5 import get_context
 
 base = v4b.base
-RECORDER_VERSION = "research-recorder-v5a-20260901"
-PRODUCTION_MODEL = "mobile-v9-adaptive-normalized-selective-60s"
+RECORDER_VERSION = "research-recorder-v5b-20260902"
+PRODUCTION_MODEL = "mobile-v10-regime-safety-60s"
 
 base.RECORDER_VERSION = RECORDER_VERSION
 base.MODEL_VERSION = model.MODEL_VERSION
@@ -24,13 +24,14 @@ def _macd_context(self, symbol: str):
     except Exception:
         return {}
 
+
 base.CloudState.macd_bias = _macd_context
 
 
 def main():
-    print("V5A active: V4b direction + symbol-local normalization + selective 60s gate + MACD confidence")
-    print("60s remains the primary target. Weak/conflicted candidates become WATCH instead of forced UP/DOWN.")
-    print("MACD is confidence context only; it is NOT a hard gate and does NOT decide direction.")
+    print("V5B active: V4b direction + symbol normalization + strict regime safety gate")
+    print("60s remains primary. Only 4/4 factor alignment + confidence>=65 + abnormality 0.50-1.50 may emit direction.")
+    print("Everything else becomes WATCH. Signals are NOT inverted. MACD is confidence context only.")
     base.main()
 
 
