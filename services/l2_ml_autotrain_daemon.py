@@ -2,8 +2,8 @@
 """Lightweight automatic L2 ML trainer scheduler.
 
 Runs only during the lunch break / after close so it does not compete with live
-recorders. It trains research models and writes reports locally; it never deploys
-a model to the phone/live path.
+recorders. It trains research models, writes reports locally, syncs completed
+reports to Supabase through the V4 wrapper, and never deploys a model live.
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from typing import Dict
 DATA_ROOT = Path.home() / "AStockData"
 MODEL_DIR = DATA_ROOT / "models" / "l2_60s"
 STATE_PATH = MODEL_DIR / "autotrain_state.json"
-TRAINER = Path(__file__).with_name("train_l2_60s_model_v3.py")
+TRAINER = Path(__file__).with_name("train_l2_60s_model_v4.py")
 CHECK_SECONDS = 60
 
 
@@ -64,12 +64,12 @@ def _train(now: datetime, slot: str) -> None:
         rc_priority = _run_one("301236.SZ", 200, log)
         rc_pooled = _run_one("ALL", 300, log)
         log.write(f"\npriority_rc={rc_priority} pooled_rc={rc_pooled}\n")
-        log.write("Research only. No live deployment.\n")
+        log.write("Research only. No live deployment. Completed reports sync to Supabase when available.\n")
 
 
 def main() -> None:
     print("AStock L2 ML auto-trainer started")
-    print("Schedules: 11:35 lunch + 15:10 after close. Research only; no auto deployment.")
+    print("Schedules: 11:35 lunch + 15:10 after close. Reports sync to cloud; no auto deployment.")
     while True:
         now = datetime.now()
         slot = _slot(now)
