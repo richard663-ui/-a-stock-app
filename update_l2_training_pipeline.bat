@@ -4,6 +4,7 @@ chcp 65001 >nul
 
 echo ===============================================
 echo A-Stock Level-2 Trainable 60s Pipeline
+echo Background Autopilot: 301236 + 300308 + 6 auxiliaries
 echo ===============================================
 set "INSTALLDIR=%LOCALAPPDATA%\AStockQMT"
 set "SERVICEDIR=%INSTALLDIR%\services"
@@ -19,6 +20,9 @@ set "REC=%SERVICEDIR%\qmt_l2_training_recorder_v3.py"
 set "RECBASE=%SERVICEDIR%\qmt_l2_training_recorder_v2.py"
 set "TRAIN=%SERVICEDIR%\train_l2_60s_model_v2.py"
 set "STATUS=%SERVICEDIR%\l2_training_status_v2.py"
+set "PERSISTDIR=%USERPROFILE%\.a_stock_qmt"
+set "TRAININGLIST=%PERSISTDIR%\training_watchlist.txt"
+set "RESEARCHLIST=%PERSISTDIR%\research_watchlist.txt"
 
 if not exist "%INSTALLDIR%" (
   echo [ERROR] AStock runtime missing: %INSTALLDIR%
@@ -44,7 +48,35 @@ if errorlevel 1 (
 )
 
 if not exist "%SERVICEDIR%" mkdir "%SERVICEDIR%" >nul 2>&1
+if not exist "%MODULEDIR%" mkdir "%MODULEDIR%" >nul 2>&1
 if not exist "%RUNTIME%" mkdir "%RUNTIME%" >nul 2>&1
+if not exist "%PERSISTDIR%" mkdir "%PERSISTDIR%" >nul 2>&1
+
+echo [0/6] Writing autonomous background watchlists...
+(
+  echo # AStock autonomous research watchlist
+  echo # Phone switching is NOT required for backtest collection.
+  echo 301236.SZ
+  echo 300308.SZ
+  echo 000400.SZ
+  echo 600522.SH
+  echo 601179.SH
+  echo 600105.SH
+  echo 002916.SZ
+  echo 000811.SZ
+) > "%RESEARCHLIST%"
+(
+  echo # AStock autonomous Level-2 ML training watchlist
+  echo # Stable basket is intentional: continuous samples are better than random rotation.
+  echo 301236.SZ
+  echo 300308.SZ
+  echo 000400.SZ
+  echo 600522.SH
+  echo 601179.SH
+  echo 600105.SH
+  echo 002916.SZ
+  echo 000811.SZ
+) > "%TRAININGLIST%"
 
 echo [1/6] Downloading...
 curl.exe -L --fail --retry 3 -o "%TEMP%\l2recv3.py" "%BASE%/services/qmt_l2_training_recorder_v3.py" || goto :fail
@@ -57,6 +89,7 @@ curl.exe -L --fail --retry 3 -o "%TEMP%\l2mod.py" "%BASE%/modules/qmt_level2.py"
 curl.exe -L --fail --retry 3 -o "%TEMP%\qmtlive.py" "%BASE%/modules/qmt_live.py" || goto :fail
 findstr /C:"l2-training-recorder-v3-freshness-20260901" "%TEMP%\l2recv3.py" >nul || goto :fail
 findstr /C:"l2-training-recorder-v2-20260901" "%TEMP%\l2recv2.py" >nul || goto :fail
+findstr /C:"Phone switching is not required" "%TEMP%\l2recv3.py" >nul || goto :fail
 
 echo [2/6] Syntax check...
 "%PYEXE%" -m py_compile "%TEMP%\l2recv3.py" "%TEMP%\l2recv2.py" "%TEMP%\l2train.py" "%TEMP%\l2status.py" "%TEMP%\dir18.py" "%TEMP%\l2mod.py" "%TEMP%\qmtlive.py"
@@ -118,10 +151,15 @@ if errorlevel 1 (
 )
 
 echo.
-echo [OK] 301236.SZ priority, up to 8 watchlist stocks.
+echo [OK] Background autopilot configured.
+echo Fixed priorities: 301236.SZ and 300308.SZ.
+echo Auxiliary basket: 000400.SZ 600522.SH 601179.SH 600105.SH 002916.SZ 000811.SZ.
+echo Phone switching is NOT required for research or ML data collection.
+echo Windows Startup + watchdog keeps the L2 recorder running and restarts it after failures.
 echo Stale market-hour QMT ticks older than 5 seconds are rejected.
 echo Primary label: smoothed mid-price around +60s.
 echo Old lastPrice label is comparison only. No ML model auto-deployed.
+echo QMT still needs to be open and logged in for real market data.
 pause
 exit /b 0
 
