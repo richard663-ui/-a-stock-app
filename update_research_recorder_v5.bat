@@ -3,9 +3,9 @@ setlocal EnableExtensions
 chcp 65001 >nul
 
 echo ========================================
-echo A-Stock 60s Adaptive Model Updater
- echo V5A: symbol normalization + selective WATCH
- echo ========================================
+echo A-Stock 60s Safety Gate Updater
+echo V5B: strict L2 + regime protection
+echo ========================================
 
 set "INSTALLDIR=%LOCALAPPDATA%\AStockQMT"
 set "SERVICEDIR=%INSTALLDIR%\services"
@@ -20,15 +20,15 @@ set "REC5=%SERVICEDIR%\qmt_research_recorder_v5.py"
 set "MOD5=%MODULEDIR%\research_forward_model_v5.py"
 set "MACD5=%MODULEDIR%\macd_calibration_v5.py"
 set "DIR18=%MODULEDIR%\direction_v18.py"
-set "TMPREC=%TEMP%\astock_rec_v5a.py"
-set "TMPMOD=%TEMP%\astock_model_v5a.py"
-set "TMPMACD=%TEMP%\astock_macd_v5a.py"
-set "TMPDIR=%TEMP%\astock_direction_v18_adaptive.py"
-set "KILLVBS=%TEMP%\astock_stop_adaptive60.vbs"
+set "TMPREC=%TEMP%\astock_rec_v5b.py"
+set "TMPMOD=%TEMP%\astock_model_v5b.py"
+set "TMPMACD=%TEMP%\astock_macd_v5b.py"
+set "TMPDIR=%TEMP%\astock_direction_v10_safety.py"
+set "KILLVBS=%TEMP%\astock_stop_v5b.vbs"
 set "BASE=https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main"
 
 if not exist "%INSTALLDIR%" (
-  echo [ERROR] AStock stable runtime not found: %INSTALLDIR%
+  echo [ERROR] AStock runtime not found: %INSTALLDIR%
   pause
   exit /b 1
 )
@@ -47,35 +47,22 @@ if not exist "%SERVICEDIR%" mkdir "%SERVICEDIR%" >nul 2>&1
 if not exist "%MODULEDIR%" mkdir "%MODULEDIR%" >nul 2>&1
 if not exist "%RUNTIME%" mkdir "%RUNTIME%" >nul 2>&1
 
-echo [1/7] Downloading adaptive 60s files...
+echo [1/7] Downloading V5B safety files...
 del /q "%TMPREC%" "%TMPMOD%" "%TMPMACD%" "%TMPDIR%" >nul 2>&1
-curl.exe -L --fail --retry 3 --connect-timeout 8 -o "%TMPREC%" "%BASE%/services/qmt_research_recorder_v5.py"
-if errorlevel 1 goto :download_fail
-curl.exe -L --fail --retry 3 --connect-timeout 8 -o "%TMPMOD%" "%BASE%/modules/research_forward_model_v5.py"
-if errorlevel 1 goto :download_fail
-curl.exe -L --fail --retry 3 --connect-timeout 8 -o "%TMPMACD%" "%BASE%/modules/macd_calibration_v5.py"
-if errorlevel 1 goto :download_fail
-curl.exe -L --fail --retry 3 --connect-timeout 8 -o "%TMPDIR%" "%BASE%/modules/direction_v18.py"
-if errorlevel 1 goto :download_fail
+curl.exe -L --fail --retry 3 --connect-timeout 8 -o "%TMPREC%" "%BASE%/services/qmt_research_recorder_v5.py" || goto :download_fail
+curl.exe -L --fail --retry 3 --connect-timeout 8 -o "%TMPMOD%" "%BASE%/modules/research_forward_model_v5.py" || goto :download_fail
+curl.exe -L --fail --retry 3 --connect-timeout 8 -o "%TMPMACD%" "%BASE%/modules/macd_calibration_v5.py" || goto :download_fail
+curl.exe -L --fail --retry 3 --connect-timeout 8 -o "%TMPDIR%" "%BASE%/modules/direction_v18.py" || goto :download_fail
 
-findstr /C:"research-recorder-v5a-20260901" "%TMPREC%" >nul 2>&1
-if errorlevel 1 goto :marker_fail
-findstr /C:"research-shadow-v5a-adaptive-normalized-selective-60s" "%TMPMOD%" >nul 2>&1
-if errorlevel 1 goto :marker_fail
-findstr /C:"macd-structure-v9" "%TMPMACD%" >nul 2>&1
-if errorlevel 1 goto :marker_fail
-findstr /C:"selective_gate_60" "%TMPDIR%" >nul 2>&1
-if errorlevel 1 goto :marker_fail
+findstr /C:"research-recorder-v5b-20260902" "%TMPREC%" >nul 2>&1 || goto :marker_fail
+findstr /C:"research-shadow-v5b-regime-safety-60s" "%TMPMOD%" >nul 2>&1 || goto :marker_fail
+findstr /C:"SAFETY_MIN_ABNORMALITY" "%TMPDIR%" >nul 2>&1 || goto :marker_fail
 
 echo [2/7] Syntax checking before replacement...
 "%PYEXE%" -m py_compile "%TMPREC%" "%TMPMOD%" "%TMPMACD%" "%TMPDIR%"
-if errorlevel 1 (
-  echo [ERROR] Syntax check failed. Existing runtime was not changed.
-  pause
-  exit /b 1
-)
+if errorlevel 1 goto :syntax_fail
 
-echo [3/7] Stopping research recorder and live bridge...
+echo [3/7] Stopping old recorder and live bridge...
 (
   echo On Error Resume Next
   echo Set svc = GetObject("winmgmts:\\.\root\cimv2"^)
@@ -90,15 +77,11 @@ cscript.exe //nologo "%KILLVBS%" >nul 2>&1
 del /q "%KILLVBS%" >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-echo [4/7] Installing adaptive model files...
-copy /Y "%TMPREC%" "%REC5%" >nul
-if errorlevel 1 goto :install_fail
-copy /Y "%TMPMOD%" "%MOD5%" >nul
-if errorlevel 1 goto :install_fail
-copy /Y "%TMPMACD%" "%MACD5%" >nul
-if errorlevel 1 goto :install_fail
-copy /Y "%TMPDIR%" "%DIR18%" >nul
-if errorlevel 1 goto :install_fail
+echo [4/7] Installing V5B files...
+copy /Y "%TMPREC%" "%REC5%" >nul || goto :install_fail
+copy /Y "%TMPMOD%" "%MOD5%" >nul || goto :install_fail
+copy /Y "%TMPMACD%" "%MACD5%" >nul || goto :install_fail
+copy /Y "%TMPDIR%" "%DIR18%" >nul || goto :install_fail
 del /q "%TMPREC%" "%TMPMOD%" "%TMPMACD%" "%TMPDIR%" >nul 2>&1
 
 echo [5/7] Rebuilding research watchdog...
@@ -126,24 +109,22 @@ if exist "%BRIDGEVBS%" wscript.exe "%BRIDGEVBS%"
 wscript.exe "%RESEARCHVBS%"
 timeout /t 7 /nobreak >nul
 
-echo [7/7] Checking V5A marker...
-findstr /C:"research-recorder-v5a-20260901" "%LOGFILE%" >nul 2>&1
+echo [7/7] Checking V5B marker...
+findstr /C:"research-recorder-v5b-20260902" "%LOGFILE%" >nul 2>&1
 if errorlevel 1 (
-  echo [WARN] V5A files are installed, but the recorder marker is not visible yet.
-  echo Keep QMT logged in. The watchdog will continue retrying.
+  echo [WARN] V5B files installed; recorder marker not visible yet.
+  echo Keep QMT logged in. Watchdog will keep retrying.
 ) else (
-  echo [PASS] V5A adaptive research recorder is running.
+  echo [PASS] V5B safety-gated research recorder is running.
 )
 
 echo.
-echo [OK] Adaptive 60s update installed. No reboot required.
-echo - 60-second direction remains the primary target.
-echo - No per-stock manual parameter table was added.
-echo - Recent 30s/60s movement is normalized automatically per symbol.
-echo - Weak or conflicted candidates are changed to WATCH instead of forced UP/DOWN.
-echo - 301236.SZ can remain the priority validation stock while other stocks use the same framework.
-echo - MACD remains confidence context only and does not directly decide direction.
-echo - Existing raw QMT data and historical validation samples are preserved.
+echo [OK] V5B installed. No reboot required.
+echo - No signal inversion.
+echo - Research: requires 4/4 factor groups + confidence 65+ + abnormality 0.50-1.50.
+echo - Mobile: only core-L2 high-confidence candidates with no opposed component can emit UP/DOWN.
+echo - All rejected candidates remain visible internally and become WATCH externally.
+echo - Historical V5A samples are preserved under their old model version.
 echo.
 pause
 exit /b 0
@@ -152,12 +133,14 @@ exit /b 0
 echo [ERROR] Download failed. Existing runtime was not changed.
 pause
 exit /b 1
-
 :marker_fail
-echo [ERROR] Downloaded files failed adaptive-version marker check.
+echo [ERROR] Downloaded files failed V5B marker check.
 pause
 exit /b 1
-
+:syntax_fail
+echo [ERROR] Syntax check failed. Existing runtime was not changed.
+pause
+exit /b 1
 :install_fail
 echo [ERROR] Installation failed.
 pause
