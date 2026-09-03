@@ -4,10 +4,12 @@
 Opening auction (09:15-09:25) is recorded as a separate regime and is NOT mixed
 blindly with continuous-auction training. This wrapper also publishes a compact
 recorder heartbeat so remote checks can verify the actual ML recorder, not just
-the separate cloud bridge process.
+the separate cloud bridge process. Cloud status publishing is strictly
+best-effort and never blocks the local market-data loop.
 """
 from __future__ import annotations
 
+import threading
 from datetime import datetime
 from typing import Any, Dict
 
@@ -15,13 +17,15 @@ import services.qmt_l2_training_recorder_v5 as v5
 from modules.cloud_bridge import CloudBridge, load_bridge_config
 
 base = v5.base
-RECORDER_VERSION = "l2-training-recorder-v6-morning-auction-20260903b"
+RECORDER_VERSION = "l2-training-recorder-v6-morning-auction-20260903c"
 base.RECORDER_VERSION = RECORDER_VERSION
 
 _regular_market_open = base._market_open
 _regular_session = base._session
 _base_feature_snapshot = base._feature_snapshot
 _base_write_status = base._write_status
+_heartbeat_lock = threading.Lock()
+_heartbeat_busy = False
 
 
 def _market_open_with_auction(now=None) -> bool:
@@ -52,12 +56,11 @@ def _feature_snapshot(row, tick_rows, snap):
     return features, meta
 
 
-def _write_status(payload: Dict[str, Any]) -> None:
-    """Write local status first, then best-effort mirror to Supabase."""
-    _base_write_status(payload)
+def _cloud_heartbeat(payload: Dict[str, Any]) -> None:
+    global _heartbeat_busy
     try:
         cfg = load_bridge_config()
-        bridge = CloudBridge(cfg, timeout=5.0)
+        bridge = CloudBridge(cfg, timeout=4.0)
         cloud_payload = {
             "bridge_id": cfg.bridge_id,
             "recorder_version": str(payload.get("recorder_version") or RECORDER_VERSION),
@@ -78,8 +81,36 @@ def _write_status(payload: Dict[str, Any]) -> None:
             headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
         )
     except Exception as exc:
-        # Recorder must keep collecting even if cloud status sync is unavailable.
         print(f"[WARN] L2 recorder heartbeat sync failed: {exc}")
+    finally:
+        with _heartbeat_lock:
+            _heartbeat_busy = False
+
+
+def _schedule_cloud_heartbeat(payload: Dict[str, Any]) -> None:
+    """At most one daemon heartbeat thread may be in flight.
+
+    If Supabase or the network is slow, the next status tick simply skips cloud
+    publication. Local recording, labels and SQLite writes always take priority.
+    """
+    global _heartbeat_busy
+    with _heartbeat_lock:
+        if _heartbeat_busy:
+            return
+        _heartbeat_busy = True
+    snapshot = dict(payload)
+    threading.Thread(
+        target=_cloud_heartbeat,
+        args=(snapshot,),
+        name="astock-l2-status-heartbeat",
+        daemon=True,
+    ).start()
+
+
+def _write_status(payload: Dict[str, Any]) -> None:
+    """Always write local status synchronously; cloud mirror is non-blocking."""
+    _base_write_status(payload)
+    _schedule_cloud_heartbeat(payload)
 
 
 base._market_open = _market_open_with_auction
@@ -93,7 +124,7 @@ def main() -> None:
     print(f"Recorder: {RECORDER_VERSION}")
     print("09:15-09:25 opening auction is recorded separately.")
     print("09:30-10:30 is tagged as the core morning regime.")
-    print("Recorder heartbeat mirrors sample/event counts to Supabase for remote health checks.")
+    print("Recorder heartbeat is asynchronous; cloud/network latency cannot block market-data capture.")
     base.main()
 
 
