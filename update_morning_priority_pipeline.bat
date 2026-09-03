@@ -2,27 +2,23 @@
 setlocal EnableExtensions
 chcp 65001 >nul
 
-echo ===============================================
-echo A-Stock Morning Priority ML Patch + L2 Cache Fix
-echo Auction capture + 09:30-10:30 hard OOS gate
- echo ===============================================
+echo ======================================================
+echo A-Stock Morning Priority ML Runtime - Atomic Update
+echo L2 cache fix + freshness fix + remote recorder heartbeat
+ echo ======================================================
 set "INSTALLDIR=%LOCALAPPDATA%\AStockQMT"
 set "SERVICEDIR=%INSTALLDIR%\services"
 set "MODULEDIR=%INSTALLDIR%\modules"
 set "RUNTIME=%INSTALLDIR%\runtime"
 set "STARTUPDIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "BASE=https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main"
-set "REC=%SERVICEDIR%\qmt_l2_training_recorder_v6.py"
-set "TRAIN=%SERVICEDIR%\train_l2_60s_model_v5.py"
-set "AUTO=%SERVICEDIR%\l2_ml_autotrain_daemon_v3.py"
-set "L2MOD=%MODULEDIR%\qmt_level2.py"
 set "WATCHDOG=%RUNTIME%\AStockL2TrainingWatchdog.cmd"
 set "AUTOWATCHDOG=%RUNTIME%\AStockL2MLAutoTrainWatchdog.cmd"
 set "LOGFILE=%RUNTIME%\l2_training_recorder.log"
 set "AUTOLOG=%RUNTIME%\l2_ml_autotrain_daemon.log"
 set "STARTVBS=%STARTUPDIR%\AStockL2TrainingRecorder.vbs"
 set "AUTOVBS=%STARTUPDIR%\AStockL2MLAutoTrain.vbs"
-set "KILLVBS=%TEMP%\astock_morning_patch_stop.vbs"
+set "KILLVBS=%TEMP%\astock_morning_atomic_stop.vbs"
 
 if not exist "%INSTALLDIR%" (
   echo [ERROR] Existing AStock QMT runtime not found: %INSTALLDIR%
@@ -43,26 +39,6 @@ if not exist "%SERVICEDIR%" mkdir "%SERVICEDIR%" >nul 2>&1
 if not exist "%MODULEDIR%" mkdir "%MODULEDIR%" >nul 2>&1
 if not exist "%RUNTIME%" mkdir "%RUNTIME%" >nul 2>&1
 
-echo [1/6] Downloading morning-priority recorder/trainer and L2 cache fix...
-curl.exe -L --fail --retry 3 -o "%TEMP%\l2recv6.py" "%BASE%/services/qmt_l2_training_recorder_v6.py" || goto :fail
-curl.exe -L --fail --retry 3 -o "%TEMP%\l2train5.py" "%BASE%/services/train_l2_60s_model_v5.py" || goto :fail
-curl.exe -L --fail --retry 3 -o "%TEMP%\l2auto3.py" "%BASE%/services/l2_ml_autotrain_daemon_v3.py" || goto :fail
-curl.exe -L --fail --retry 3 -o "%TEMP%\qmtl2fix.py" "%BASE%/modules/qmt_level2.py" || goto :fail
-findstr /C:"l2-training-recorder-v6-morning-auction-20260903" "%TEMP%\l2recv6.py" >nul || goto :fail
-findstr /C:"l2-60s-trainer-v5-morning-gated-20260903" "%TEMP%\l2train5.py" >nul || goto :fail
-findstr /C:"l2-ml-autotrain-v3-morning-gated-20260903" "%TEMP%\l2auto3.py" >nul || goto :fail
-findstr /C:"get_l2_cache" "%TEMP%\qmtl2fix.py" >nul || goto :fail
-
-echo [2/6] Syntax check...
-"%PYEXE%" -m py_compile "%TEMP%\l2recv6.py" "%TEMP%\l2train5.py" "%TEMP%\l2auto3.py" "%TEMP%\qmtl2fix.py"
-if errorlevel 1 goto :syntax
-
-echo [3/6] Installing...
-copy /Y "%TEMP%\l2recv6.py" "%REC%" >nul || goto :fail
-copy /Y "%TEMP%\l2train5.py" "%TRAIN%" >nul || goto :fail
-copy /Y "%TEMP%\l2auto3.py" "%AUTO%" >nul || goto :fail
-copy /Y "%TEMP%\qmtl2fix.py" "%L2MOD%" >nul || goto :fail
-
 (
   echo On Error Resume Next
   echo Set svc = GetObject("winmgmts:\\.\root\cimv2"^)
@@ -75,14 +51,47 @@ cscript.exe //nologo "%KILLVBS%" >nul 2>&1
 del /q "%KILLVBS%" >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-echo [4/6] Rebuilding hidden watchdogs...
+echo [1/7] Downloading a CONSISTENT recorder/trainer dependency stack...
+for %%F in (qmt_l2_training_recorder_v2.py qmt_l2_training_recorder_v3.py qmt_l2_training_recorder_v4.py qmt_l2_training_recorder_v5.py qmt_l2_training_recorder_v6.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py l2_ml_autotrain_daemon.py l2_ml_autotrain_daemon_v3.py) do (
+  curl.exe -L --fail --retry 3 -o "%TEMP%\%%F" "%BASE%/services/%%F" || goto :fail
+)
+curl.exe -L --fail --retry 3 -o "%TEMP%\qmt_level2.py" "%BASE%/modules/qmt_level2.py" || goto :fail
+
+findstr /C:"l2-training-recorder-v6-morning-auction-20260903b" "%TEMP%\qmt_l2_training_recorder_v6.py" >nul || goto :fail
+findstr /C:"l2-training-recorder-v5-market-freshness-20260903b" "%TEMP%\qmt_l2_training_recorder_v5.py" >nul || goto :fail
+findstr /C:"l2-60s-trainer-v5-morning-gated-20260903" "%TEMP%\train_l2_60s_model_v5.py" >nul || goto :fail
+findstr /C:"l2-ml-autotrain-v3-morning-gated-20260903" "%TEMP%\l2_ml_autotrain_daemon_v3.py" >nul || goto :fail
+findstr /C:"get_l2_cache" "%TEMP%\qmt_level2.py" >nul || goto :fail
+
+echo [2/7] Syntax check for the whole stack...
+"%PYEXE%" -m py_compile "%TEMP%\qmt_l2_training_recorder_v2.py" "%TEMP%\qmt_l2_training_recorder_v3.py" "%TEMP%\qmt_l2_training_recorder_v4.py" "%TEMP%\qmt_l2_training_recorder_v5.py" "%TEMP%\qmt_l2_training_recorder_v6.py" "%TEMP%\train_l2_60s_model_v3.py" "%TEMP%\train_l2_60s_model_v4.py" "%TEMP%\train_l2_60s_model_v5.py" "%TEMP%\l2_ml_autotrain_daemon.py" "%TEMP%\l2_ml_autotrain_daemon_v3.py" "%TEMP%\qmt_level2.py"
+if errorlevel 1 goto :syntax
+
+echo [3/7] Installing atomically matched Python files...
+for %%F in (qmt_l2_training_recorder_v2.py qmt_l2_training_recorder_v3.py qmt_l2_training_recorder_v4.py qmt_l2_training_recorder_v5.py qmt_l2_training_recorder_v6.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py l2_ml_autotrain_daemon.py l2_ml_autotrain_daemon_v3.py) do (
+  copy /Y "%TEMP%\%%F" "%SERVICEDIR%\%%F" >nul || goto :fail
+)
+copy /Y "%TEMP%\qmt_level2.py" "%MODULEDIR%\qmt_level2.py" >nul || goto :fail
+
+set "PYTHONPATH=%INSTALLDIR%;%PYTHONPATH%"
+echo [4/7] Direct 301236.SZ Level-2 diagnostic BEFORE the 8-stock recorder starts...
+"%PYEXE%" -c "import datetime,time; from modules.qmt_level2 import QMTLevel2Manager; n=datetime.datetime.now(); m=n.hour*60+n.minute; opened=(n.weekday()<5 and ((570<=m<690) or (780<=m<900))); q=QMTLevel2Manager(); q.switch('301236.SZ'); time.sleep(3); s=q.snapshot(); c=s.get('counts',{}); caps=s.get('capabilities',{}); print('[L2] transaction=',c.get('l2transaction',0),' order=',c.get('l2order',0),' quote=',c.get('l2quote',0)); print('[L2] tx_sub=',caps.get('l2transaction',{}).get('subscription_id'),' tx_source=',caps.get('l2transaction',{}).get('source'),' tx_error=',caps.get('l2transaction',{}).get('error')); print('[L2] order_sub=',caps.get('l2order',{}).get('subscription_id'),' order_source=',caps.get('l2order',{}).get('source'),' order_error=',caps.get('l2order',{}).get('error')); ok=(c.get('l2transaction',0)>0 or c.get('l2order',0)>0); q.stop(); raise SystemExit(0 if ok else (2 if opened else 3))"
+set "DIAGRC=%ERRORLEVEL%"
+if "%DIAGRC%"=="0" echo [PASS] TRUE QMT Level-2 transaction/order data reached Python.
+if "%DIAGRC%"=="2" (
+  echo [WARN] Market is open but no transaction/order Level-2 reached Python.
+  echo The printed subscription/error fields now point to broker permission or client capability.
+)
+if "%DIAGRC%"=="3" echo [INFO] Market is closed; live L2 diagnostic is inconclusive. Runtime will still be installed.
+
+echo [5/7] Rebuilding hidden watchdogs...
 (
   echo @echo off
   echo set "PYTHONPATH=%INSTALLDIR%;%%PYTHONPATH%%"
   echo cd /d "%INSTALLDIR%"
   echo :loop
-  echo "%PYEXE%" -u "%REC%" ^>^> "%LOGFILE%" 2^>^&1
-  echo echo [%%DATE%% %%TIME%%] morning recorder exited %%ERRORLEVEL%% - restart in 5s ^>^> "%LOGFILE%"
+  echo "%PYEXE%" -u "%SERVICEDIR%\qmt_l2_training_recorder_v6.py" ^>^> "%LOGFILE%" 2^>^&1
+  echo echo [%%DATE%% %%TIME%%] L2 recorder exited %%ERRORLEVEL%% - restart in 5s ^>^> "%LOGFILE%"
   echo timeout /t 5 /nobreak ^>nul
   echo goto loop
 ) > "%WATCHDOG%"
@@ -95,8 +104,8 @@ echo [4/6] Rebuilding hidden watchdogs...
   echo set "PYTHONPATH=%INSTALLDIR%;%%PYTHONPATH%%"
   echo cd /d "%INSTALLDIR%"
   echo :loop
-  echo "%PYEXE%" -u "%AUTO%" ^>^> "%AUTOLOG%" 2^>^&1
-  echo echo [%%DATE%% %%TIME%%] morning ML daemon exited %%ERRORLEVEL%% - restart in 10s ^>^> "%AUTOLOG%"
+  echo "%PYEXE%" -u "%SERVICEDIR%\l2_ml_autotrain_daemon_v3.py" ^>^> "%AUTOLOG%" 2^>^&1
+  echo echo [%%DATE%% %%TIME%%] ML daemon exited %%ERRORLEVEL%% - restart in 10s ^>^> "%AUTOLOG%"
   echo timeout /t 10 /nobreak ^>nul
   echo goto loop
 ) > "%AUTOWATCHDOG%"
@@ -104,34 +113,25 @@ echo [4/6] Rebuilding hidden watchdogs...
   echo Set sh = CreateObject("WScript.Shell"^)
   echo sh.Run "cmd.exe /d /c ""%AUTOWATCHDOG%""", 0, False
 ) > "%AUTOVBS%"
+
+echo [6/7] Starting background recorder + ML daemon...
 wscript.exe "%STARTVBS%"
 wscript.exe "%AUTOVBS%"
+timeout /t 7 /nobreak >nul
 
-echo [5/6] Verifying background services...
-timeout /t 6 /nobreak >nul
-findstr /C:"l2-training-recorder-v6-morning-auction-20260903" "%LOGFILE%" >nul 2>&1
+echo [7/7] Verifying installed runtime...
+findstr /C:"l2-training-recorder-v6-morning-auction-20260903b" "%LOGFILE%" >nul 2>&1
 if errorlevel 1 (echo [WARN] Recorder installed; marker not visible yet.) else (echo [PASS] Morning-priority L2 recorder active.)
 findstr /C:"l2-ml-autotrain-v3-morning-gated-20260903" "%AUTOLOG%" >nul 2>&1
 if errorlevel 1 (echo [WARN] ML daemon installed; marker not visible yet.) else (echo [PASS] Morning-gated ML daemon active.)
 
-echo [6/6] Direct QMT Level-2 diagnostic on 301236.SZ...
-set "PYTHONPATH=%INSTALLDIR%;%PYTHONPATH%"
-"%PYEXE%" -c "import time; from modules.qmt_level2 import QMTLevel2Manager; m=QMTLevel2Manager(); st=m.switch('301236.SZ'); time.sleep(2); s=m.snapshot(); c=s.get('counts',{}); caps=s.get('capabilities',{}); print('[L2] transaction=',c.get('l2transaction',0),' order=',c.get('l2order',0),' quote=',c.get('l2quote',0)); print('[L2] tx_sub=',caps.get('l2transaction',{}).get('subscription_id'),' tx_error=',caps.get('l2transaction',{}).get('error')); print('[L2] order_sub=',caps.get('l2order',{}).get('subscription_id'),' order_error=',caps.get('l2order',{}).get('error')); ok=(c.get('l2transaction',0)>0 or c.get('l2order',0)>0); m.stop(); raise SystemExit(0 if ok else 2)"
-if errorlevel 2 (
-  echo [WARN] QMT is connected but no transaction/order L2 reached Python yet.
-  echo This now points to broker Level-2 permission/client capability rather than the ML code.
-) else (
-  echo [PASS] TRUE QMT Level-2 transaction/order data reached Python.
-)
-
 echo.
-echo [OK] Morning-priority + L2 cache-poll fix configured.
-echo The manager now SUBSCRIBES Level-2 and also drains get_l2_transaction/get_l2_order/get_l2_quote caches.
-echo ndarray/DataFrame L2 payloads are accepted instead of silently discarded.
-echo 09:15-09:25 opening auction is recorded separately.
-echo 09:30-10:30 is a mandatory OOS readiness gate.
-echo Phone switching is still NOT required.
-echo Nothing is auto-deployed to live trading.
+echo [OK] Atomic L2/ML runtime configured.
+echo - New-vs-old cache dedupe now controls freshness; old cache tails cannot fake fresh L2.
+echo - Recorder heartbeat uploads sample/labeled/raw-event counts for remote checks.
+echo - Full dependency stack is updated together to avoid wrapper/base version mismatch.
+echo - 09:15-09:25 auction remains separate; 09:30-10:30 remains mandatory OOS gate.
+echo - Nothing is auto-deployed to live trading.
 pause
 exit /b 0
 
@@ -140,6 +140,7 @@ echo [ERROR] Syntax check failed. Existing runtime was not replaced.
 pause
 exit /b 1
 :fail
-echo [ERROR] Morning-priority update failed.
+echo [ERROR] Atomic morning-priority update failed. Existing background runtime was stopped to avoid mixed versions.
+echo Re-run this BAT after network/GitHub access is restored.
 pause
 exit /b 1
