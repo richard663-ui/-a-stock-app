@@ -4,7 +4,7 @@ chcp 65001 >nul
 
 echo ======================================================
 echo A-Stock Morning Priority ML Runtime - Atomic Update
-echo L2 cache fix + freshness fix + remote recorder heartbeat
+echo L2 cache fix + freshness fix + async recorder heartbeat
  echo ======================================================
 set "INSTALLDIR=%LOCALAPPDATA%\AStockQMT"
 set "SERVICEDIR=%INSTALLDIR%\services"
@@ -45,7 +45,7 @@ for %%F in (qmt_l2_training_recorder_v2.py qmt_l2_training_recorder_v3.py qmt_l2
 )
 curl.exe -L --fail --retry 3 -o "%TEMP%\qmt_level2.py" "%BASE%/modules/qmt_level2.py" || goto :fail_download
 
-findstr /C:"l2-training-recorder-v6-morning-auction-20260903b" "%TEMP%\qmt_l2_training_recorder_v6.py" >nul || goto :fail_download
+findstr /C:"l2-training-recorder-v6-morning-auction-20260903c" "%TEMP%\qmt_l2_training_recorder_v6.py" >nul || goto :fail_download
 findstr /C:"l2-training-recorder-v5-market-freshness-20260903b" "%TEMP%\qmt_l2_training_recorder_v5.py" >nul || goto :fail_download
 findstr /C:"l2-60s-trainer-v5-morning-gated-20260903" "%TEMP%\train_l2_60s_model_v5.py" >nul || goto :fail_download
 findstr /C:"l2-ml-autotrain-v3-morning-gated-20260903" "%TEMP%\l2_ml_autotrain_daemon_v3.py" >nul || goto :fail_download
@@ -122,7 +122,7 @@ wscript.exe "%AUTOVBS%"
 timeout /t 7 /nobreak >nul
 
 echo [7/7] Verifying installed runtime...
-findstr /C:"l2-training-recorder-v6-morning-auction-20260903b" "%LOGFILE%" >nul 2>&1
+findstr /C:"l2-training-recorder-v6-morning-auction-20260903c" "%LOGFILE%" >nul 2>&1
 if errorlevel 1 (echo [WARN] Recorder installed; marker not visible yet.) else (echo [PASS] Morning-priority L2 recorder active.)
 findstr /C:"l2-ml-autotrain-v3-morning-gated-20260903" "%AUTOLOG%" >nul 2>&1
 if errorlevel 1 (echo [WARN] ML daemon installed; marker not visible yet.) else (echo [PASS] Morning-gated ML daemon active.)
@@ -130,7 +130,7 @@ if errorlevel 1 (echo [WARN] ML daemon installed; marker not visible yet.) else 
 echo.
 echo [OK] Atomic L2/ML runtime configured.
 echo - New-vs-old cache dedupe controls freshness; old cache tails cannot fake fresh L2.
-echo - Recorder heartbeat uploads sample/labeled/raw-event counts for remote checks.
+echo - Recorder heartbeat is asynchronous; cloud delays cannot block local capture.
 echo - Full dependency stack is updated together to avoid wrapper/base version mismatch.
 echo - 09:15-09:25 auction remains separate; 09:30-10:30 remains mandatory OOS gate.
 echo - Nothing is auto-deployed to live trading.
