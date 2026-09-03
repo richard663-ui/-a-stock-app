@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 """V5 L2 training recorder: efficient V4 + market context + L2 freshness.
 
-This is still research-only. It keeps the stable eight-stock basket, 5-second
-training samples and +60s smoothed-mid labels. It adds two lightweight L1 market
-benchmarks and explicit L2 age features so stale/market-wide moves are not hidden
-inside stock-specific predictors.
+Research-only. Keeps the stable basket, 5-second samples and +60s smoothed-mid
+labels, while adding lightweight market context and explicit L2 freshness.
 """
 from __future__ import annotations
 
@@ -17,7 +15,7 @@ import services.qmt_l2_training_recorder_v4 as v4
 from modules.qmt_level2 import QMTLevel2Manager as _BaseL2Manager
 
 base = v4.base
-RECORDER_VERSION = "l2-training-recorder-v5-market-freshness-20260902"
+RECORDER_VERSION = "l2-training-recorder-v5-market-freshness-20260903b"
 BENCHMARKS = ("000300.SH", "399006.SZ")
 MARKET_CACHE_SECONDS = 1.0
 L2_FRESH_SECONDS = 5.0
@@ -30,11 +28,18 @@ class FreshQMTLevel2Manager(_BaseL2Manager):
         super().__init__()
         self._last_update_ts: Dict[str, float] = {p: 0.0 for p in self.buffers}
 
-    def _append(self, period: str, rows: Iterable[Dict[str, Any]]) -> None:
+    def _append(self, period: str, rows: Iterable[Dict[str, Any]], source: str = "callback") -> int:
+        """Track freshness only when genuinely NEW rows were appended.
+
+        QMT cache polling can return the same tail repeatedly. Re-seeing cached
+        rows must never refresh the feed timestamp, otherwise a frozen Level-2
+        feed could be mislabeled as fresh forever.
+        """
         materialized: List[Dict[str, Any]] = [dict(x) for x in rows if isinstance(x, dict) and x]
-        if materialized:
+        added = int(super()._append(period, materialized, source=source) or 0)
+        if added:
             self._last_update_ts[period] = time.time()
-        super()._append(period, materialized)
+        return added
 
     def switch(self, symbol: str) -> Dict[str, Any]:
         self._last_update_ts = {p: 0.0 for p in self.buffers}
@@ -91,6 +96,7 @@ _base_feature_snapshot = base._feature_snapshot
 def _feature_snapshot(row, tick_rows, snap):
     features, meta = _base_feature_snapshot(row, tick_rows, snap)
     ages = dict(snap.get("age_seconds") or {})
+    caps = dict(snap.get("capabilities") or {})
 
     def age(name: str) -> float:
         value = ages.get(name)
@@ -103,9 +109,21 @@ def _feature_snapshot(row, tick_rows, snap):
     t_age = age("l2transaction")
     o_age = age("l2order")
     oq_age = age("l2orderqueue")
-    core_ages = [x for x in (t_age, o_age) if x < 999.0]
-    core_max = max(core_ages) if core_ages else 999.0
-    core_fresh = bool(core_ages and core_max <= L2_FRESH_SECONDS)
+
+    # Event age measures activity, not just connection health. A quiet stock can
+    # legitimately have no new transaction/order for a few seconds while quote
+    # snapshots are still fresh, so feed freshness uses the freshest core stream.
+    available_core_ages = [
+        x for x in (q_age, t_age, o_age)
+        if x < 999.0
+    ]
+    feed_age = min(available_core_ages) if available_core_ages else 999.0
+    feed_fresh = bool(available_core_ages and feed_age <= L2_FRESH_SECONDS)
+    event_ages = [x for x in (t_age, o_age) if x < 999.0]
+    core_max = max(event_ages) if event_ages else 999.0
+
+    tx_available = bool((caps.get("l2transaction") or {}).get("available"))
+    order_available = bool((caps.get("l2order") or {}).get("available"))
 
     features.update({
         "l2_quote_age_s": q_age,
@@ -113,7 +131,11 @@ def _feature_snapshot(row, tick_rows, snap):
         "l2_order_age_s": o_age,
         "l2_orderqueue_age_s": oq_age,
         "l2_core_max_age_s": core_max,
-        "l2_core_fresh": int(core_fresh),
+        "l2_core_fresh": int(feed_fresh),
+        "l2_feed_age_s": feed_age,
+        "l2_feed_fresh": int(feed_fresh),
+        "l2_transaction_stream_seen": int(tx_available),
+        "l2_order_stream_seen": int(order_available),
     })
     market = _market_features()
     features.update(market)
@@ -121,8 +143,10 @@ def _feature_snapshot(row, tick_rows, snap):
     features["relative_to_hs300_pct"] = stock_ret - float(market.get("market_hs300_return_pct") or 0.0)
     features["relative_to_chinext_pct"] = stock_ret - float(market.get("market_chinext_return_pct") or 0.0)
 
-    # Training must not call cached or aged transaction/order state "true L2".
-    meta["true_l2"] = bool(meta.get("true_l2") and core_fresh)
+    # A trainable true-L2 row requires that the transaction stream has actually
+    # been observed and that at least one core L2 stream has genuinely updated
+    # recently. Repeated old cache tails no longer satisfy this condition.
+    meta["true_l2"] = bool(tx_available and feed_fresh)
     return features, meta
 
 
@@ -133,7 +157,7 @@ def main() -> None:
     print("AStock L2 training recorder V5 market/freshness mode")
     print(f"Recorder: {RECORDER_VERSION}")
     print("5s samples and +60s smoothed-mid labels unchanged.")
-    print("Adds HS300/ChiNext relative context and explicit L2 age; stale core L2 is not trainable.")
+    print("Freshness advances only on genuinely new L2 rows; repeated cache tails cannot fake a live feed.")
     base.main()
 
 
