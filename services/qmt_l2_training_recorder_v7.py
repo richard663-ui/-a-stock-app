@@ -11,10 +11,10 @@ from __future__ import annotations
 from typing import Any, Dict
 
 import services.qmt_l2_training_recorder_v6 as v6
-from modules.external_level2 import ExternalLevel2Manager, external_level2_enabled, provider_name
+from modules.external_level2_v2 import ExternalLevel2Manager, external_level2_enabled, provider_name
 
 base = v6.base
-RECORDER_VERSION = "l2-training-recorder-v7-external-provider-20260903"
+RECORDER_VERSION = "l2-training-recorder-v7-external-provider-20260903b"
 base.RECORDER_VERSION = RECORDER_VERSION
 
 if external_level2_enabled():
@@ -38,6 +38,7 @@ def main() -> None:
     print(f"Recorder: {RECORDER_VERSION}")
     print(f"L2 provider: {provider_name()}")
     print("QMT L1/ticks still drive price history and +60s labels.")
+    print("External subscriptions retry in background; starting txtool later needs no recorder restart.")
     print("External L2 failure never falls back to fake L2; true_l2 remains false until real events arrive.")
     base.main()
 
