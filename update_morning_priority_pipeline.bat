@@ -39,6 +39,24 @@ if not exist "%SERVICEDIR%" mkdir "%SERVICEDIR%" >nul 2>&1
 if not exist "%MODULEDIR%" mkdir "%MODULEDIR%" >nul 2>&1
 if not exist "%RUNTIME%" mkdir "%RUNTIME%" >nul 2>&1
 
+echo [1/7] Downloading a CONSISTENT recorder/trainer dependency stack...
+for %%F in (qmt_l2_training_recorder_v2.py qmt_l2_training_recorder_v3.py qmt_l2_training_recorder_v4.py qmt_l2_training_recorder_v5.py qmt_l2_training_recorder_v6.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py l2_ml_autotrain_daemon.py l2_ml_autotrain_daemon_v3.py) do (
+  curl.exe -L --fail --retry 3 -o "%TEMP%\%%F" "%BASE%/services/%%F" || goto :fail_download
+)
+curl.exe -L --fail --retry 3 -o "%TEMP%\qmt_level2.py" "%BASE%/modules/qmt_level2.py" || goto :fail_download
+
+findstr /C:"l2-training-recorder-v6-morning-auction-20260903b" "%TEMP%\qmt_l2_training_recorder_v6.py" >nul || goto :fail_download
+findstr /C:"l2-training-recorder-v5-market-freshness-20260903b" "%TEMP%\qmt_l2_training_recorder_v5.py" >nul || goto :fail_download
+findstr /C:"l2-60s-trainer-v5-morning-gated-20260903" "%TEMP%\train_l2_60s_model_v5.py" >nul || goto :fail_download
+findstr /C:"l2-ml-autotrain-v3-morning-gated-20260903" "%TEMP%\l2_ml_autotrain_daemon_v3.py" >nul || goto :fail_download
+findstr /C:"get_l2_cache" "%TEMP%\qmt_level2.py" >nul || goto :fail_download
+
+echo [2/7] Syntax check for the whole stack...
+"%PYEXE%" -m py_compile "%TEMP%\qmt_l2_training_recorder_v2.py" "%TEMP%\qmt_l2_training_recorder_v3.py" "%TEMP%\qmt_l2_training_recorder_v4.py" "%TEMP%\qmt_l2_training_recorder_v5.py" "%TEMP%\qmt_l2_training_recorder_v6.py" "%TEMP%\train_l2_60s_model_v3.py" "%TEMP%\train_l2_60s_model_v4.py" "%TEMP%\train_l2_60s_model_v5.py" "%TEMP%\l2_ml_autotrain_daemon.py" "%TEMP%\l2_ml_autotrain_daemon_v3.py" "%TEMP%\qmt_level2.py"
+if errorlevel 1 goto :syntax
+
+REM Only stop the working runtime AFTER every replacement file has downloaded
+REM and compiled. A network failure therefore cannot take the current recorder down.
 (
   echo On Error Resume Next
   echo Set svc = GetObject("winmgmts:\\.\root\cimv2"^)
@@ -51,27 +69,11 @@ cscript.exe //nologo "%KILLVBS%" >nul 2>&1
 del /q "%KILLVBS%" >nul 2>&1
 timeout /t 2 /nobreak >nul
 
-echo [1/7] Downloading a CONSISTENT recorder/trainer dependency stack...
-for %%F in (qmt_l2_training_recorder_v2.py qmt_l2_training_recorder_v3.py qmt_l2_training_recorder_v4.py qmt_l2_training_recorder_v5.py qmt_l2_training_recorder_v6.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py l2_ml_autotrain_daemon.py l2_ml_autotrain_daemon_v3.py) do (
-  curl.exe -L --fail --retry 3 -o "%TEMP%\%%F" "%BASE%/services/%%F" || goto :fail
-)
-curl.exe -L --fail --retry 3 -o "%TEMP%\qmt_level2.py" "%BASE%/modules/qmt_level2.py" || goto :fail
-
-findstr /C:"l2-training-recorder-v6-morning-auction-20260903b" "%TEMP%\qmt_l2_training_recorder_v6.py" >nul || goto :fail
-findstr /C:"l2-training-recorder-v5-market-freshness-20260903b" "%TEMP%\qmt_l2_training_recorder_v5.py" >nul || goto :fail
-findstr /C:"l2-60s-trainer-v5-morning-gated-20260903" "%TEMP%\train_l2_60s_model_v5.py" >nul || goto :fail
-findstr /C:"l2-ml-autotrain-v3-morning-gated-20260903" "%TEMP%\l2_ml_autotrain_daemon_v3.py" >nul || goto :fail
-findstr /C:"get_l2_cache" "%TEMP%\qmt_level2.py" >nul || goto :fail
-
-echo [2/7] Syntax check for the whole stack...
-"%PYEXE%" -m py_compile "%TEMP%\qmt_l2_training_recorder_v2.py" "%TEMP%\qmt_l2_training_recorder_v3.py" "%TEMP%\qmt_l2_training_recorder_v4.py" "%TEMP%\qmt_l2_training_recorder_v5.py" "%TEMP%\qmt_l2_training_recorder_v6.py" "%TEMP%\train_l2_60s_model_v3.py" "%TEMP%\train_l2_60s_model_v4.py" "%TEMP%\train_l2_60s_model_v5.py" "%TEMP%\l2_ml_autotrain_daemon.py" "%TEMP%\l2_ml_autotrain_daemon_v3.py" "%TEMP%\qmt_level2.py"
-if errorlevel 1 goto :syntax
-
 echo [3/7] Installing atomically matched Python files...
 for %%F in (qmt_l2_training_recorder_v2.py qmt_l2_training_recorder_v3.py qmt_l2_training_recorder_v4.py qmt_l2_training_recorder_v5.py qmt_l2_training_recorder_v6.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py l2_ml_autotrain_daemon.py l2_ml_autotrain_daemon_v3.py) do (
-  copy /Y "%TEMP%\%%F" "%SERVICEDIR%\%%F" >nul || goto :fail
+  copy /Y "%TEMP%\%%F" "%SERVICEDIR%\%%F" >nul || goto :fail_install
 )
-copy /Y "%TEMP%\qmt_level2.py" "%MODULEDIR%\qmt_level2.py" >nul || goto :fail
+copy /Y "%TEMP%\qmt_level2.py" "%MODULEDIR%\qmt_level2.py" >nul || goto :fail_install
 
 set "PYTHONPATH=%INSTALLDIR%;%PYTHONPATH%"
 echo [4/7] Direct 301236.SZ Level-2 diagnostic BEFORE the 8-stock recorder starts...
@@ -127,7 +129,7 @@ if errorlevel 1 (echo [WARN] ML daemon installed; marker not visible yet.) else 
 
 echo.
 echo [OK] Atomic L2/ML runtime configured.
-echo - New-vs-old cache dedupe now controls freshness; old cache tails cannot fake fresh L2.
+echo - New-vs-old cache dedupe controls freshness; old cache tails cannot fake fresh L2.
 echo - Recorder heartbeat uploads sample/labeled/raw-event counts for remote checks.
 echo - Full dependency stack is updated together to avoid wrapper/base version mismatch.
 echo - 09:15-09:25 auction remains separate; 09:30-10:30 remains mandatory OOS gate.
@@ -136,11 +138,15 @@ pause
 exit /b 0
 
 :syntax
-echo [ERROR] Syntax check failed. Existing runtime was not replaced.
+echo [ERROR] Syntax check failed. Existing runtime was NOT stopped or replaced.
 pause
 exit /b 1
-:fail
-echo [ERROR] Atomic morning-priority update failed. Existing background runtime was stopped to avoid mixed versions.
-echo Re-run this BAT after network/GitHub access is restored.
+:fail_download
+echo [ERROR] Download/marker validation failed. Existing runtime was NOT stopped.
+pause
+exit /b 1
+:fail_install
+echo [ERROR] Installation failed after stopping the old runtime.
+echo Re-run this BAT to restore the verified stack.
 pause
 exit /b 1
