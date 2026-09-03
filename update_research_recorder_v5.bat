@@ -13,7 +13,6 @@ set "MODULEDIR=%INSTALLDIR%\modules"
 set "RUNTIME=%INSTALLDIR%\runtime"
 set "STARTUPDIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 set "RESEARCHVBS=%STARTUPDIR%\AStockQMTResearchRecorder.vbs"
-set "BRIDGEVBS=%STARTUPDIR%\AStockQMTCloudBridge.vbs"
 set "WATCHDOG=%RUNTIME%\AStockResearchWatchdog.cmd"
 set "LOGFILE=%RUNTIME%\research_recorder.log"
 set "REC5=%SERVICEDIR%\qmt_research_recorder_v5.py"
@@ -66,13 +65,16 @@ echo [2/7] Syntax checking before replacement...
 "%PYEXE%" -m py_compile "%TMPREC5%" "%TMPREC6%" "%TMPMOD%" "%TMPMACD%" "%TMPDIR%"
 if errorlevel 1 goto :syntax_fail
 
-echo [3/7] Stopping old recorder and live bridge...
+echo [3/7] Stopping OLD RESEARCH recorder only...
+REM The cloud bridge is a separate live-data service and is intentionally left
+REM untouched. Older versions killed qmt_cloud_bridge.py here and then looked for
+REM a .vbs launcher even though the stable installer creates a .cmd launcher.
 (
   echo On Error Resume Next
   echo Set svc = GetObject("winmgmts:\\.\root\cimv2"^)
   echo For Each p In svc.ExecQuery("Select * from Win32_Process"^)
   echo   cmd = LCase("" ^& p.CommandLine^)
-  echo   If InStr(cmd, "qmt_research_recorder_v3.py"^) ^> 0 Or InStr(cmd, "qmt_research_recorder_v4.py"^) ^> 0 Or InStr(cmd, "qmt_research_recorder_v4b.py"^) ^> 0 Or InStr(cmd, "qmt_research_recorder_v5.py"^) ^> 0 Or InStr(cmd, "qmt_research_recorder_v6.py"^) ^> 0 Or InStr(cmd, "astockresearchwatchdog.cmd"^) ^> 0 Or InStr(cmd, "qmt_cloud_bridge.py"^) ^> 0 Or InStr(cmd, "astockqmtcloudbridgewatchdog.cmd"^) ^> 0 Then
+  echo   If InStr(cmd, "qmt_research_recorder_v3.py"^) ^> 0 Or InStr(cmd, "qmt_research_recorder_v4.py"^) ^> 0 Or InStr(cmd, "qmt_research_recorder_v4b.py"^) ^> 0 Or InStr(cmd, "qmt_research_recorder_v5.py"^) ^> 0 Or InStr(cmd, "qmt_research_recorder_v6.py"^) ^> 0 Or InStr(cmd, "astockresearchwatchdog.cmd"^) ^> 0 Then
   echo     p.Terminate
   echo   End If
   echo Next
@@ -109,8 +111,7 @@ echo [5/7] Rebuilding expiry-first research watchdog...
   echo sh.Run "cmd.exe /d /c ""%WATCHDOG%""", 0, False
 ) > "%RESEARCHVBS%"
 
-echo [6/7] Restarting live bridge and research recorder...
-if exist "%BRIDGEVBS%" wscript.exe "%BRIDGEVBS%"
+echo [6/7] Starting research recorder; live bridge remains untouched...
 wscript.exe "%RESEARCHVBS%"
 timeout /t 7 /nobreak >nul
 
@@ -129,6 +130,7 @@ echo - Predictive weights and V5B safety gate were NOT changed.
 echo - Expiring 60s/120s samples are evaluated before heavy scoring.
 echo - Eight-symbol scoring is staggered and runs in background workers.
 echo - Slow score calculations are skipped rather than creating stale predictions.
+echo - Cloud bridge is NOT stopped or restarted by this updater.
 echo - Historical data is preserved.
 echo.
 pause
