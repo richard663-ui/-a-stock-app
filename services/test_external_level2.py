@@ -6,7 +6,15 @@ import json
 import time
 from datetime import datetime
 
-from modules.external_level2 import ExternalLevel2Manager
+from modules.external_level2_v2 import ExternalLevel2Manager
+
+
+def _market_open(now: datetime | None = None) -> bool:
+    d = now or datetime.now()
+    if d.weekday() >= 5:
+        return False
+    m = d.hour * 60 + d.minute
+    return (555 <= m < 565) or (570 <= m < 690) or (780 <= m < 900)
 
 
 def main() -> int:
@@ -39,6 +47,7 @@ def main() -> int:
         "checked_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "symbol": args.symbol,
         "ok": ok,
+        "market_open": _market_open(),
         "counts": c,
         "runtime_error": last.get("runtime_error"),
         "provider": last.get("provider"),
@@ -46,7 +55,10 @@ def main() -> int:
     if ok:
         print("[PASS] External Level-2 transaction + quote reached the ML adapter.")
         return 0
-    print("[WARN] No usable external Level-2 yet. Check txtool proxy, provider account, subscription and server settings.")
+    if not _market_open() and bool(last.get("runtime_available")):
+        print("[INFO] External client is installed, but market is closed; live event-count test is inconclusive.")
+        return 3
+    print("[WARN] No usable external Level-2 during market hours. Check txtool proxy, provider account, subscription and server settings.")
     return 2
 
 
