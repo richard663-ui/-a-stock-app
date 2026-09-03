@@ -41,7 +41,7 @@ if not defined PYEXE (
 )
 echo [1/8] Python: %PYEXE%
 
-for %%D in ("%SERVICEDIR%" "%MODULEDIR%" "%VENDOR%" "%PROTO%" "%CLI%" "%CONF%" "%RUNTIME%" "%PERSIST%") do if not exist %%~D mkdir %%~D >nul 2>&1
+for %%D in ("%SERVICEDIR%" "%MODULEDIR%" "%VENDOR%" "%PROTO%" "%CLI%" "%CONF%" "%RUNTIME%" "%PERSIST%") do if not exist "%%~D" mkdir "%%~D" >nul 2>&1
 
 echo [2/8] Installing gRPC build/runtime dependencies...
 "%PYEXE%" -m pip install --disable-pip-version-check "grpcio>=1.60" "grpcio-tools>=1.60" "protobuf>=4.25"
@@ -49,10 +49,12 @@ if errorlevel 1 goto :fail
 
 echo [3/8] Downloading AStock adapter + recorder...
 curl.exe -L --fail --retry 3 -o "%MODULEDIR%\external_level2.py" "%BASE%/modules/external_level2.py" || goto :fail
+curl.exe -L --fail --retry 3 -o "%MODULEDIR%\external_level2_v2.py" "%BASE%/modules/external_level2_v2.py" || goto :fail
 curl.exe -L --fail --retry 3 -o "%SERVICEDIR%\qmt_l2_training_recorder_v7.py" "%BASE%/services/qmt_l2_training_recorder_v7.py" || goto :fail
 curl.exe -L --fail --retry 3 -o "%SERVICEDIR%\test_external_level2.py" "%BASE%/services/test_external_level2.py" || goto :fail
-findstr /C:"level2api" "%MODULEDIR%\external_level2.py" >nul || goto :fail
-findstr /C:"l2-training-recorder-v7-external-provider-20260903" "%SERVICEDIR%\qmt_l2_training_recorder_v7.py" >nul || goto :fail
+findstr /C:"ExternalLevel2Manager" "%MODULEDIR%\external_level2.py" >nul || goto :fail
+findstr /C:"subscription_loop" "%MODULEDIR%\external_level2_v2.py" >nul || goto :fail
+findstr /C:"l2-training-recorder-v7-external-provider-20260903b" "%SERVICEDIR%\qmt_l2_training_recorder_v7.py" >nul || goto :fail
 
 echo [4/8] Downloading the provider's PUBLIC proto definitions and Windows proxy binary...
 curl.exe -L --fail --retry 3 -o "%PROTO%\entity.proto" "%VBASE%/proto/entity.proto" || goto :fail
@@ -71,7 +73,7 @@ for %%A in ("%CLI%\txtool.exe") do if %%~zA LSS 8000000 (
 echo [5/8] Compiling current Python gRPC stubs locally from the provider proto...
 "%PYEXE%" -m grpc_tools.protoc -I"%PROTO%" --python_out="%VENDOR%" --grpc_python_out="%VENDOR%" "%PROTO%\entity.proto" "%PROTO%\proxy.proto"
 if errorlevel 1 goto :fail
-"%PYEXE%" -m py_compile "%VENDOR%\entity_pb2.py" "%VENDOR%\proxy_pb2.py" "%VENDOR%\proxy_pb2_grpc.py" "%MODULEDIR%\external_level2.py" "%SERVICEDIR%\qmt_l2_training_recorder_v7.py" "%SERVICEDIR%\test_external_level2.py"
+"%PYEXE%" -m py_compile "%VENDOR%\entity_pb2.py" "%VENDOR%\proxy_pb2.py" "%VENDOR%\proxy_pb2_grpc.py" "%MODULEDIR%\external_level2.py" "%MODULEDIR%\external_level2_v2.py" "%SERVICEDIR%\qmt_l2_training_recorder_v7.py" "%SERVICEDIR%\test_external_level2.py"
 if errorlevel 1 goto :fail
 
 if not exist "%PROVIDERCFG%" (
@@ -121,6 +123,7 @@ echo [7/8] Creating local helper scripts...
   echo echo Testing external adapter with 301236.SZ...
   echo "%PYEXE%" "%SERVICEDIR%\test_external_level2.py" --symbol 301236.SZ --seconds 10
   echo echo.
+  echo echo The recorder retries subscriptions automatically. No recorder restart is needed after the proxy comes online.
   echo echo If market is closed, zero event counts are inconclusive. During market hours transaction/quote must rise.
   echo pause
 ) > "%INSTALLDIR%\START_AND_TEST_LEVEL2API.bat"
@@ -151,6 +154,7 @@ echo.
 echo The fixed 8-stock basket is subscribed automatically with topic mask 15:
 echo transaction + order + order queue + 10-level quote.
 echo QMT remains open for L1 ticks and +60s price labels.
+echo Subscription failures retry in background, so proxy startup order no longer matters.
 echo.
 echo SECURITY: txtool.exe was downloaded from the provider's public GitHub repo.
 echo This installer NEVER auto-runs the third-party binary and NEVER disables antivirus.
