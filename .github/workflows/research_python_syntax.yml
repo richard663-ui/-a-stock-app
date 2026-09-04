@@ -15,6 +15,7 @@ on:
       - "services/train_l1_60s_model_v5r.py"
       - "services/l1_ml_autotrain_daemon_v2.py"
       - "services/l1_ml_autotrain_daemon_v3.py"
+      - "services/qmt_walkforward_pandas_compat.py"
       - "services/qmt_l1_60s_walkforward_v1.py"
       - "services/selftest_l1_trainer_v3.py"
       - "services/selftest_l1_trainer_v4.py"
@@ -47,6 +48,7 @@ jobs:
             services/train_l1_60s_model_v5_challenger.py \
             services/train_l1_60s_model_v5r.py \
             services/l1_ml_autotrain_daemon_v2.py \
+            services/qmt_walkforward_pandas_compat.py \
             services/qmt_l1_60s_walkforward_v1.py \
             services/selftest_l1_trainer_v3.py \
             services/selftest_l1_trainer_v4r.py \
