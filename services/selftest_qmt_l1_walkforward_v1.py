@@ -2,7 +2,10 @@
 from __future__ import annotations
 
 import math
+import sqlite3
+import tempfile
 from datetime import datetime, timedelta
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -74,7 +77,36 @@ def main() -> None:
     assert math.isfinite(float(r["ret_ask_to_bid_60_pct"])), "exact ask->future bid diagnostic missing"
     assert float(r["future_bid_60"]) > 0 and float(r["ask1"]) > 0
 
-    print("PASS: QMT historical replay uses China time, session-isolated labels, past-only highs/lows, and leak-free features")
+    # Exercise the real SQLite writer and its 39-column binding contract.
+    ts = pd.Timestamp(r["_ts"]).tz_localize(CN)
+    epoch = ts.timestamp()
+    threshold = float(r["label_threshold_pct"])
+    ret_sm = float(r["ret_smoothed_mid_60_pct"])
+    row_tuple = (
+        "301236.SZ", int(epoch // 5) * 5, epoch, ts.isoformat(timespec="milliseconds"), "AM",
+        float(r["lastPrice"]), float(r["bid1"]), float(r["ask1"]), float(r["mid_price"]), float(r["spread_pct"]),
+        threshold, 0, 0, 0, "WATCH", 0, 0,
+        __import__("json").dumps(fx, ensure_ascii=False, separators=(",", ":")),
+        float(r["mid_5"]), float(r["mid_15"]), float(r["mid_30"]), float(r["mid_60"]),
+        float(r["ret_mid_5_pct"]), float(r["ret_mid_15_pct"]), float(r["ret_mid_30_pct"]), float(r["ret_mid_60_pct"]),
+        float(r["last_60"]), float(r["ret_last_60_pct"]), float(r["smoothed_mid_60"]), ret_sm,
+        w._label(float(r["ret_last_60_pct"]), threshold), w._label(float(r["ret_mid_60_pct"]), threshold), w._label(ret_sm, threshold),
+        (ts + pd.Timedelta(seconds=65)).isoformat(timespec="seconds"), 1, None, w.RECORDER_VERSION,
+        float(r["future_bid_60"]), float(r["ret_ask_to_bid_60_pct"]),
+    )
+    assert len(row_tuple) == 39
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        assert w._write_day(root, day, [row_tuple]) == 1
+        db = root / "training" / day / "l2_training.sqlite3"
+        conn = sqlite3.connect(db)
+        try:
+            n, future_bid = conn.execute("SELECT COUNT(*), MAX(future_bid_60) FROM training_samples_v2").fetchone()
+        finally:
+            conn.close()
+        assert n == 1 and float(future_bid) > 0, "historical SQLite writer/readback failed"
+
+    print("PASS: QMT historical replay uses China time, session-isolated labels, past-only highs/lows, leak-free features, and valid SQLite writes")
 
 
 if __name__ == "__main__":
