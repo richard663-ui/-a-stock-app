@@ -39,10 +39,11 @@ def main() -> None:
             assert set(obj.get("models", {})) == {"logistic_balanced", "hist_gradient_boosting"}
             assert obj["models"]["logistic_balanced"].get("candidate_role") == "PROMOTION_CANDIDATE"
             assert obj["models"]["hist_gradient_boosting"].get("candidate_role") == "CONTROL_ONLY"
+            proxy_error = obj.get("execution_proxy_error")
             for item in obj.get("models", {}).values():
                 assert "selected_probability_threshold" in item
                 assert "heads" in item
-                assert "up_entry_spread_adjusted_proxy" in item
+                assert "up_entry_spread_adjusted_proxy" in item, f"proxy missing; error={proxy_error!r}"
         finally:
             v5.MODEL_DIR = old_v5_dir
             t.MODEL_DIR = old_t_dir
