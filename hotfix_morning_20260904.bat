@@ -21,11 +21,11 @@ set "AUTOLOG=%RUNTIME%\l2_ml_autotrain_daemon.log"
 set "AUTOVBS=%STARTUPDIR%\AStockL2MLAutoTrain.vbs"
 set "KILLVBS=%TEMP%\astock_morning_hotfix_stop.vbs"
 
-if not exist "%INSTALLDIR%" (echo [ERROR] AStock runtime not found.& pause& exit /b 1)
+if not exist "%INSTALLDIR%" (echo [ERROR] AStock runtime not found.& if not defined ASTOCK_NO_PAUSE pause& exit /b 1)
 set "PYEXE="
 for /f "delims=" %%I in ('py -c "import sys;print(sys.executable)" 2^>nul') do set "PYEXE=%%I"
 if not defined PYEXE for /f "delims=" %%I in ('python -c "import sys;print(sys.executable)" 2^>nul') do set "PYEXE=%%I"
-if not defined PYEXE (echo [ERROR] Python not found.& pause& exit /b 1)
+if not defined PYEXE (echo [ERROR] Python not found.& if not defined ASTOCK_NO_PAUSE pause& exit /b 1)
 if not exist "%SERVICEDIR%" mkdir "%SERVICEDIR%" >nul 2>&1
 if not exist "%MODULEDIR%" mkdir "%MODULEDIR%" >nul 2>&1
 if not exist "%RUNTIME%" mkdir "%RUNTIME%" >nul 2>&1
@@ -106,14 +106,20 @@ echo - MACD network fetches no longer block 60s/120s expiry timing.
 echo - V5B predictive weights/gates are unchanged.
 echo - L1 duplicate feature columns no longer crash training.
 echo - Existing samples are preserved.
-echo - If run before 12:30, daemon-version change forces a fresh lunch training attempt.
+echo - Daemon-version change forces a fresh eligible training attempt in the next slot.
 echo - QMT cloud bridge and L1 recorder were not stopped.
-pause
+if not defined ASTOCK_NO_PAUSE pause
 exit /b 0
 
 :fail_download
-echo [ERROR] Download/marker check failed. Runtime untouched.& pause& exit /b 1
+echo [ERROR] Download/marker check failed. Runtime untouched.
+if not defined ASTOCK_NO_PAUSE pause
+exit /b 1
 :fail_syntax
-echo [ERROR] Syntax check failed. Runtime untouched.& pause& exit /b 1
+echo [ERROR] Syntax check failed. Runtime untouched.
+if not defined ASTOCK_NO_PAUSE pause
+exit /b 1
 :fail_install
-echo [ERROR] Install failed after stop. Re-run this BAT.& pause& exit /b 1
+echo [ERROR] Install failed after stop. Re-run this BAT.
+if not defined ASTOCK_NO_PAUSE pause
+exit /b 1
