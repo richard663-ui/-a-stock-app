@@ -3,9 +3,8 @@ setlocal EnableExtensions
 chcp 65001 >nul
 
 echo ======================================================
-echo A-Stock Morning Hotfix 2026-09-04
-echo Fix L1 trainer RC=1 + forward late_scoring
-
+echo A-Stock V7 Forward + V5 Champion-Challenger Runtime
+echo Runtime marker: l1-v7-v5-stack-20260904
 echo ======================================================
 set "INSTALLDIR=%LOCALAPPDATA%\AStockQMT"
 set "SERVICEDIR=%INSTALLDIR%\services"
@@ -20,6 +19,7 @@ set "AUTOWATCH=%RUNTIME%\AStockL2MLAutoTrainWatchdog.cmd"
 set "AUTOLOG=%RUNTIME%\l2_ml_autotrain_daemon.log"
 set "AUTOVBS=%STARTUPDIR%\AStockL2MLAutoTrain.vbs"
 set "KILLVBS=%TEMP%\astock_morning_hotfix_stop.vbs"
+set "V5DAEMON=l1-ml-autotrain-v5-champion-challenger-20260904"
 
 if not exist "%INSTALLDIR%" (echo [ERROR] AStock runtime not found.& if not defined ASTOCK_NO_PAUSE pause& exit /b 1)
 set "PYEXE="
@@ -30,17 +30,21 @@ if not exist "%SERVICEDIR%" mkdir "%SERVICEDIR%" >nul 2>&1
 if not exist "%MODULEDIR%" mkdir "%MODULEDIR%" >nul 2>&1
 if not exist "%RUNTIME%" mkdir "%RUNTIME%" >nul 2>&1
 
-echo [1/6] Downloading fixed files before touching runtime...
-for %%F in (qmt_research_recorder_v6.py qmt_research_recorder_v7.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py l1_ml_autotrain_daemon_v1.py l1_ml_autotrain_daemon_v2.py) do (
+echo [1/6] Downloading complete V7 + V5 stack before touching runtime...
+for %%F in (qmt_research_recorder_v6.py qmt_research_recorder_v7.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py train_l1_60s_model_v4.py train_l1_60s_model_v4r.py train_l1_60s_model_v5_challenger.py train_l1_60s_model_v5r.py l1_ml_autotrain_daemon_v1.py l1_ml_autotrain_daemon_v2.py) do (
   curl.exe -L --fail --retry 3 -o "%TEMP%\%%F" "%BASE%/services/%%F" || goto :fail_download
 )
 curl.exe -L --fail --retry 3 -o "%TEMP%\macd_calibration_v5.py" "%BASE%/modules/macd_calibration_v5.py" || goto :fail_download
 findstr /C:"research-recorder-v7-nonblocking-macd-20260904" "%TEMP%\qmt_research_recorder_v7.py" >nul || goto :fail_download
 findstr /C:"l1-60s-trainer-v2-dedup-columns-20260904" "%TEMP%\train_l1_60s_model_v2.py" >nul || goto :fail_download
-findstr /C:"l1-ml-autotrain-v2-dedup-20260904" "%TEMP%\l1_ml_autotrain_daemon_v2.py" >nul || goto :fail_download
+findstr /C:"l1-60s-trainer-v4-asymmetric-regime-20260904" "%TEMP%\train_l1_60s_model_v4.py" >nul || goto :fail_download
+findstr /C:"l1-60s-trainer-v4r-asymmetric-rotating-thin-20260904" "%TEMP%\train_l1_60s_model_v4r.py" >nul || goto :fail_download
+findstr /C:"l1-60s-trainer-v5-robust-challenger-20260904" "%TEMP%\train_l1_60s_model_v5_challenger.py" >nul || goto :fail_download
+findstr /C:"l1-60s-trainer-v5r-robust-challenger-20260904" "%TEMP%\train_l1_60s_model_v5r.py" >nul || goto :fail_download
+findstr /C:"%V5DAEMON%" "%TEMP%\l1_ml_autotrain_daemon_v2.py" >nul || goto :fail_download
 
-echo [2/6] Syntax checking...
-"%PYEXE%" -m py_compile "%TEMP%\qmt_research_recorder_v6.py" "%TEMP%\qmt_research_recorder_v7.py" "%TEMP%\train_l1_60s_model_v1.py" "%TEMP%\train_l1_60s_model_v2.py" "%TEMP%\l1_ml_autotrain_daemon_v1.py" "%TEMP%\l1_ml_autotrain_daemon_v2.py" "%TEMP%\macd_calibration_v5.py"
+echo [2/6] Syntax checking complete V7 + V5 stack...
+"%PYEXE%" -m py_compile "%TEMP%\qmt_research_recorder_v6.py" "%TEMP%\qmt_research_recorder_v7.py" "%TEMP%\train_l1_60s_model_v1.py" "%TEMP%\train_l1_60s_model_v2.py" "%TEMP%\train_l1_60s_model_v4.py" "%TEMP%\train_l1_60s_model_v4r.py" "%TEMP%\train_l1_60s_model_v5_challenger.py" "%TEMP%\train_l1_60s_model_v5r.py" "%TEMP%\l1_ml_autotrain_daemon_v1.py" "%TEMP%\l1_ml_autotrain_daemon_v2.py" "%TEMP%\macd_calibration_v5.py"
 if errorlevel 1 goto :fail_syntax
 
 echo [3/6] Stopping research recorder and L1 auto-trainer only...
@@ -56,8 +60,8 @@ cscript.exe //nologo "%KILLVBS%" >nul 2>&1
 del /q "%KILLVBS%" >nul 2>&1
 timeout /t 1 /nobreak >nul
 
-echo [4/6] Installing matched hotfix files...
-for %%F in (qmt_research_recorder_v6.py qmt_research_recorder_v7.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py l1_ml_autotrain_daemon_v1.py l1_ml_autotrain_daemon_v2.py) do copy /Y "%TEMP%\%%F" "%SERVICEDIR%\%%F" >nul || goto :fail_install
+echo [4/6] Installing matched V7 + V5 files...
+for %%F in (qmt_research_recorder_v6.py qmt_research_recorder_v7.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py train_l1_60s_model_v4.py train_l1_60s_model_v4r.py train_l1_60s_model_v5_challenger.py train_l1_60s_model_v5r.py l1_ml_autotrain_daemon_v1.py l1_ml_autotrain_daemon_v2.py) do copy /Y "%TEMP%\%%F" "%SERVICEDIR%\%%F" >nul || goto :fail_install
 copy /Y "%TEMP%\macd_calibration_v5.py" "%MODULEDIR%\macd_calibration_v5.py" >nul || goto :fail_install
 
 set "PYTHONPATH=%INSTALLDIR%;%PYTHONPATH%"
@@ -93,21 +97,23 @@ echo [5/6] Rebuilding watchdogs...
 
 wscript.exe "%RESEARCHVBS%"
 wscript.exe "%AUTOVBS%"
-timeout /t 6 /nobreak >nul
+timeout /t 8 /nobreak >nul
 
-echo [6/6] Verifying...
+echo [6/6] Verifying V7 + V5 runtime...
 findstr /C:"research-recorder-v7-nonblocking-macd-20260904" "%RESEARCHLOG%" >nul 2>&1
 if errorlevel 1 (echo [WARN] V7 research marker not visible yet.) else (echo [PASS] V7 non-blocking forward recorder active.)
-findstr /C:"l1-ml-autotrain-v2-dedup-20260904" "%AUTOLOG%" >nul 2>&1
-if errorlevel 1 (echo [WARN] L1 trainer V2 marker not visible yet.) else (echo [PASS] L1 ML trainer V2 active.)
+findstr /C:"%V5DAEMON%" "%AUTOLOG%" >nul 2>&1
+if errorlevel 1 (echo [WARN] V5 Champion-Challenger marker not visible yet.) else (echo [PASS] L1 ML V5 Champion-Challenger active.)
 echo.
-echo [OK] Hotfix installed.
-echo - MACD network fetches no longer block 60s/120s expiry timing.
-echo - V5B predictive weights/gates are unchanged.
-echo - L1 duplicate feature columns no longer crash training.
+echo [OK] V7 + V5 Champion-Challenger runtime installed.
+echo - V4R remains Champion and is trained/synced normally.
+echo - V5R runs separately as Challenger; unstable heads can abstain to WATCH.
+echo - Challenger failure cannot replace or break the Champion.
+echo - MACD network fetches do not block 60s/120s expiry timing.
 echo - Existing samples are preserved.
-echo - Daemon-version change forces a fresh eligible training attempt in the next slot.
+echo - Daemon-version change forces a fresh eligible PM training attempt today.
 echo - QMT cloud bridge and L1 recorder were not stopped.
+echo - Nothing is auto-promoted or auto-deployed.
 if not defined ASTOCK_NO_PAUSE pause
 exit /b 0
 
