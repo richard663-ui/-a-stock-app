@@ -7,6 +7,11 @@ on:
       - "services/qmt_l2_training_recorder_v3.py"
       - "services/train_l2_60s_model_v2.py"
       - "services/l2_training_status_v2.py"
+      - "services/train_l1_60s_model_v2.py"
+      - "services/train_l1_60s_model_v3.py"
+      - "services/l1_ml_autotrain_daemon_v2.py"
+      - "services/l1_ml_autotrain_daemon_v3.py"
+      - "services/selftest_l1_trainer_v3.py"
       - ".github/workflows/research_python_syntax.yml"
 
 jobs:
@@ -17,10 +22,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install research ML dependencies
+        run: python -m pip install --disable-pip-version-check "scikit-learn>=1.5,<2.0" "joblib>=1.4" "pandas>=2.0"
       - name: Compile research Python files
         run: |
           python -m py_compile \
             services/qmt_l2_training_recorder_v2.py \
             services/qmt_l2_training_recorder_v3.py \
             services/train_l2_60s_model_v2.py \
-            services/l2_training_status_v2.py
+            services/l2_training_status_v2.py \
+            services/train_l1_60s_model_v3.py \
+            services/l1_ml_autotrain_daemon_v2.py \
+            services/selftest_l1_trainer_v3.py
+      - name: Run synthetic L1 trainer end-to-end test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_l1_trainer_v3.py
