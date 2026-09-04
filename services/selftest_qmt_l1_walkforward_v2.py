@@ -9,7 +9,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import services.qmt_l1_60s_walkforward_v2 as w
+import services.qmt_walkforward_null_compat_v2 as nullfix
 import services.selftest_l1_trainer_v4 as synth
+
+nullfix.apply()
 
 
 def _copy_days(src: Path, dst: Path, dates: list[str]) -> None:
@@ -34,8 +37,6 @@ def _shift_live_feature(root: Path, day: str, name: str, add: float) -> None:
 
 
 def main() -> None:
-    # Threshold invariants prevent V5's deliberate .999 abstention marker from
-    # ever being mistaken for a valid V4 threshold.
     v4_bad = {"trainer_version": "l1-60s-trainer-v4r-asymmetric-rotating-thin-20260904",
               "models": {"logistic_balanced": {"selected_probability_threshold": {"up_entry": .999, "down_risk": .6}}}}
     ok, problems = w._thresholds_ok(v4_bad, "V4R")
@@ -45,36 +46,27 @@ def main() -> None:
     assert w._thresholds_ok(v5_watch, "V5R")[0]
 
     with tempfile.TemporaryDirectory() as td:
-        root = Path(td)
-        hist = root / "hist"
-        live = root / "live"
-        start = datetime(2026, 8, 31)
-        dates = []
+        root = Path(td); hist = root / "hist"; live = root / "live"
+        start = datetime(2026, 8, 31); dates = []
         for j in range(5):
-            dt = start + timedelta(days=j)
-            dates.append(dt.strftime("%Y-%m-%d"))
-            synth._write_day(hist, dt, j)
+            dt = start + timedelta(days=j); dates.append(dt.strftime("%Y-%m-%d")); synth._write_day(hist, dt, j)
         _copy_days(hist, live, dates)
 
         same = w._historical_live_parity(hist, dates, live)
         assert same["matched_rows"] >= 1000, same
         assert same["status"] in {"PASS", "PASS_WITH_WARNINGS"}, same
-
-        # Deliberately break one core stored feature across all live rows.  The
-        # SQLite parity audit must notice it rather than silently trusting replay.
         for d in dates:
             _shift_live_feature(live, d, "tick_buy_pct", 100.0)
         bad = w._historical_live_parity(hist, dates, live)
         assert "tick_buy_pct" in bad.get("severe_feature_mismatches", []), bad
 
-        # Unlike V1's null check, this produces ROC-AUC diagnostics even when a
-        # robust challenger would abstain from every trade.
         null = w._effective_null_control(hist, dates, repeats=3)
         assert null.get("ok") is True, null
         assert null.get("shuffled_auc_median") is not None, null
+        assert null.get("not_a_performance_metric") is True, null
         assert len(null.get("shuffled_label_runs") or []) == 3, null
 
-    print("PASS: QMT walk-forward V2 detects parity breaks, validates thresholds, and runs threshold-independent null AUC")
+    print("PASS: QMT walk-forward V2 detects parity breaks, validates thresholds, and runs dense threshold-independent null AUC")
 
 
 if __name__ == "__main__":
