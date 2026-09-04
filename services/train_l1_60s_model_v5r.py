@@ -12,6 +12,8 @@ import json
 from pathlib import Path
 from typing import Dict
 
+import numpy as np
+import pandas as pd
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
@@ -40,6 +42,44 @@ def _models() -> Dict[str, Pipeline]:
     return {"logistic_balanced": logistic, "hist_gradient_boosting": control}
 
 
+def _series(frame: pd.DataFrame, name: str, default: float = np.nan) -> pd.Series:
+    if name not in frame.columns:
+        return pd.Series(default, index=frame.index, dtype=float)
+    return pd.to_numeric(frame[name], errors="coerce")
+
+
+def _safe_up_proxy(frame: pd.DataFrame, bundle: Dict) -> Dict:
+    """Missing-column-safe version of the V5 spread-adjusted UP proxy."""
+    if frame.empty:
+        return {"n": 0, "note": "proxy_only_no_test_rows"}
+    if "ask1" not in frame.columns or "mid_price" not in frame.columns:
+        return {
+            "n": 0,
+            "note": "proxy_unavailable_missing_entry_quote_columns; real recorder rows include ask1/mid_price",
+        }
+    threshold = float(bundle.get("up_threshold") or 0.999)
+    prob = v5.core._positive_probability(bundle["up_model"], frame[v5.FEATURES])
+    active = prob >= threshold
+    ask = _series(frame, "ask1").to_numpy(float)
+    future_ret = _series(frame, v5.core.RET_TARGET).to_numpy(float)
+    entry_mid = _series(frame, "mid_price").to_numpy(float)
+    spread_pct = _series(frame, "spread_pct", 0.0).fillna(0.0).clip(lower=0.0).to_numpy(float)
+    future_mid = entry_mid * (1.0 + future_ret / 100.0)
+    future_bid_proxy = future_mid * (1.0 - spread_pct / 200.0)
+    ok = active & np.isfinite(ask) & (ask > 0) & np.isfinite(future_bid_proxy) & (future_bid_proxy > 0)
+    n = int(ok.sum())
+    if not n:
+        return {"n": 0, "note": "proxy_only_no_active_up_signals"}
+    ret_pct = (future_bid_proxy[ok] / ask[ok] - 1.0) * 100.0
+    return {
+        "n": n,
+        "avg_spread_adjusted_proxy_edge_bp": float(np.mean(ret_pct) * 100.0),
+        "median_spread_adjusted_proxy_edge_bp": float(np.median(ret_pct) * 100.0),
+        "positive_proxy_return_pct": float((ret_pct > 0).mean() * 100.0),
+        "note": "proxy_only: real entry ask; future bid approximated from smoothed future mid and current spread",
+    }
+
+
 def _mark_roles(symbol: str) -> None:
     scope = symbol.upper().replace(".", "_")
     path = MODEL_DIR / f"{scope}_training_report_latest.json"
@@ -62,9 +102,11 @@ def _mark_roles(symbol: str) -> None:
 def train(symbol: str, min_samples: int, data_root: Path, hurdle_bp: float) -> int:
     old_factory = v5._models
     old_version = v5.TRAINER_VERSION
+    old_proxy = v5._up_spread_adjusted_proxy
     try:
         v5._models = _models
         v5.TRAINER_VERSION = TRAINER_VERSION
+        v5._up_spread_adjusted_proxy = _safe_up_proxy
         rc = int(v5.train(symbol, min_samples, data_root, hurdle_bp))
         if rc == 0:
             _mark_roles(symbol)
@@ -73,6 +115,7 @@ def train(symbol: str, min_samples: int, data_root: Path, hurdle_bp: float) -> i
     finally:
         v5._models = old_factory
         v5.TRAINER_VERSION = old_version
+        v5._up_spread_adjusted_proxy = old_proxy
 
 
 def main() -> None:
