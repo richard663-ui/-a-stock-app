@@ -11,11 +11,14 @@ on:
       - "services/train_l1_60s_model_v3.py"
       - "services/train_l1_60s_model_v4.py"
       - "services/train_l1_60s_model_v4r.py"
+      - "services/train_l1_60s_model_v5_challenger.py"
+      - "services/train_l1_60s_model_v5r.py"
       - "services/l1_ml_autotrain_daemon_v2.py"
       - "services/l1_ml_autotrain_daemon_v3.py"
       - "services/selftest_l1_trainer_v3.py"
       - "services/selftest_l1_trainer_v4.py"
       - "services/selftest_l1_trainer_v4r.py"
+      - "services/selftest_l1_trainer_v5.py"
       - ".github/workflows/research_python_syntax.yml"
 
 jobs:
@@ -38,9 +41,12 @@ jobs:
             services/train_l1_60s_model_v3.py \
             services/train_l1_60s_model_v4.py \
             services/train_l1_60s_model_v4r.py \
+            services/train_l1_60s_model_v5_challenger.py \
+            services/train_l1_60s_model_v5r.py \
             services/l1_ml_autotrain_daemon_v2.py \
             services/selftest_l1_trainer_v3.py \
-            services/selftest_l1_trainer_v4r.py
+            services/selftest_l1_trainer_v4r.py \
+            services/selftest_l1_trainer_v5.py
       - name: Run synthetic L1 V3 trainer end-to-end test
         env:
           PYTHONPATH: .
@@ -49,3 +55,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: python services/selftest_l1_trainer_v4r.py
+      - name: Run synthetic L1 V5 robust challenger end-to-end test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_l1_trainer_v5.py
