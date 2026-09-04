@@ -3,8 +3,8 @@ setlocal EnableExtensions
 chcp 65001 >nul
 
 echo ======================================================
-echo A-Stock QMT L1 60s Historical Walk-Forward Audit
-echo Reference-only / anti-overfit / no trading
+echo A-Stock QMT L1 60s Historical Walk-Forward Audit V2
+echo Parity + permutation-null / reference-only / no trading
 echo ======================================================
 
 set "INSTALLDIR=%LOCALAPPDATA%\AStockQMT"
@@ -34,31 +34,32 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo [1/3] Downloading frozen walk-forward code and current V4R/V5R research stack...
-for %%F in (qmt_walkforward_pandas_compat.py qmt_l1_60s_walkforward_v1.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py train_l1_60s_model_v3.py train_l1_60s_model_v4.py train_l1_60s_model_v4r.py train_l1_60s_model_v5_challenger.py train_l1_60s_model_v5r.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py) do (
+echo [1/3] Downloading V2 audit plus frozen V4R/V5R stack...
+for %%F in (qmt_walkforward_pandas_compat.py qmt_l1_60s_walkforward_v1.py qmt_l1_60s_walkforward_v2.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py train_l1_60s_model_v3.py train_l1_60s_model_v4.py train_l1_60s_model_v4r.py train_l1_60s_model_v5_challenger.py train_l1_60s_model_v5r.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py) do (
   curl.exe -L --fail --retry 3 -o "%SERVICEDIR%\%%F" "%BASE%/services/%%F" || goto :fail
 )
-findstr /C:"qmt-l1-60s-walkforward-v1-20260905" "%SERVICEDIR%\qmt_l1_60s_walkforward_v1.py" >nul || goto :fail
+findstr /C:"qmt-l1-60s-walkforward-v2-parity-null-20260905" "%SERVICEDIR%\qmt_l1_60s_walkforward_v2.py" >nul || goto :fail
 findstr /C:"l1-60s-trainer-v5r-robust-challenger-20260904" "%SERVICEDIR%\train_l1_60s_model_v5r.py" >nul || goto :fail
 
 echo [2/3] Syntax check...
-"%PYEXE%" -m py_compile "%SERVICEDIR%\qmt_walkforward_pandas_compat.py" "%SERVICEDIR%\qmt_l1_60s_walkforward_v1.py"
+"%PYEXE%" -m py_compile "%SERVICEDIR%\qmt_walkforward_pandas_compat.py" "%SERVICEDIR%\qmt_l1_60s_walkforward_v1.py" "%SERVICEDIR%\qmt_l1_60s_walkforward_v2.py"
 if errorlevel 1 goto :fail
 
-echo [3/3] Running historical QMT tick replay + chronological walk-forward...
-echo This may take several minutes. Existing live recorder/ML daemon are NOT stopped.
-echo No orders are placed. No model is auto-promoted or copied to live.
+echo [3/3] Running frozen historical replay + parity/null audit...
+echo Existing live recorder/ML daemon are NOT stopped.
+echo V2 does NOT alter V4R/V5R weights, thresholds, promotion, or live models.
 set "PYTHONPATH=%INSTALLDIR%;%PYTHONPATH%"
 cd /d "%INSTALLDIR%"
-"%PYEXE%" -u -c "import services.qmt_walkforward_pandas_compat; import services.qmt_l1_60s_walkforward_v1 as m; raise SystemExit(m.main())" --days 14
+"%PYEXE%" -u -c "import services.qmt_walkforward_pandas_compat; import services.qmt_l1_60s_walkforward_v2 as m; raise SystemExit(m.main())" --days 14
 set "RC=%ERRORLEVEL%"
 
 echo.
 if "%RC%"=="0" (
-  echo [PASS] Historical walk-forward completed and report sync was attempted.
-  echo [IMPORTANT] Result is reference-only; future unseen days remain mandatory.
+  echo [PASS] Historical Audit V2 completed and cloud sync was attempted.
+  echo [CHECK] Review historical-live parity and shuffled-label AUC before trusting historical metrics.
+  echo [IMPORTANT] Historical results cannot tune/promote/deploy; future unseen days remain mandatory.
 ) else (
-  echo [ERROR] Historical walk-forward failed with rc=%RC%.
+  echo [ERROR] Historical Audit V2 failed with rc=%RC%.
   echo Existing live runtime was not stopped or replaced.
 )
 echo.
