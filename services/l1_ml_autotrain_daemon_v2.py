@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Compatibility launcher: V2 filename, asymmetric V4 L1 auto-trainer runtime.
+"""Compatibility launcher: V2 filename, asymmetric V4R L1 auto-trainer runtime.
 
-The existing updater still downloads this filename. At runtime it ensures the
-V4 asymmetric trainer is present, captures subprocess output tails, and exposes
-failures through the existing cloud status row. Keeping the filename stable
-avoids another user-facing BAT/update path.
+The existing updater still downloads this filename. It fetches the standalone V4
+core plus a timestamp-only rotating-phase thinning launcher, captures subprocess
+output tails, and exposes failures through the existing cloud status row.
 """
 from __future__ import annotations
 
@@ -15,27 +14,33 @@ from pathlib import Path
 import services.l1_ml_autotrain_daemon_v1 as base
 
 COMPAT_MARKER = "l1-ml-autotrain-v2-dedup-20260904"
-AUTO_TRAINER_VERSION = "l1-ml-autotrain-v4-asymmetric-regime-20260904"
-V4_MARKER = "l1-60s-trainer-v4-asymmetric-regime-20260904"
-V4_URL = "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/train_l1_60s_model_v4.py"
-V4_PATH = Path(__file__).with_name("train_l1_60s_model_v4.py")
+AUTO_TRAINER_VERSION = "l1-ml-autotrain-v4r-asymmetric-regime-20260904"
+CORE_MARKER = "l1-60s-trainer-v4-asymmetric-regime-20260904"
+RUNNER_MARKER = "l1-60s-trainer-v4r-asymmetric-rotating-thin-20260904"
+ROOT = "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services"
+CORE_PATH = Path(__file__).with_name("train_l1_60s_model_v4.py")
+RUNNER_PATH = Path(__file__).with_name("train_l1_60s_model_v4r.py")
 _LAST_TAIL = ""
 
 
-def _ensure_v4() -> None:
+def _ensure(path: Path, url: str, marker: str) -> None:
     try:
-        if V4_PATH.exists() and V4_MARKER in V4_PATH.read_text(encoding="utf-8", errors="ignore"):
+        if path.exists() and marker in path.read_text(encoding="utf-8", errors="ignore"):
             return
     except Exception:
         pass
-    with urllib.request.urlopen(V4_URL, timeout=15) as resp:
-        data = resp.read()
-    text = data.decode("utf-8")
-    if V4_MARKER not in text:
-        raise RuntimeError("downloaded V4 trainer failed marker check")
-    tmp = V4_PATH.with_suffix(".tmp")
+    with urllib.request.urlopen(url, timeout=15) as resp:
+        text = resp.read().decode("utf-8")
+    if marker not in text:
+        raise RuntimeError(f"downloaded trainer failed marker check: {path.name}")
+    tmp = path.with_suffix(".tmp")
     tmp.write_text(text, encoding="utf-8")
-    tmp.replace(V4_PATH)
+    tmp.replace(path)
+
+
+def _ensure_v4r() -> None:
+    _ensure(CORE_PATH, f"{ROOT}/train_l1_60s_model_v4.py", CORE_MARKER)
+    _ensure(RUNNER_PATH, f"{ROOT}/train_l1_60s_model_v4r.py", RUNNER_MARKER)
 
 
 def _run_one(scope: str, minimum: int, log_handle) -> int:
@@ -65,15 +70,15 @@ def _result(rc: int, synced: bool) -> str:
 
 
 def main() -> None:
-    print("AStock L1/Tick 60s ML auto-trainer V4 started")
+    print("AStock L1/Tick 60s ML auto-trainer V4R started")
     print(f"Daemon: {AUTO_TRAINER_VERSION}")
     print(f"Compatibility marker: {COMPAT_MARKER}")
-    _ensure_v4()
+    _ensure_v4r()
     base.AUTO_TRAINER_VERSION = AUTO_TRAINER_VERSION
-    base.TRAINER = V4_PATH
+    base.TRAINER = RUNNER_PATH
     base._run_one = _run_one
     base._result = _result
-    print("Asymmetric UP-entry / DOWN-risk trainer enabled. No live deployment.")
+    print("Asymmetric UP-entry / DOWN-risk trainer + rotating 15s thinning enabled. No live deployment.")
     base.main()
 
 
