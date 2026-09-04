@@ -35,14 +35,14 @@ if errorlevel 1 (
 )
 
 echo [1/3] Downloading frozen walk-forward code and current V4R/V5R research stack...
-for %%F in (qmt_l1_60s_walkforward_v1.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py train_l1_60s_model_v3.py train_l1_60s_model_v4.py train_l1_60s_model_v4r.py train_l1_60s_model_v5_challenger.py train_l1_60s_model_v5r.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py) do (
+for %%F in (qmt_walkforward_pandas_compat.py qmt_l1_60s_walkforward_v1.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py train_l1_60s_model_v3.py train_l1_60s_model_v4.py train_l1_60s_model_v4r.py train_l1_60s_model_v5_challenger.py train_l1_60s_model_v5r.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py) do (
   curl.exe -L --fail --retry 3 -o "%SERVICEDIR%\%%F" "%BASE%/services/%%F" || goto :fail
 )
 findstr /C:"qmt-l1-60s-walkforward-v1-20260905" "%SERVICEDIR%\qmt_l1_60s_walkforward_v1.py" >nul || goto :fail
 findstr /C:"l1-60s-trainer-v5r-robust-challenger-20260904" "%SERVICEDIR%\train_l1_60s_model_v5r.py" >nul || goto :fail
 
 echo [2/3] Syntax check...
-"%PYEXE%" -m py_compile "%SERVICEDIR%\qmt_l1_60s_walkforward_v1.py"
+"%PYEXE%" -m py_compile "%SERVICEDIR%\qmt_walkforward_pandas_compat.py" "%SERVICEDIR%\qmt_l1_60s_walkforward_v1.py"
 if errorlevel 1 goto :fail
 
 echo [3/3] Running historical QMT tick replay + chronological walk-forward...
@@ -50,7 +50,7 @@ echo This may take several minutes. Existing live recorder/ML daemon are NOT sto
 echo No orders are placed. No model is auto-promoted or copied to live.
 set "PYTHONPATH=%INSTALLDIR%;%PYTHONPATH%"
 cd /d "%INSTALLDIR%"
-"%PYEXE%" -u "%SERVICEDIR%\qmt_l1_60s_walkforward_v1.py" --days 14
+"%PYEXE%" -u -c "import services.qmt_walkforward_pandas_compat; import services.qmt_l1_60s_walkforward_v1 as m; raise SystemExit(m.main())" --days 14
 set "RC=%ERRORLEVEL%"
 
 echo.
