@@ -17,11 +17,13 @@ on:
       - "services/l1_ml_autotrain_daemon_v3.py"
       - "services/qmt_walkforward_pandas_compat.py"
       - "services/qmt_l1_60s_walkforward_v1.py"
+      - "services/qmt_l1_60s_walkforward_v2.py"
       - "services/selftest_l1_trainer_v3.py"
       - "services/selftest_l1_trainer_v4.py"
       - "services/selftest_l1_trainer_v4r.py"
       - "services/selftest_l1_trainer_v5.py"
       - "services/selftest_qmt_l1_walkforward_v1.py"
+      - "services/selftest_qmt_l1_walkforward_v2.py"
       - "run_qmt_l1_60s_walkforward.bat"
       - ".github/workflows/research_python_syntax.yml"
 
@@ -50,10 +52,12 @@ jobs:
             services/l1_ml_autotrain_daemon_v2.py \
             services/qmt_walkforward_pandas_compat.py \
             services/qmt_l1_60s_walkforward_v1.py \
+            services/qmt_l1_60s_walkforward_v2.py \
             services/selftest_l1_trainer_v3.py \
             services/selftest_l1_trainer_v4r.py \
             services/selftest_l1_trainer_v5.py \
-            services/selftest_qmt_l1_walkforward_v1.py
+            services/selftest_qmt_l1_walkforward_v1.py \
+            services/selftest_qmt_l1_walkforward_v2.py
       - name: Run synthetic L1 V3 trainer end-to-end test
         env:
           PYTHONPATH: .
@@ -70,3 +74,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: python services/selftest_qmt_l1_walkforward_v1.py
+      - name: Run QMT historical audit V2 parity/null self-test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_qmt_l1_walkforward_v2.py
