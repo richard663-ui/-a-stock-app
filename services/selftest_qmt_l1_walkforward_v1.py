@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
+import services.qmt_walkforward_pandas_compat  # process-local merge_asof datetime normalization
 import services.qmt_l1_60s_walkforward_v1 as w
 
 CN = ZoneInfo("Asia/Shanghai")
