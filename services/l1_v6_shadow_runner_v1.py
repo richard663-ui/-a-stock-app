@@ -1,35 +1,32 @@
 # -*- coding: utf-8 -*-
 """Prospective L1 V6 60s shadow runner.
 
-Research-only and deliberately isolated from the recorder and phone/live model.
+Research-only. This process is isolated from the recorder and production phone.
+It reads the recorder's local SQLite rows, scores one non-overlapping observation
+per symbol/minute with a model frozen before the trading session, and settles
++60s performance from OBSERVED bid1/ask1 rows in the existing 5-second recorder.
 
-The runner reads the recorder's existing local SQLite rows, scores exactly one
-non-overlapping observation per symbol/minute with a PRE-EXISTING V6 model, and
-settles it after +60s using OBSERVED future bid/ask rows already captured by the
-5-second recorder.  No QMT subscription or network call sits in the recorder's
-critical loop.
-
-Important governance:
-- V6 is never auto-deployed.
-- raw UP/DOWN probabilities are stored even when the robust gate says WATCH.
-- the model is frozen for the whole trading day; a same-day 11:35 retrain cannot
-  leak into that day's later prospective evaluation.
-- if no V6 model exists, an off-market bootstrap may train one from PRIOR data;
-  market-hours bootstrap is forbidden.
-- settlement uses mean observed bid1 in +55..+65s and the closest observed quote
-  to +60s.  This is a 5-second-recorder execution observation, not a mid proxy.
+Governance:
+- no auto deployment;
+- V6 thresholds stay frozen; raw UP/DOWN probabilities are stored even on WATCH;
+- one model is frozen for the entire trading day, so an 11:35 same-day retrain
+  cannot leak into afternoon prospective results;
+- if no V6 model exists, bootstrap training is allowed only while market closed;
+- OPEN_AUCTION rows are excluded from feature-delta construction to match the
+  V6 trainer's continuous-auction data path;
+- final session minute is not scored because a full +55..+65s quote window does
+  not exist after the market closes.
 """
 from __future__ import annotations
 
 import json
-import math
 import sqlite3
 import subprocess
 import sys
 import time
 from datetime import datetime, time as dtime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import joblib
 import numpy as np
@@ -120,8 +117,10 @@ def _read_rows(path: Path, lo_ts: float, hi_ts: Optional[float] = None,
         if symbol:
             where.append("symbol=?")
             args.append(str(symbol).upper())
-        sql = "SELECT * FROM training_samples_v2 WHERE " + " AND ".join(where) + " ORDER BY generated_ts"
-        out = pd.read_sql_query(sql, conn, params=args)
+        out = pd.read_sql_query(
+            "SELECT * FROM training_samples_v2 WHERE " + " AND ".join(where) + " ORDER BY generated_ts",
+            conn, params=args,
+        )
     finally:
         conn.close()
     if out.empty:
@@ -134,7 +133,14 @@ def _read_rows(path: Path, lo_ts: float, hi_ts: Optional[float] = None,
 def _feature_frame(raw: pd.DataFrame) -> pd.DataFrame:
     if raw.empty:
         return raw.copy()
-    frame = core._add_regime_features(v3._expand(raw))
+    work = raw.copy()
+    # Trainer V3 removes OPEN_AUCTION before computing volume/spread deltas. Do
+    # the same here or the 09:30 first continuous sample would see a false jump.
+    if "session" in work.columns:
+        work = work[work["session"].astype(str).str.upper() != "OPEN_AUCTION"].copy()
+    if work.empty:
+        return work
+    frame = core._add_regime_features(v3._expand(work))
     sym = frame.get("symbol", pd.Series("", index=frame.index)).astype(str).str.upper()
     for raw_symbol, feature in zip(v6.STABLE_SYMBOLS, v6.SYMBOL_FEATURES):
         frame[feature] = (sym == raw_symbol).astype(float)
@@ -151,9 +157,7 @@ def _parse_dt(value: Any) -> Optional[datetime]:
         return None
     try:
         d = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        if d.tzinfo is None:
-            d = d.astimezone()
-        return d.astimezone()
+        return (d.astimezone() if d.tzinfo is not None else d.astimezone())
     except Exception:
         return None
 
@@ -178,8 +182,7 @@ def _report_bundle(report_path: Path = REPORT_PATH) -> Tuple[Dict[str, Any], Dic
     model_path = Path(str(item.get("model_path") or "")).expanduser()
     if not model_path.exists():
         raise FileNotFoundError(f"V6 model artifact missing: {model_path}")
-    bundle = joblib.load(model_path)
-    return report, bundle, model_path
+    return report, joblib.load(model_path), model_path
 
 
 def _model_version(report: Dict[str, Any], model_path: Path) -> str:
@@ -197,17 +200,19 @@ def _freeze_model_for_day(day: str) -> Tuple[Dict[str, Any], Dict[str, Any], Pat
         report_snapshot = dict(saved.get("report") or {})
         if path.exists() and report_snapshot:
             bundle = joblib.load(path)
-            return report_snapshot, bundle, path, str(saved.get("model_version") or _model_version(report_snapshot, path))
+            version = str(saved.get("model_version") or _model_version(report_snapshot, path))
+            return report_snapshot, bundle, path, version
 
     report, bundle, path = _report_bundle()
     generated = _parse_dt(report.get("generated_at"))
     today = datetime.strptime(day, "%Y-%m-%d").date()
     cutoff = datetime.combine(today, dtime(9, 25)).astimezone()
-    # A fresh same-day post-open model is forbidden when no earlier freeze exists.
+    # On a real trading day, a same-day post-09:25 model may contain that day's
+    # labels and is not allowed as a fresh shadow model. Weekend bootstrap is
+    # naturally older than the next trading day's cutoff.
     if generated is not None and generated > cutoff:
         raise RuntimeError(
-            f"latest V6 model was generated after freeze cutoff {cutoff.isoformat()}; "
-            "refusing same-day leakage without a persisted pre-open freeze"
+            f"latest V6 model generated after {cutoff.isoformat()}; refusing same-day leakage without saved pre-open freeze"
         )
     version = _model_version(report, path)
     days = dict(state.get("days") or {})
@@ -216,11 +221,9 @@ def _freeze_model_for_day(day: str) -> Tuple[Dict[str, Any], Dict[str, Any], Pat
         "frozen_at": _now().isoformat(timespec="seconds"),
         "report": {
             "trainer_version": report.get("trainer_version"),
-            "generated_at": report.get("generated_at"),
-            "scope": report.get("scope", "ALL"),
+            "generated_at": report.get("generated_at"), "scope": report.get("scope", "ALL"),
         },
     }
-    # Keep bounded state.
     for old_day in sorted(days)[:-20]:
         days.pop(old_day, None)
     _save_freeze_state({"runner_version": RUNNER_VERSION, "days": days})
@@ -246,20 +249,17 @@ def _cloud() -> Tuple[CloudBridge, str]:
 
 
 def _sync_report(bridge: CloudBridge, bridge_id: str, report: Dict[str, Any]) -> None:
-    payload = {
-        "bridge_id": bridge_id,
-        "scope": "ALL::V6_CHALLENGER",
-        "trainer_version": str(report.get("trainer_version") or v6.TRAINER_VERSION),
-        "generated_at": report.get("generated_at"),
-        "maturity": report.get("maturity"),
-        "protocol": report.get("protocol"),
-        "samples_total": int(report.get("samples_total") or 0),
-        "samples_test_nonoverlap": int(report.get("samples_test_nonoverlap") or 0),
-        "report": {**report, "cloud_scope": "ALL::V6_CHALLENGER"},
-    }
     bridge._request(
         "POST", "ml_training_reports_v1?on_conflict=bridge_id,scope,generated_at",
-        json=payload, headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
+        json={
+            "bridge_id": bridge_id, "scope": "ALL::V6_CHALLENGER",
+            "trainer_version": str(report.get("trainer_version") or v6.TRAINER_VERSION),
+            "generated_at": report.get("generated_at"), "maturity": report.get("maturity"),
+            "protocol": report.get("protocol"), "samples_total": int(report.get("samples_total") or 0),
+            "samples_test_nonoverlap": int(report.get("samples_test_nonoverlap") or 0),
+            "report": {**report, "cloud_scope": "ALL::V6_CHALLENGER"},
+        },
+        headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
     )
 
 
@@ -274,43 +274,32 @@ def _heartbeat(bridge: CloudBridge, bridge_id: str, *, state: str, model_version
                model_generated_at: Optional[str], last_prediction_at: Optional[str],
                predictions_today: int, settled_today: int, message: str, extra: Dict[str, Any]) -> None:
     now = _now().isoformat(timespec="seconds")
-    payload = {
-        "bridge_id": bridge_id,
-        "runner_version": RUNNER_VERSION,
-        "state": state,
-        "model_version": model_version,
-        "model_scope": "ALL",
-        "model_family": MODEL_FAMILY,
-        "model_generated_at": model_generated_at,
-        "last_heartbeat_at": now,
-        "last_prediction_at": last_prediction_at,
-        "predictions_today": int(predictions_today),
-        "settled_today": int(settled_today),
-        "message": message,
-        "status": extra,
-        "updated_at": now,
-    }
     bridge._request(
-        "POST", "ml_shadow_status_v1?on_conflict=bridge_id", json=payload,
+        "POST", "ml_shadow_status_v1?on_conflict=bridge_id",
+        json={
+            "bridge_id": bridge_id, "runner_version": RUNNER_VERSION, "state": state,
+            "model_version": model_version, "model_scope": "ALL", "model_family": MODEL_FAMILY,
+            "model_generated_at": model_generated_at, "last_heartbeat_at": now,
+            "last_prediction_at": last_prediction_at, "predictions_today": int(predictions_today),
+            "settled_today": int(settled_today), "message": message, "status": extra, "updated_at": now,
+        },
         headers={"Prefer": "resolution=merge-duplicates,return=minimal"},
     )
 
 
 def _candidate_rows(day_db: Path, now_ts: float) -> pd.DataFrame:
     raw = _read_rows(day_db, now_ts - LOOKBACK_SECONDS, now_ts + 2.0)
-    if raw.empty:
-        return raw
     frame = _feature_frame(raw)
     if frame.empty:
         return frame
     frame["minute_bucket"] = (pd.to_numeric(frame["generated_ts"], errors="coerce") // 60).astype("Int64")
     frame = frame[frame["symbol"].astype(str).str.upper().isin(STABLE_SYMBOLS)].copy()
     minute = pd.to_numeric(frame.get("minute_of_day"), errors="coerce")
-    frame = frame[((minute >= 570) & (minute < 690)) | ((minute >= 780) & (minute < 900))].copy()
+    # Exclude 11:29 and 14:59: those minute-start predictions cannot always
+    # obtain a complete +55..+65s observed quote window before session close.
+    frame = frame[((minute >= 570) & (minute < 689)) | ((minute >= 780) & (minute < 899))].copy()
     if frame.empty:
         return frame
-    # Newest 5s row in each symbol's current minute. One score per minute is
-    # enforced by the persistent sample_key + local memory.
     return frame.sort_values("generated_ts").groupby("symbol", as_index=False, sort=False).tail(1)
 
 
@@ -326,32 +315,20 @@ def _score_row(row: pd.Series, bundle: Dict[str, Any], model_version: str,
     ts = float(row["generated_ts"])
     minute = float(row.get("minute_of_day") or 0.0)
     symbol = str(row.get("symbol") or "").upper()
-    minute_bucket = int(ts // 60)
     generated_at = _parse_dt(row.get("generated_at")) or datetime.fromtimestamp(ts).astimezone()
     return {
-        "bridge_id": bridge_id,
-        "sample_key": f"{symbol}:{minute_bucket}",
-        "symbol": symbol,
-        "generated_at": generated_at.isoformat(timespec="milliseconds"),
-        "generated_ts": ts,
-        "model_version": model_version,
-        "model_scope": "ALL",
-        "model_family": MODEL_FAMILY,
-        "up_prob": up_prob,
-        "down_prob": down_prob,
-        "up_threshold": up_t,
-        "down_threshold": down_t,
-        "direction": direction,
-        "phase": _phase(minute),
+        "bridge_id": bridge_id, "sample_key": f"{symbol}:{int(ts // 60)}", "symbol": symbol,
+        "generated_at": generated_at.isoformat(timespec="milliseconds"), "generated_ts": ts,
+        "model_version": model_version, "model_scope": "ALL", "model_family": MODEL_FAMILY,
+        "up_prob": up_prob, "down_prob": down_prob, "up_threshold": up_t, "down_threshold": down_t,
+        "direction": direction, "phase": _phase(minute),
         "entry_bid": float(row.get("bid1")) if pd.notna(row.get("bid1")) else None,
         "entry_ask": float(row.get("ask1")) if pd.notna(row.get("ask1")) else None,
         "entry_mid": float(row.get("mid_price")) if pd.notna(row.get("mid_price")) else None,
         "status": "PENDING",
         "diagnostic": {
-            "runner_version": RUNNER_VERSION,
+            "runner_version": RUNNER_VERSION, "prospective": True, "same_day_model_switch": False,
             "settlement_policy": "observed 5s bid1/ask1 rows; mean bid1 over +55..+65s; nearest quote to +60s",
-            "prospective": True,
-            "same_day_model_switch": False,
         },
         "updated_at": _now().isoformat(timespec="seconds"),
     }
@@ -362,11 +339,10 @@ def _settlement_from_rows(payload: Dict[str, Any], future: pd.DataFrame) -> Opti
         return None
     t0 = float(payload["generated_ts"])
     work = future.copy()
-    work["generated_ts"] = pd.to_numeric(work["generated_ts"], errors="coerce")
-    work["bid1"] = pd.to_numeric(work.get("bid1"), errors="coerce")
-    work["ask1"] = pd.to_numeric(work.get("ask1"), errors="coerce")
-    work["mid_price"] = pd.to_numeric(work.get("mid_price"), errors="coerce")
-    window = work[(work["generated_ts"] >= t0 + FUTURE_WINDOW_LO) & (work["generated_ts"] <= t0 + FUTURE_WINDOW_HI)].copy()
+    for col in ("generated_ts", "bid1", "ask1", "mid_price"):
+        work[col] = pd.to_numeric(work.get(col), errors="coerce")
+    window = work[(work["generated_ts"] >= t0 + FUTURE_WINDOW_LO) &
+                  (work["generated_ts"] <= t0 + FUTURE_WINDOW_HI)].copy()
     valid_bids = window.loc[window["bid1"] > 0, "bid1"].dropna()
     if len(valid_bids) < 2:
         return None
@@ -380,7 +356,7 @@ def _settlement_from_rows(payload: Dict[str, Any], future: pd.DataFrame) -> Opti
     point["gap"] = (point["generated_ts"] - (t0 + 60.0)).abs()
     point = point[point["gap"] <= POINT_TOLERANCE_SECONDS].sort_values("gap")
     future_bid_60 = None
-    if not point.empty and pd.notna(point.iloc[0].get("bid1")) and float(point.iloc[0].get("bid1") or 0) > 0:
+    if not point.empty and pd.notna(point.iloc[0].get("bid1")) and float(point.iloc[0].get("bid1") or 0.0) > 0:
         future_bid_60 = float(point.iloc[0]["bid1"])
 
     entry_ask = float(payload.get("entry_ask") or 0.0)
@@ -394,35 +370,21 @@ def _settlement_from_rows(payload: Dict[str, Any], future: pd.DataFrame) -> Opti
     down_actionable = bool(down_ret < -hurdle_pct)
     direction = str(payload.get("direction") or "WATCH")
     if direction == "UP":
-        gross = up_ret * 100.0
-        correct: Optional[bool] = up_actionable
+        gross, correct = up_ret * 100.0, up_actionable
     elif direction == "DOWN":
-        gross = -down_ret * 100.0
-        correct = down_actionable
+        gross, correct = -down_ret * 100.0, down_actionable
     else:
-        gross = None
-        correct = None
-    net = gross - HURDLE_BP if gross is not None else None
+        gross, correct = None, None
     return {
-        **payload,
-        "status": "SETTLED",
-        "future_bid_60": future_bid_60,
-        "future_bid_smoothed_60": smooth_bid,
-        "future_ask_60": smooth_ask,
-        "future_mid_60": smooth_mid,
-        "up_exec_return_pct": up_ret,
-        "down_hold_return_pct": down_ret,
-        "up_actionable": up_actionable,
-        "down_actionable": down_actionable,
-        "correct": correct,
-        "gross_edge_bp": gross,
-        "net_edge_bp": net,
+        **payload, "status": "SETTLED", "future_bid_60": future_bid_60,
+        "future_bid_smoothed_60": smooth_bid, "future_ask_60": smooth_ask, "future_mid_60": smooth_mid,
+        "up_exec_return_pct": up_ret, "down_hold_return_pct": down_ret,
+        "up_actionable": up_actionable, "down_actionable": down_actionable, "correct": correct,
+        "gross_edge_bp": gross, "net_edge_bp": (gross - HURDLE_BP) if gross is not None else None,
         "settled_at": _now().isoformat(timespec="seconds"),
         "diagnostic": {
-            **dict(payload.get("diagnostic") or {}),
-            "future_window_rows": int(len(window)),
-            "future_valid_bid_rows": int(len(valid_bids)),
-            "execution_hurdle_bp": HURDLE_BP,
+            **dict(payload.get("diagnostic") or {}), "future_window_rows": int(len(window)),
+            "future_valid_bid_rows": int(len(valid_bids)), "execution_hurdle_bp": HURDLE_BP,
             "settlement_is_observed_bid_not_proxy": True,
         },
         "updated_at": _now().isoformat(timespec="seconds"),
@@ -431,7 +393,7 @@ def _settlement_from_rows(payload: Dict[str, Any], future: pd.DataFrame) -> Opti
 
 def _store_pending(conn: sqlite3.Connection, payload: Dict[str, Any]) -> None:
     conn.execute(
-        "INSERT OR REPLACE INTO pending(sample_key,model_version,symbol,generated_ts,payload_json,settled) VALUES(?,?,?,?,?,0)",
+        "INSERT OR IGNORE INTO pending(sample_key,model_version,symbol,generated_ts,payload_json,settled) VALUES(?,?,?,?,?,0)",
         (payload["sample_key"], payload["model_version"], payload["symbol"], payload["generated_ts"],
          json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str)),
     )
@@ -443,7 +405,7 @@ def _pending_rows(conn: sqlite3.Connection, now_ts: float) -> List[Tuple[str, st
         "SELECT sample_key,model_version,symbol,generated_ts,payload_json FROM pending WHERE settled=0 AND generated_ts<=? ORDER BY generated_ts",
         (float(now_ts - SETTLE_AFTER_SECONDS),),
     ).fetchall()
-    out = []
+    out: List[Tuple[str, str, str, float, Dict[str, Any]]] = []
     for key, version, symbol, ts, raw in rows:
         try:
             payload = json.loads(raw)
@@ -467,11 +429,18 @@ def _count_today(conn: sqlite3.Connection, day_start_ts: float) -> Tuple[int, in
 def main() -> None:
     print("AStock V6 prospective 60s shadow runner started")
     print(f"Runner: {RUNNER_VERSION}")
-    print("Scoring is isolated from recorder; settlement uses observed future bid1, not a mid/spread proxy.")
-    print("One non-overlapping score per symbol/minute; daily model freeze prevents same-day retrain leakage.")
+    print("Observed future bid settlement; recorder/production processes are not patched.")
+    print("One score per symbol/minute; daily model freeze blocks same-day retrain leakage.")
 
     ok, bootstrap_message = _bootstrap_v6_if_missing()
     bridge, bridge_id = _cloud()
+    if ok and REPORT_PATH.exists():
+        try:
+            _sync_report(bridge, bridge_id, json.loads(REPORT_PATH.read_text(encoding="utf-8")))
+        except Exception as exc:
+            print(f"[WARN] initial V6 report sync: {exc}")
+
+    pending_conn = _connect_pending()
     model_report: Dict[str, Any] = {}
     model_bundle: Optional[Dict[str, Any]] = None
     model_path: Optional[Path] = None
@@ -480,14 +449,6 @@ def main() -> None:
     last_heartbeat = 0.0
     last_prediction_at: Optional[str] = None
     seen_keys: set[Tuple[str, str]] = set()
-    pending_conn = _connect_pending()
-
-    if ok and REPORT_PATH.exists():
-        try:
-            report = json.loads(REPORT_PATH.read_text(encoding="utf-8"))
-            _sync_report(bridge, bridge_id, report)
-        except Exception as exc:
-            print(f"[WARN] initial V6 report sync: {exc}")
 
     try:
         while True:
@@ -499,10 +460,7 @@ def main() -> None:
             message = bootstrap_message
 
             if frozen_day != day:
-                model_report = {}
-                model_bundle = None
-                model_path = None
-                model_version = None
+                model_report, model_bundle, model_path, model_version = {}, None, None, None
                 frozen_day = day
                 try:
                     model_report, model_bundle, model_path, model_version = _freeze_model_for_day(day)
@@ -511,12 +469,9 @@ def main() -> None:
                     message = f"WAITING_MODEL:{type(exc).__name__}:{exc}"
                     state = "WAITING_MODEL" if _market_open(now) else "MARKET_CLOSED_WAITING_MODEL"
 
-            # Score one new row per symbol/minute. The cloud/local primary keys
-            # make restarts idempotent.
             if _market_open(now) and model_bundle is not None and model_version:
                 try:
-                    candidates = _candidate_rows(day_db, now_ts)
-                    for _, row in candidates.iterrows():
+                    for _, row in _candidate_rows(day_db, now_ts).iterrows():
                         key = (f"{str(row['symbol']).upper()}:{int(float(row['generated_ts']) // 60)}", model_version)
                         if key in seen_keys:
                             continue
@@ -529,21 +484,19 @@ def main() -> None:
                     message = f"score_error:{type(exc).__name__}:{exc}"
                     print(f"[WARN] {message}")
 
-            # Settlement does not depend on model availability. It uses future
-            # recorder rows from the same symbol and prediction day.
             for sample_key, version, symbol, generated_ts, payload in _pending_rows(pending_conn, now_ts):
                 sample_day = datetime.fromtimestamp(generated_ts).astimezone().strftime("%Y-%m-%d")
                 future = _read_rows(_daily_db(sample_day), generated_ts + FUTURE_WINDOW_LO - 1.0,
                                     generated_ts + FUTURE_WINDOW_HI + 1.0, symbol=symbol)
                 settled = _settlement_from_rows(payload, future)
                 if settled is None:
-                    # Do not mark failed early; allow recorder rows to arrive a
-                    # little late. After 5 minutes, mark locally settled only if
-                    # the market/session no longer supplies enough quotes.
                     if now_ts - generated_ts > 300:
-                        failed = {**payload, "status": "INVALID", "settled_at": _now().isoformat(timespec="seconds"),
-                                  "diagnostic": {**dict(payload.get("diagnostic") or {}), "invalid_reason": "insufficient_future_bid_rows"},
-                                  "updated_at": _now().isoformat(timespec="seconds")}
+                        failed = {
+                            **payload, "status": "INVALID", "settled_at": _now().isoformat(timespec="seconds"),
+                            "diagnostic": {**dict(payload.get("diagnostic") or {}),
+                                           "invalid_reason": "insufficient_future_bid_rows"},
+                            "updated_at": _now().isoformat(timespec="seconds"),
+                        }
                         try:
                             _upsert_shadow(bridge, failed)
                         finally:
@@ -566,12 +519,9 @@ def main() -> None:
                         settled_today=settled_today, message=message,
                         extra={
                             "market_open": _market_open(now), "day": day,
-                            "model_path": str(model_path) if model_path else None,
-                            "frozen_day": frozen_day,
-                            "stable_symbols": list(STABLE_SYMBOLS),
-                            "settlement": "OBSERVED_BID1_MEAN_55_65S",
-                            "score_frequency": "ONE_PER_SYMBOL_PER_60S_BUCKET",
-                            "auto_deployed": False,
+                            "model_path": str(model_path) if model_path else None, "frozen_day": frozen_day,
+                            "stable_symbols": list(STABLE_SYMBOLS), "settlement": "OBSERVED_BID1_MEAN_55_65S",
+                            "score_frequency": "ONE_PER_SYMBOL_PER_60S_BUCKET", "auto_deployed": False,
                         },
                     )
                 except Exception as exc:
