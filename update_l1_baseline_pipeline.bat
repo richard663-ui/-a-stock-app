@@ -3,9 +3,9 @@ setlocal EnableExtensions
 chcp 65001 >nul
 
 echo ======================================================
-echo A-Stock L1/Tick 60s ML V5 Champion-Challenger
+echo A-Stock L1/Tick 60s ML V6 Multi-Challenger
 echo One Click Update - No Level-2 permission required
-echo Updater: l1-baseline-updater-v5-visible-20260904
+echo Updater: l1-baseline-updater-v6-visible-20260905
 echo ======================================================
 
 set "INSTALLDIR=%LOCALAPPDATA%\AStockQMT"
@@ -21,7 +21,7 @@ set "STARTVBS=%STARTUPDIR%\AStockL2TrainingRecorder.vbs"
 set "AUTOVBS=%STARTUPDIR%\AStockL2MLAutoTrain.vbs"
 set "KILLVBS=%TEMP%\astock_l1_stop.vbs"
 set "LATESTHOTFIX=%TEMP%\astock_l1_latest_hotfix.bat"
-set "V5DAEMON=l1-ml-autotrain-v5-champion-challenger-20260904"
+set "V6DAEMON=l1-ml-autotrain-v6-multi-challenger-20260905"
 
 if not exist "%INSTALLDIR%" (
   echo [ERROR] AStock QMT runtime not found: %INSTALLDIR%
@@ -125,7 +125,7 @@ echo [6/7] Verifying base L1 recorder...
 findstr /C:"l1-training-recorder-v1-20260904" "%LOGFILE%" >nul 2>&1
 if errorlevel 1 (echo [WARN] L1 recorder installed; marker not visible yet.) else (echo [PASS] L1/Tick 60s recorder active.)
 
-echo [7/7] Applying mandatory V7 forward + V5 Champion-Challenger ML runtime...
+echo [7/7] Applying mandatory V7 forward + V6 multi-challenger ML runtime...
 curl.exe -L --fail --retry 3 -o "%LATESTHOTFIX%" "%BASE%/hotfix_morning_20260904.bat" || goto :fail_latest
 set "ASTOCK_NO_PAUSE=1"
 call "%LATESTHOTFIX%"
@@ -134,22 +134,23 @@ set "ASTOCK_NO_PAUSE="
 del /q "%LATESTHOTFIX%" >nul 2>&1
 if not "%HOTFIX_RC%"=="0" goto :fail_latest
 
-findstr /C:"%V5DAEMON%" "%AUTOLOG%" >nul 2>&1
-if errorlevel 1 (echo [WARN] V5 Champion-Challenger marker not visible yet.) else (echo [PASS] V5 Champion-Challenger ML daemon active.)
+findstr /C:"%V6DAEMON%" "%AUTOLOG%" >nul 2>&1
+if errorlevel 1 (echo [WARN] V6 multi-challenger marker not visible yet.) else (echo [PASS] V6 multi-challenger ML daemon active.)
 
 echo.
 echo ======================================================
-echo [OK] L1_BASELINE V5 Champion-Challenger runtime configured.
+echo [OK] L1_BASELINE V6 multi-challenger runtime configured.
 echo ======================================================
-echo - L1/Tick 5s collection + +60s smoothed-mid labels are active.
+echo - L1/Tick 5s collection + +60s smoothed-mid labels remain active.
 echo - Forward recorder finishes on V7 non-blocking MACD.
-echo - ML Champion is V4R; V5R runs separately as Challenger.
+echo - ML Champion is V4R; V5R is conservative control; V6 is execution-aligned Challenger.
+echo - V6 changes target alignment, stock intercepts, and robust scaling only.
+echo - V5 stability gates remain unchanged; historical test was not used to loosen thresholds.
 echo - Challenger failure cannot replace or break the V4R Champion.
 echo - NO Level-2 permission is required.
 echo - Existing samples are preserved and reused.
-echo - Logistic Regression is the main Challenger; HGB remains control-only.
 echo - Validation selects thresholds; test is never used to tune them.
-echo - 2bp execution hurdle and 09:30-10:30 OOS gate remain active.
+echo - 2bp safety hurdle and 09:30-10:30 OOS gate remain active.
 echo - 70%% is tracked only as a multi-day non-overlap OOS milestone.
 echo - Nothing is auto-promoted or auto-deployed to live trading.
 echo - QMT must remain open and logged in during market hours.
@@ -170,7 +171,7 @@ echo [ERROR] Installation failed after old training runtime stopped. Re-run this
 pause
 exit /b 1
 :fail_latest
-echo [ERROR] Base L1 recorder is preserved, but the mandatory V7/V5 runtime upgrade failed.
+echo [ERROR] Base L1 recorder is preserved, but the mandatory V7/V6 runtime upgrade failed.
 echo Re-run this same update_l1_baseline_pipeline.bat; do not use older copies.
 pause
 exit /b 1
