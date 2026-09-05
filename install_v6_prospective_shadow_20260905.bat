@@ -4,9 +4,9 @@ chcp 65001 >nul
 
 echo ======================================================
 echo A-Stock V6 Prospective 60s Shadow
- echo Observed future bid settlement - Research Only
- echo Installer: v6-shadow-installer-20260905
- echo ======================================================
+echo Observed future bid settlement - Research Only
+echo Installer: v6-shadow-installer-20260905
+echo ======================================================
 
 set "INSTALLDIR=%LOCALAPPDATA%\AStockQMT"
 set "SERVICEDIR=%INSTALLDIR%\services"
@@ -22,7 +22,7 @@ set "KILLVBS=%TEMP%\astock_v6_shadow_stop.vbs"
 
 if not exist "%INSTALLDIR%" (
   echo [ERROR] AStock runtime not found: %INSTALLDIR%
-  pause
+  if not defined ASTOCK_NO_PAUSE pause
   exit /b 1
 )
 
@@ -31,7 +31,7 @@ for /f "delims=" %%I in ('py -c "import sys;print(sys.executable)" 2^>nul') do s
 if not defined PYEXE for /f "delims=" %%I in ('python -c "import sys;print(sys.executable)" 2^>nul') do set "PYEXE=%%I"
 if not defined PYEXE (
   echo [ERROR] Python not found.
-  pause
+  if not defined ASTOCK_NO_PAUSE pause
   exit /b 1
 )
 
@@ -67,7 +67,7 @@ timeout /t 1 /nobreak >nul
 copy /Y "%TEMP%\%RUNNER%" "%SERVICEDIR%\%RUNNER%" >nul || goto :fail_install
 copy /Y "%TEMP%\train_l1_60s_model_v6_exec_aligned.py" "%SERVICEDIR%\train_l1_60s_model_v6_exec_aligned.py" >nul || goto :fail_install
 
- echo [4/5] Installing persistent hidden watchdog...
+echo [4/5] Installing persistent hidden watchdog...
 (
   echo @echo off
   echo set "PYTHONPATH=%INSTALLDIR%;%%PYTHONPATH%%"
@@ -109,18 +109,18 @@ echo - Raw UP/DOWN probabilities are retained even when action is WATCH.
 echo - Results and heartbeat sync to Supabase automatically.
 echo - Startup persistence is installed; you do not need to launch it every day.
 echo.
-pause
+if not defined ASTOCK_NO_PAUSE pause
 exit /b 0
 
 :fail_download
 echo [ERROR] Download/marker validation failed. Existing systems were untouched.
-pause
+if not defined ASTOCK_NO_PAUSE pause
 exit /b 1
 :fail_syntax
 echo [ERROR] Syntax check failed. Existing systems were untouched.
-pause
+if not defined ASTOCK_NO_PAUSE pause
 exit /b 1
 :fail_install
 echo [ERROR] Shadow install failed. Recorder/trainer remain untouched; re-run this BAT.
-pause
+if not defined ASTOCK_NO_PAUSE pause
 exit /b 1
