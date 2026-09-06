@@ -25,8 +25,12 @@ on:
       - "services/run_imacd_audit_v1.py"
       - "services/v4r_imacd_filter_audit_v1.py"
       - "services/v4r_meta_label_audit_v1.py"
+      - "services/v4r_cross_sectional_rank_audit_v1.py"
+      - "services/v4r_direction_asymmetry_audit_v1.py"
       - "services/selftest_v4r_imacd_filter_audit_v1.py"
       - "services/selftest_v4r_meta_label_audit_v1.py"
+      - "services/selftest_v4r_cross_sectional_rank_audit_v1.py"
+      - "services/selftest_v4r_direction_asymmetry_audit_v1.py"
       - "services/selftest_imacd_research_v1.py"
       - "services/selftest_l1_trainer_v3.py"
       - "services/selftest_l1_trainer_v4.py"
@@ -76,8 +80,12 @@ jobs:
             services/run_imacd_audit_v1.py \
             services/v4r_imacd_filter_audit_v1.py \
             services/v4r_meta_label_audit_v1.py \
+            services/v4r_cross_sectional_rank_audit_v1.py \
+            services/v4r_direction_asymmetry_audit_v1.py \
             services/selftest_v4r_imacd_filter_audit_v1.py \
             services/selftest_v4r_meta_label_audit_v1.py \
+            services/selftest_v4r_cross_sectional_rank_audit_v1.py \
+            services/selftest_v4r_direction_asymmetry_audit_v1.py \
             services/selftest_imacd_research_v1.py \
             services/selftest_l1_trainer_v3.py \
             services/selftest_l1_trainer_v4r.py \
@@ -88,46 +96,41 @@ jobs:
             services/selftest_qmt_l1_walkforward_v2.py \
             services/selftest_qmt_l1_walkforward_v3.py
       - name: Run synthetic L1 V3 trainer end-to-end test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_l1_trainer_v3.py
       - name: Run synthetic L1 V4R asymmetric trainer end-to-end test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_l1_trainer_v4r.py
       - name: Run synthetic L1 V5 robust challenger end-to-end test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_l1_trainer_v5.py
       - name: Run synthetic L1 V6 execution-aligned challenger end-to-end test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_l1_trainer_v6.py
       - name: Run prospective V6 observed-bid settlement self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_l1_v6_shadow_runner_v1.py
       - name: Run QMT historical replay leakage/session self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_qmt_l1_walkforward_v1.py
       - name: Run QMT historical audit V2 parity/null self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_qmt_l1_walkforward_v2.py
       - name: Run QMT historical V3 same-fold V4R/V5R/V6 self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_qmt_l1_walkforward_v3.py
       - name: Run iMACD causal-state and promotion-gate self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_imacd_research_v1.py
       - name: Run V4R x iMACD validation-only filter self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_v4r_imacd_filter_audit_v1.py
       - name: Run V4R validation-split meta-label self-test
-        env:
-          PYTHONPATH: .
+        env: {PYTHONPATH: .}
         run: python services/selftest_v4r_meta_label_audit_v1.py
+      - name: Run V4R cross-sectional ranking self-test
+        env: {PYTHONPATH: .}
+        run: python services/selftest_v4r_cross_sectional_rank_audit_v1.py
+      - name: Run V4R direction asymmetry self-test
+        env: {PYTHONPATH: .}
+        run: python services/selftest_v4r_direction_asymmetry_audit_v1.py
