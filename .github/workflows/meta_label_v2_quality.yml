@@ -1,0 +1,26 @@
+name: Meta-label V2 quality
+
+on:
+  pull_request:
+    paths:
+      - "services/v4r_meta_label_audit_v2.py"
+      - "services/selftest_v4r_meta_label_audit_v2.py"
+      - "run_qmt_l1_60s_walkforward.bat"
+      - ".github/workflows/meta_label_v2_quality.yml"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ML dependencies
+        run: python -m pip install --disable-pip-version-check "scikit-learn>=1.5,<2.0" "joblib>=1.4" "pandas>=2.0" "numpy>=1.26" "requests>=2.31" "certifi>=2024.2"
+      - name: Compile rolling OOF audit
+        run: python -m py_compile services/v4r_meta_label_audit_v2.py services/selftest_v4r_meta_label_audit_v2.py
+      - name: Run rolling OOF meta-label self-test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_v4r_meta_label_audit_v2.py
