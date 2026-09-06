@@ -21,6 +21,9 @@ on:
       - "services/qmt_l1_60s_walkforward_v1.py"
       - "services/qmt_l1_60s_walkforward_v2.py"
       - "services/qmt_l1_60s_walkforward_v3.py"
+      - "services/imacd_research_audit_v1.py"
+      - "services/run_imacd_audit_v1.py"
+      - "services/selftest_imacd_research_v1.py"
       - "services/selftest_l1_trainer_v3.py"
       - "services/selftest_l1_trainer_v4.py"
       - "services/selftest_l1_trainer_v4r.py"
@@ -65,6 +68,9 @@ jobs:
             services/qmt_l1_60s_walkforward_v1.py \
             services/qmt_l1_60s_walkforward_v2.py \
             services/qmt_l1_60s_walkforward_v3.py \
+            services/imacd_research_audit_v1.py \
+            services/run_imacd_audit_v1.py \
+            services/selftest_imacd_research_v1.py \
             services/selftest_l1_trainer_v3.py \
             services/selftest_l1_trainer_v4r.py \
             services/selftest_l1_trainer_v5.py \
@@ -105,3 +111,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: python services/selftest_qmt_l1_walkforward_v3.py
+      - name: Run iMACD causal-state and promotion-gate self-test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_imacd_research_v1.py
