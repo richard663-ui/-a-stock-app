@@ -4,7 +4,7 @@ chcp 65001 >nul
 
 echo ======================================================
 echo A-Stock QMT 60s Research Suite
-echo V3 + iMACD + state filter + meta-label + cross-rank
+echo V3 + iMACD + state filter + rolling-OOF meta-label + cross-rank
 echo Same frozen folds / 2bp / 60s non-overlap / no trading
 echo ======================================================
 
@@ -36,17 +36,17 @@ if errorlevel 1 (
 )
 
 echo [1/7] Downloading frozen research stack...
-for %%F in (qmt_walkforward_pandas_compat.py qmt_walkforward_null_compat_v2.py qmt_l1_60s_walkforward_v1.py qmt_l1_60s_walkforward_v2.py qmt_l1_60s_walkforward_v3.py imacd_research_audit_v1.py run_imacd_audit_v1.py v4r_imacd_filter_audit_v1.py v4r_meta_label_audit_v1.py v4r_cross_sectional_rank_audit_v1.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py train_l1_60s_model_v3.py train_l1_60s_model_v4.py train_l1_60s_model_v4r.py train_l1_60s_model_v5_challenger.py train_l1_60s_model_v5r.py train_l1_60s_model_v6_exec_aligned.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py) do (
+for %%F in (qmt_walkforward_pandas_compat.py qmt_walkforward_null_compat_v2.py qmt_l1_60s_walkforward_v1.py qmt_l1_60s_walkforward_v2.py qmt_l1_60s_walkforward_v3.py imacd_research_audit_v1.py run_imacd_audit_v1.py v4r_imacd_filter_audit_v1.py v4r_meta_label_audit_v1.py v4r_meta_label_audit_v2.py v4r_cross_sectional_rank_audit_v1.py train_l1_60s_model_v1.py train_l1_60s_model_v2.py train_l1_60s_model_v3.py train_l1_60s_model_v4.py train_l1_60s_model_v4r.py train_l1_60s_model_v5_challenger.py train_l1_60s_model_v5r.py train_l1_60s_model_v6_exec_aligned.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py) do (
   curl.exe -L --fail --retry 3 -o "%SERVICEDIR%\%%F" "%BASE%/services/%%F" || goto :fail
 )
 findstr /C:"qmt-l1-60s-walkforward-v3-v6-comparison-20260906" "%SERVICEDIR%\qmt_l1_60s_walkforward_v3.py" >nul || goto :fail
 findstr /C:"imacd-state-ranking-audit-v1-20260906" "%SERVICEDIR%\imacd_research_audit_v1.py" >nul || goto :fail
 findstr /C:"v4r-imacd-regime-filter-audit-v1-20260906" "%SERVICEDIR%\v4r_imacd_filter_audit_v1.py" >nul || goto :fail
-findstr /C:"v4r-meta-label-exec-audit-v1-20260906" "%SERVICEDIR%\v4r_meta_label_audit_v1.py" >nul || goto :fail
+findstr /C:"v4r-meta-label-rolling-oof-v2-20260907" "%SERVICEDIR%\v4r_meta_label_audit_v2.py" >nul || goto :fail
 findstr /C:"v4r-cross-sectional-rank-audit-v1-20260906" "%SERVICEDIR%\v4r_cross_sectional_rank_audit_v1.py" >nul || goto :fail
 
 echo [2/7] Syntax check...
-"%PYEXE%" -m py_compile "%SERVICEDIR%\qmt_l1_60s_walkforward_v3.py" "%SERVICEDIR%\imacd_research_audit_v1.py" "%SERVICEDIR%\run_imacd_audit_v1.py" "%SERVICEDIR%\v4r_imacd_filter_audit_v1.py" "%SERVICEDIR%\v4r_meta_label_audit_v1.py" "%SERVICEDIR%\v4r_cross_sectional_rank_audit_v1.py"
+"%PYEXE%" -m py_compile "%SERVICEDIR%\qmt_l1_60s_walkforward_v3.py" "%SERVICEDIR%\imacd_research_audit_v1.py" "%SERVICEDIR%\run_imacd_audit_v1.py" "%SERVICEDIR%\v4r_imacd_filter_audit_v1.py" "%SERVICEDIR%\v4r_meta_label_audit_v1.py" "%SERVICEDIR%\v4r_meta_label_audit_v2.py" "%SERVICEDIR%\v4r_cross_sectional_rank_audit_v1.py"
 if errorlevel 1 goto :fail
 
 set "PYTHONPATH=%INSTALLDIR%;%PYTHONPATH%"
@@ -75,10 +75,10 @@ echo MACD does NOT choose direction here. It can only keep/reject an already-fro
 "%PYEXE%" -u -m services.v4r_imacd_filter_audit_v1
 if errorlevel 1 goto :runfail
 
-echo [6/7] Running V4R validation-split meta-label audit...
-echo V4R chooses direction; meta model only predicts whether the frozen signal is worth trading.
-echo First 60%% of validation signals fit meta model; last 40%% select threshold; TEST is untouched.
-"%PYEXE%" -u -m services.v4r_meta_label_audit_v1
+echo [6/7] Running V4R rolling-OOF meta-label audit V2...
+echo Every meta-fit/validation/test day is an out-of-sample V4R prediction day.
+echo Two prior OOF days fit meta; next OOF day selects threshold; frozen TEST is untouched.
+"%PYEXE%" -u -m services.v4r_meta_label_audit_v2
 if errorlevel 1 goto :runfail
 
 echo [7/7] Running fixed-universe cross-sectional ranking audit...
