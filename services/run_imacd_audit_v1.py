@@ -24,6 +24,12 @@ CHAIN = (
         "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_meta_label_audit_v1.py",
         "V4R meta-label",
     ),
+    (
+        "services.v4r_cross_sectional_rank_audit_v1", "v4r_cross_sectional_rank_audit_v1.py",
+        "v4r-cross-sectional-rank-audit-v1-20260906",
+        "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_cross_sectional_rank_audit_v1.py",
+        "V4R cross-sectional ranking",
+    ),
 )
 
 

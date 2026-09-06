@@ -1,0 +1,27 @@
+name: Research cross-rank syntax
+
+on:
+  pull_request:
+    paths:
+      - "services/v4r_cross_sectional_rank_audit_v1.py"
+      - "services/selftest_v4r_cross_sectional_rank_audit_v1.py"
+      - "services/run_imacd_audit_v1.py"
+      - "run_qmt_l1_60s_walkforward.bat"
+      - ".github/workflows/research_xrank_syntax.yml"
+
+jobs:
+  xrank-selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install research dependencies
+        run: python -m pip install --disable-pip-version-check "scikit-learn>=1.5,<2.0" "joblib>=1.4" "pandas>=2.0"
+      - name: Compile cross-rank research code
+        run: python -m py_compile services/v4r_cross_sectional_rank_audit_v1.py services/selftest_v4r_cross_sectional_rank_audit_v1.py services/run_imacd_audit_v1.py
+      - name: Run cross-rank deterministic self-test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_v4r_cross_sectional_rank_audit_v1.py
