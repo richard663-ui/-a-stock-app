@@ -20,6 +20,7 @@ on:
       - "services/qmt_walkforward_pandas_compat.py"
       - "services/qmt_l1_60s_walkforward_v1.py"
       - "services/qmt_l1_60s_walkforward_v2.py"
+      - "services/qmt_l1_60s_walkforward_v3.py"
       - "services/selftest_l1_trainer_v3.py"
       - "services/selftest_l1_trainer_v4.py"
       - "services/selftest_l1_trainer_v4r.py"
@@ -28,6 +29,7 @@ on:
       - "services/selftest_l1_v6_shadow_runner_v1.py"
       - "services/selftest_qmt_l1_walkforward_v1.py"
       - "services/selftest_qmt_l1_walkforward_v2.py"
+      - "services/selftest_qmt_l1_walkforward_v3.py"
       - "run_qmt_l1_60s_walkforward.bat"
       - "update_l1_baseline_pipeline.bat"
       - "hotfix_morning_20260904.bat"
@@ -62,13 +64,15 @@ jobs:
             services/qmt_walkforward_pandas_compat.py \
             services/qmt_l1_60s_walkforward_v1.py \
             services/qmt_l1_60s_walkforward_v2.py \
+            services/qmt_l1_60s_walkforward_v3.py \
             services/selftest_l1_trainer_v3.py \
             services/selftest_l1_trainer_v4r.py \
             services/selftest_l1_trainer_v5.py \
             services/selftest_l1_trainer_v6.py \
             services/selftest_l1_v6_shadow_runner_v1.py \
             services/selftest_qmt_l1_walkforward_v1.py \
-            services/selftest_qmt_l1_walkforward_v2.py
+            services/selftest_qmt_l1_walkforward_v2.py \
+            services/selftest_qmt_l1_walkforward_v3.py
       - name: Run synthetic L1 V3 trainer end-to-end test
         env:
           PYTHONPATH: .
@@ -97,3 +101,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: python services/selftest_qmt_l1_walkforward_v2.py
+      - name: Run QMT historical V3 same-fold V4R/V5R/V6 self-test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_qmt_l1_walkforward_v3.py
