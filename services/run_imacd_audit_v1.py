@@ -11,35 +11,40 @@ from pathlib import Path
 import services.imacd_research_audit_v1 as imacd
 import services.qmt_l1_60s_walkforward_v1 as base
 
-FILTER_MODULE = "services.v4r_imacd_filter_audit_v1"
-FILTER_FILE = "v4r_imacd_filter_audit_v1.py"
-FILTER_MARKER = "v4r-imacd-regime-filter-audit-v1-20260906"
-FILTER_URL = "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_imacd_filter_audit_v1.py"
+CHAIN = (
+    (
+        "services.v4r_imacd_filter_audit_v1", "v4r_imacd_filter_audit_v1.py",
+        "v4r-imacd-regime-filter-audit-v1-20260906",
+        "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_imacd_filter_audit_v1.py",
+        "V4R x iMACD filter",
+    ),
+    (
+        "services.v4r_meta_label_audit_v1", "v4r_meta_label_audit_v1.py",
+        "v4r-meta-label-exec-audit-v1-20260906",
+        "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_meta_label_audit_v1.py",
+        "V4R meta-label",
+    ),
+)
 
 
-def _bootstrap_filter_module() -> int:
-    """Allow older copies of the single research BAT to pick up the next audit.
-
-    The BAT already downloads this launcher from main on every run.  Therefore
-    this launcher can fetch the one missing downstream research module without
-    asking the user to replace the BAT yet again.  Production code is untouched.
-    """
+def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, label: str) -> int:
+    """Fetch one downstream research module so old copies of the one BAT advance."""
     service_dir = Path(__file__).resolve().parent
-    target = service_dir / FILTER_FILE
+    target = service_dir / filename
     needs_refresh = True
     if target.exists():
         try:
-            needs_refresh = FILTER_MARKER not in target.read_text(encoding="utf-8", errors="ignore")
+            needs_refresh = marker not in target.read_text(encoding="utf-8", errors="ignore")
         except Exception:
             needs_refresh = True
     if needs_refresh:
-        print("[RESEARCH CHAIN] Fetching latest V4R x iMACD filter audit...")
+        print(f"[RESEARCH CHAIN] Fetching latest {label} audit...")
         tmp = target.with_suffix(".tmp")
         try:
-            with urllib.request.urlopen(FILTER_URL, timeout=25) as response:
+            with urllib.request.urlopen(url, timeout=25) as response:
                 text = response.read().decode("utf-8")
-            if FILTER_MARKER not in text:
-                raise RuntimeError("downloaded filter module failed version marker check")
+            if marker not in text:
+                raise RuntimeError(f"downloaded {label} module failed version marker check")
             tmp.write_text(text, encoding="utf-8")
             tmp.replace(target)
         except Exception as exc:
@@ -47,15 +52,24 @@ def _bootstrap_filter_module() -> int:
                 tmp.unlink(missing_ok=True)
             except Exception:
                 pass
-            print(f"[RESEARCH CHAIN FAIL] {type(exc).__name__}: {exc}")
+            print(f"[RESEARCH CHAIN FAIL] {label}: {type(exc).__name__}: {exc}")
             return 1
     importlib.invalidate_caches()
     try:
-        filt = importlib.import_module(FILTER_MODULE)
-        return int(filt.main())
+        mod = importlib.import_module(module_name)
+        return int(mod.main())
     except Exception as exc:
-        print(f"[RESEARCH CHAIN FAIL] {type(exc).__name__}: {exc}")
+        print(f"[RESEARCH CHAIN FAIL] {label}: {type(exc).__name__}: {exc}")
         return 1
+
+
+def _run_chain() -> int:
+    for module_name, filename, marker, url, label in CHAIN:
+        print(f"[RESEARCH CHAIN] Continuing into {label} audit.")
+        rc = _bootstrap_module(module_name, filename, marker, url, label)
+        if rc != 0:
+            return rc
+    return 0
 
 
 def main() -> int:
@@ -96,12 +110,10 @@ def main() -> int:
     print(f"  cloud_sync={result.get('cloud_sync')}")
     print("[IMACD RULE] Passing historical development gate can enter shadow only; production still requires unseen prospective days.")
 
-    # Newer BATs run the filter as their own explicit step. Older BATs do not.
-    # This compatibility chain means the user's existing BAT can still advance
-    # the research program after it downloads this launcher from main.
-    if os.environ.get("ASTOCK_SKIP_FILTER_CHAIN", "0") != "1":
-        print("[RESEARCH CHAIN] Existing BAT detected; continuing directly into V4R x iMACD filter audit.")
-        return _bootstrap_filter_module()
+    # Latest BAT runs downstream audits explicitly. Older BATs download this
+    # launcher on every run, so they can still advance without replacement.
+    if os.environ.get("ASTOCK_SKIP_RESEARCH_CHAIN", "0") != "1":
+        return _run_chain()
     return 0
 
 
