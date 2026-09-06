@@ -6,15 +6,14 @@ execution-aligned challenger on the same QMT tick replay, the same test folds,
 and the same 2bp execution hurdle.
 
 This is development backtesting, not pristine OOS for V6: V6 architecture was
-informed by earlier Sep-02..Sep-04 observations.  Test folds are never used to
-select thresholds or tune parameters inside this audit.  Nothing can promote or
+informed by earlier Sep-02..Sep-04 observations. Test folds are never used to
+select thresholds or tune parameters inside this audit. Nothing can promote or
 deploy a model; future prospective sessions remain the final judge.
 """
 from __future__ import annotations
 
 import argparse
 import json
-import math
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -175,10 +174,10 @@ def _sync_cloud(report: Dict[str, Any]) -> Dict[str, Any]:
         cfg = load_bridge_config()
         bridge = CloudBridge(cfg, timeout=20.0)
         agg = report.get("aggregates") or {}
-        test_rows = max(
-            int((((agg.get(v) or {}).get("logistic_balanced") or {}).get("test_rows") or 0)
+        test_rows = max([
+            int((((agg.get(v) or {}).get("logistic_balanced") or {}).get("test_rows") or 0))
             for v in ("V4R", "V5R", "V6")
-        )
+        ] or [0])
         payload = {
             "bridge_id": cfg.bridge_id,
             "scope": CLOUD_SCOPE,
