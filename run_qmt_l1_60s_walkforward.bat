@@ -63,7 +63,9 @@ if "%FRESHV3%"=="1" (
 )
 
 echo [4/5] Running fixed iMACD predictor audit for reference...
+set "ASTOCK_SKIP_FILTER_CHAIN=1"
 "%PYEXE%" -u -m services.run_imacd_audit_v1
+set "ASTOCK_SKIP_FILTER_CHAIN="
 if errorlevel 1 goto :runfail
 
 echo [5/5] Running V4R x iMACD validation-only regime-filter audit...
