@@ -24,7 +24,9 @@ on:
       - "services/imacd_research_audit_v1.py"
       - "services/run_imacd_audit_v1.py"
       - "services/v4r_imacd_filter_audit_v1.py"
+      - "services/v4r_meta_label_audit_v1.py"
       - "services/selftest_v4r_imacd_filter_audit_v1.py"
+      - "services/selftest_v4r_meta_label_audit_v1.py"
       - "services/selftest_imacd_research_v1.py"
       - "services/selftest_l1_trainer_v3.py"
       - "services/selftest_l1_trainer_v4.py"
@@ -73,7 +75,9 @@ jobs:
             services/imacd_research_audit_v1.py \
             services/run_imacd_audit_v1.py \
             services/v4r_imacd_filter_audit_v1.py \
+            services/v4r_meta_label_audit_v1.py \
             services/selftest_v4r_imacd_filter_audit_v1.py \
+            services/selftest_v4r_meta_label_audit_v1.py \
             services/selftest_imacd_research_v1.py \
             services/selftest_l1_trainer_v3.py \
             services/selftest_l1_trainer_v4r.py \
@@ -123,3 +127,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: python services/selftest_v4r_imacd_filter_audit_v1.py
+      - name: Run V4R validation-split meta-label self-test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_v4r_meta_label_audit_v1.py
