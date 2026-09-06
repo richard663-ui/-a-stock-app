@@ -30,6 +30,12 @@ CHAIN = (
         "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_cross_sectional_rank_audit_v1.py",
         "V4R cross-sectional ranking",
     ),
+    (
+        "services.v4r_direction_asymmetry_audit_v1", "v4r_direction_asymmetry_audit_v1.py",
+        "v4r-direction-asymmetry-audit-v1-20260906",
+        "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_direction_asymmetry_audit_v1.py",
+        "V4R direction asymmetry",
+    ),
 )
 
 
