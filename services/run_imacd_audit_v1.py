@@ -35,7 +35,7 @@ CHAIN = (
 
 
 def _find_latest_complete_v3(root: Path) -> Optional[Tuple[Path, Dict[str, Any], Path]]:
-    """Return the newest COMPLETE V3 run; ignore half-created market-hour folders."""
+    """Return newest COMPLETE V3 run; ignore half-created market-hour folders."""
     if not root.exists():
         return None
     runs = sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)
@@ -55,8 +55,9 @@ def _find_latest_complete_v3(root: Path) -> Optional[Tuple[Path, Dict[str, Any],
     return None
 
 
-def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, label: str) -> int:
-    """Fetch one downstream research module so old copies of the one BAT advance."""
+def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, label: str,
+                      dataset_root: Path, dates: List[str]) -> int:
+    """Fetch downstream audit and force it to reuse the already selected complete dataset."""
     service_dir = Path(__file__).resolve().parent
     target = service_dir / filename
     needs_refresh = True
@@ -85,16 +86,31 @@ def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, la
     importlib.invalidate_caches()
     try:
         mod = importlib.import_module(module_name)
+        run_fn = getattr(mod, "run", None)
+        if callable(run_fn):
+            report = run_fn(dataset_root, list(dates))
+            if not isinstance(report, dict):
+                raise RuntimeError(f"{label} run() did not return a report")
+            if "cloud_sync" not in report and callable(getattr(mod, "_sync", None)):
+                report["cloud_sync"] = mod._sync(report)
+            out_root = getattr(mod, "OUT_ROOT", None)
+            if out_root is not None:
+                Path(out_root).mkdir(parents=True, exist_ok=True)
+                (Path(out_root) / "latest.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+            cand = report.get("candidate") or {}
+            gate = (report.get("development_gate") or {}).get("pass")
+            print(f"[RESEARCH CHAIN RESULT] {label}: acc={cand.get('directional_accuracy_pct')} cov={cand.get('directional_coverage_pct')} net={cand.get('avg_net_edge_bp')} n={cand.get('directional_predictions')} gate={gate}")
+            return 0
         return int(mod.main())
     except Exception as exc:
         print(f"[RESEARCH CHAIN FAIL] {label}: {type(exc).__name__}: {exc}")
         return 1
 
 
-def _run_chain() -> int:
+def _run_chain(dataset_root: Path, dates: List[str]) -> int:
     for module_name, filename, marker, url, label in CHAIN:
         print(f"[RESEARCH CHAIN] Continuing into {label} audit.")
-        rc = _bootstrap_module(module_name, filename, marker, url, label)
+        rc = _bootstrap_module(module_name, filename, marker, url, label, dataset_root, dates)
         if rc != 0:
             return rc
     return 0
@@ -131,7 +147,7 @@ def main() -> int:
     print("[IMACD RULE] Passing historical development gate can enter shadow only; production still requires unseen prospective days.")
 
     if os.environ.get("ASTOCK_SKIP_RESEARCH_CHAIN", "0") != "1":
-        return _run_chain()
+        return _run_chain(dataset_root, dates)
     return 0
 
 
