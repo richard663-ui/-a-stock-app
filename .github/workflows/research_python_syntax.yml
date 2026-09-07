@@ -93,7 +93,7 @@ jobs:
             services/selftest_l1_trainer_v6.py \
             services/selftest_l1_v6_shadow_runner_v1.py \
             services/selftest_qmt_l1_walkforward_v1.py \
-            services/selftest_qmt_l1_60s_walkforward_v2.py \
+            services/selftest_qmt_l1_walkforward_v2.py \
             services/selftest_qmt_l1_walkforward_v3.py
       - name: Run synthetic L1 V3 trainer end-to-end test
         env:
