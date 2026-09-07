@@ -1,0 +1,38 @@
+{
+  "policy_version": "pm-up-rank1-prospective-policy-20260907",
+  "created_from": "2026-09-07 OPEN_CORE development evidence only",
+  "prospective_test_window": "2026-09-07 13:00-15:00 Asia/Shanghai",
+  "purpose": "Research-only same-day unseen PM challenger. No production deployment.",
+  "frozen_before_test": true,
+  "test_used_for_policy_selection": false,
+  "universe": [
+    "301236.SZ",
+    "300308.SZ",
+    "000400.SZ",
+    "600522.SH",
+    "601179.SH",
+    "600105.SH",
+    "002916.SZ",
+    "000811.SZ"
+  ],
+  "source_model": "daily-frozen V6 raw probabilities already generated prospectively by l1_v6_shadow_runner_v1",
+  "session": "PM_1300_1500",
+  "bucket_seconds": 60,
+  "minimum_valid_symbols_per_bucket": 6,
+  "direction_policy": "UP_ONLY",
+  "selection_rule": "select exactly one symbol with the highest up_prob inside each eligible 60s cross-sectional bucket",
+  "down_enabled": false,
+  "absolute_probability_threshold_required": false,
+  "entry_price": "observed ask1 at prediction time",
+  "settlement_price": "mean observed bid1 over +55s to +65s",
+  "execution_hurdle_bp": 2.0,
+  "correct_rule": "ask_now_to_future_bid_return > 2bp",
+  "net_edge_rule": "100 * up_exec_return_pct - 2bp",
+  "governance": {
+    "2026-09-07_morning_is_development": true,
+    "2026-09-07_pm_is_prospective_unseen_for_this_policy": true,
+    "no_intraday_retuning_after_1300": true,
+    "no_production_change": true,
+    "promotion_requires_future_days": true
+  }
+}
