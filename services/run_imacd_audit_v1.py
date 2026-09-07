@@ -7,6 +7,7 @@ import os
 import urllib.request
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import services.imacd_research_audit_v1 as imacd
 import services.qmt_l1_60s_walkforward_v1 as base
@@ -33,8 +34,30 @@ CHAIN = (
 )
 
 
-def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, label: str) -> int:
-    """Fetch one downstream research module so old copies of the one BAT advance."""
+def _find_latest_complete_v3(root: Path) -> Optional[Tuple[Path, Dict[str, Any], Path]]:
+    """Return newest COMPLETE V3 run; ignore half-created market-hour folders."""
+    if not root.exists():
+        return None
+    runs = sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)
+    for run in runs:
+        report_path = run / "walkforward_report_v3.json"
+        dataset_root = run / "dataset"
+        if not report_path.is_file() or not dataset_root.is_dir():
+            continue
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        dates = list(((report.get("dataset") or {}).get("trade_dates") or []))
+        baseline = (((report.get("aggregates") or {}).get("V4R") or {}).get("logistic_balanced") or {})
+        if len(dates) >= 6 and baseline and not report.get("fatal_error"):
+            return run, report, dataset_root
+    return None
+
+
+def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, label: str,
+                      dataset_root: Path, dates: List[str]) -> int:
+    """Fetch downstream audit and force it to reuse the already selected complete dataset."""
     service_dir = Path(__file__).resolve().parent
     target = service_dir / filename
     needs_refresh = True
@@ -63,16 +86,31 @@ def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, la
     importlib.invalidate_caches()
     try:
         mod = importlib.import_module(module_name)
+        run_fn = getattr(mod, "run", None)
+        if callable(run_fn):
+            report = run_fn(dataset_root, list(dates))
+            if not isinstance(report, dict):
+                raise RuntimeError(f"{label} run() did not return a report")
+            if "cloud_sync" not in report and callable(getattr(mod, "_sync", None)):
+                report["cloud_sync"] = mod._sync(report)
+            out_root = getattr(mod, "OUT_ROOT", None)
+            if out_root is not None:
+                Path(out_root).mkdir(parents=True, exist_ok=True)
+                (Path(out_root) / "latest.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+            cand = report.get("candidate") or {}
+            gate = (report.get("development_gate") or {}).get("pass")
+            print(f"[RESEARCH CHAIN RESULT] {label}: acc={cand.get('directional_accuracy_pct')} cov={cand.get('directional_coverage_pct')} net={cand.get('avg_net_edge_bp')} n={cand.get('directional_predictions')} gate={gate}")
+            return 0
         return int(mod.main())
     except Exception as exc:
         print(f"[RESEARCH CHAIN FAIL] {label}: {type(exc).__name__}: {exc}")
         return 1
 
 
-def _run_chain() -> int:
+def _run_chain(dataset_root: Path, dates: List[str]) -> int:
     for module_name, filename, marker, url, label in CHAIN:
         print(f"[RESEARCH CHAIN] Continuing into {label} audit.")
-        rc = _bootstrap_module(module_name, filename, marker, url, label)
+        rc = _bootstrap_module(module_name, filename, marker, url, label, dataset_root, dates)
         if rc != 0:
             return rc
     return 0
@@ -80,24 +118,16 @@ def _run_chain() -> int:
 
 def main() -> int:
     root = Path.home() / "AStockData" / "qmt_l1_walkforward_v3"
-    runs = sorted([p for p in root.iterdir() if p.is_dir()], reverse=True) if root.exists() else []
-    if not runs:
-        print("[IMACD FAIL] no V3 walk-forward run directory found")
+    found = _find_latest_complete_v3(root)
+    if found is None:
+        print("[IMACD FAIL] no COMPLETE V3 walk-forward run found")
         return 2
-    run = runs[0]
-    report_path = run / "walkforward_report_v3.json"
-    dataset_root = run / "dataset"
-    if not report_path.exists() or not dataset_root.exists():
-        print(f"[IMACD FAIL] latest V3 run incomplete: {run}")
-        return 2
-    v3 = json.loads(report_path.read_text(encoding="utf-8"))
-    dates = list(((v3.get("dataset") or {}).get("trade_dates") or []))
+    run, v3, dataset_root = found
+    dates: List[str] = list(((v3.get("dataset") or {}).get("trade_dates") or []))
     baseline = (((v3.get("aggregates") or {}).get("V4R") or {}).get("logistic_balanced") or {})
-    if len(dates) < 6 or not baseline:
-        print("[IMACD FAIL] V3 dates/baseline missing")
-        return 2
     generated_at = datetime.now(base.CN_TZ).isoformat(timespec="seconds")
     print(f"[IMACD] source_run={run.name} dates={len(dates)}")
+    print("[IMACD] incomplete/newer V3 folders are ignored automatically")
     print("[IMACD] fixed 5s+15s 12/26/9 state engine; q90 validation ranking; exact future bid; 2bp hurdle")
     result = imacd.run_audit(dataset_root, dates, baseline, generated_at)
     out = run / "imacd_report_v1.json"
@@ -116,10 +146,8 @@ def main() -> int:
     print(f"  cloud_sync={result.get('cloud_sync')}")
     print("[IMACD RULE] Passing historical development gate can enter shadow only; production still requires unseen prospective days.")
 
-    # Latest BAT runs downstream audits explicitly. Older BATs download this
-    # launcher on every run, so they can still advance without replacement.
     if os.environ.get("ASTOCK_SKIP_RESEARCH_CHAIN", "0") != "1":
-        return _run_chain()
+        return _run_chain(dataset_root, dates)
     return 0
 
 
