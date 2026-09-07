@@ -11,6 +11,7 @@ on:
       - "services/train_l1_60s_model_v3.py"
       - "services/train_l1_60s_model_v4.py"
       - "services/train_l1_60s_model_v4r.py"
+      - "services/train_l1_60s_model_v4rx_observed_label.py"
       - "services/train_l1_60s_model_v5_challenger.py"
       - "services/train_l1_60s_model_v5r.py"
       - "services/train_l1_60s_model_v6_exec_aligned.py"
@@ -31,6 +32,7 @@ on:
       - "services/selftest_l1_trainer_v3.py"
       - "services/selftest_l1_trainer_v4.py"
       - "services/selftest_l1_trainer_v4r.py"
+      - "services/selftest_l1_trainer_v4rx_observed_label.py"
       - "services/selftest_l1_trainer_v5.py"
       - "services/selftest_l1_trainer_v6.py"
       - "services/selftest_l1_v6_shadow_runner_v1.py"
@@ -63,6 +65,7 @@ jobs:
             services/train_l1_60s_model_v3.py \
             services/train_l1_60s_model_v4.py \
             services/train_l1_60s_model_v4r.py \
+            services/train_l1_60s_model_v4rx_observed_label.py \
             services/train_l1_60s_model_v5_challenger.py \
             services/train_l1_60s_model_v5r.py \
             services/train_l1_60s_model_v6_exec_aligned.py \
@@ -81,6 +84,7 @@ jobs:
             services/selftest_imacd_research_v1.py \
             services/selftest_l1_trainer_v3.py \
             services/selftest_l1_trainer_v4r.py \
+            services/selftest_l1_trainer_v4rx_observed_label.py \
             services/selftest_l1_trainer_v5.py \
             services/selftest_l1_trainer_v6.py \
             services/selftest_l1_v6_shadow_runner_v1.py \
@@ -95,6 +99,10 @@ jobs:
         env:
           PYTHONPATH: .
         run: python services/selftest_l1_trainer_v4r.py
+      - name: Run V4R-X observed-bid scoring-label self-test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_l1_trainer_v4rx_observed_label.py
       - name: Run synthetic L1 V5 robust challenger end-to-end test
         env:
           PYTHONPATH: .
