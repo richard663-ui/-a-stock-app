@@ -26,8 +26,10 @@ on:
       - "services/run_imacd_audit_v1.py"
       - "services/v4r_imacd_filter_audit_v1.py"
       - "services/v4r_meta_label_audit_v1.py"
+      - "services/v4r_meta_label_audit_v2_exec_metrics.py"
       - "services/selftest_v4r_imacd_filter_audit_v1.py"
       - "services/selftest_v4r_meta_label_audit_v1.py"
+      - "services/selftest_v4r_meta_label_audit_v2_exec_metrics.py"
       - "services/selftest_imacd_research_v1.py"
       - "services/selftest_l1_trainer_v3.py"
       - "services/selftest_l1_trainer_v4.py"
@@ -79,8 +81,10 @@ jobs:
             services/run_imacd_audit_v1.py \
             services/v4r_imacd_filter_audit_v1.py \
             services/v4r_meta_label_audit_v1.py \
+            services/v4r_meta_label_audit_v2_exec_metrics.py \
             services/selftest_v4r_imacd_filter_audit_v1.py \
             services/selftest_v4r_meta_label_audit_v1.py \
+            services/selftest_v4r_meta_label_audit_v2_exec_metrics.py \
             services/selftest_imacd_research_v1.py \
             services/selftest_l1_trainer_v3.py \
             services/selftest_l1_trainer_v4r.py \
@@ -89,7 +93,7 @@ jobs:
             services/selftest_l1_trainer_v6.py \
             services/selftest_l1_v6_shadow_runner_v1.py \
             services/selftest_qmt_l1_walkforward_v1.py \
-            services/selftest_qmt_l1_walkforward_v2.py \
+            services/selftest_qmt_l1_60s_walkforward_v2.py \
             services/selftest_qmt_l1_walkforward_v3.py
       - name: Run synthetic L1 V3 trainer end-to-end test
         env:
@@ -139,3 +143,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: python services/selftest_v4r_meta_label_audit_v1.py
+      - name: Run V4R meta-label exact-execution metric self-test
+        env:
+          PYTHONPATH: .
+        run: python services/selftest_v4r_meta_label_audit_v2_exec_metrics.py
