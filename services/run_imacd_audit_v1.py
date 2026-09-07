@@ -7,6 +7,7 @@ import os
 import urllib.request
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 import services.imacd_research_audit_v1 as imacd
 import services.qmt_l1_60s_walkforward_v1 as base
@@ -31,6 +32,27 @@ CHAIN = (
         "V4R cross-sectional ranking",
     ),
 )
+
+
+def _find_latest_complete_v3(root: Path) -> Optional[Tuple[Path, Dict[str, Any], Path]]:
+    """Return the newest COMPLETE V3 run; ignore half-created market-hour folders."""
+    if not root.exists():
+        return None
+    runs = sorted([p for p in root.iterdir() if p.is_dir()], key=lambda p: p.stat().st_mtime, reverse=True)
+    for run in runs:
+        report_path = run / "walkforward_report_v3.json"
+        dataset_root = run / "dataset"
+        if not report_path.is_file() or not dataset_root.is_dir():
+            continue
+        try:
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        dates = list(((report.get("dataset") or {}).get("trade_dates") or []))
+        baseline = (((report.get("aggregates") or {}).get("V4R") or {}).get("logistic_balanced") or {})
+        if len(dates) >= 6 and baseline and not report.get("fatal_error"):
+            return run, report, dataset_root
+    return None
 
 
 def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, label: str) -> int:
@@ -80,24 +102,16 @@ def _run_chain() -> int:
 
 def main() -> int:
     root = Path.home() / "AStockData" / "qmt_l1_walkforward_v3"
-    runs = sorted([p for p in root.iterdir() if p.is_dir()], reverse=True) if root.exists() else []
-    if not runs:
-        print("[IMACD FAIL] no V3 walk-forward run directory found")
+    found = _find_latest_complete_v3(root)
+    if found is None:
+        print("[IMACD FAIL] no COMPLETE V3 walk-forward run found")
         return 2
-    run = runs[0]
-    report_path = run / "walkforward_report_v3.json"
-    dataset_root = run / "dataset"
-    if not report_path.exists() or not dataset_root.exists():
-        print(f"[IMACD FAIL] latest V3 run incomplete: {run}")
-        return 2
-    v3 = json.loads(report_path.read_text(encoding="utf-8"))
-    dates = list(((v3.get("dataset") or {}).get("trade_dates") or []))
+    run, v3, dataset_root = found
+    dates: List[str] = list(((v3.get("dataset") or {}).get("trade_dates") or []))
     baseline = (((v3.get("aggregates") or {}).get("V4R") or {}).get("logistic_balanced") or {})
-    if len(dates) < 6 or not baseline:
-        print("[IMACD FAIL] V3 dates/baseline missing")
-        return 2
     generated_at = datetime.now(base.CN_TZ).isoformat(timespec="seconds")
     print(f"[IMACD] source_run={run.name} dates={len(dates)}")
+    print("[IMACD] incomplete/newer V3 folders are ignored automatically")
     print("[IMACD] fixed 5s+15s 12/26/9 state engine; q90 validation ranking; exact future bid; 2bp hurdle")
     result = imacd.run_audit(dataset_root, dates, baseline, generated_at)
     out = run / "imacd_report_v1.json"
@@ -116,8 +130,6 @@ def main() -> int:
     print(f"  cloud_sync={result.get('cloud_sync')}")
     print("[IMACD RULE] Passing historical development gate can enter shadow only; production still requires unseen prospective days.")
 
-    # Latest BAT runs downstream audits explicitly. Older BATs download this
-    # launcher on every run, so they can still advance without replacement.
     if os.environ.get("ASTOCK_SKIP_RESEARCH_CHAIN", "0") != "1":
         return _run_chain()
     return 0
