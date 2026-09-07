@@ -1,0 +1,63 @@
+{
+  "policy_version": "open-core-up-rank1-shadow-20260907",
+  "created_from_development_evidence_day": "2026-09-07",
+  "effective_for_unseen_sessions_on_or_after": "2026-09-08",
+  "scope": "RESEARCH_SHADOW_ONLY",
+  "production_v18_modified": false,
+  "phase": "OPEN_CORE_0930_1030",
+  "universe": [
+    "301236.SZ",
+    "300308.SZ",
+    "000400.SZ",
+    "600522.SH",
+    "601179.SH",
+    "600105.SH",
+    "002916.SZ",
+    "000811.SZ"
+  ],
+  "bucket": "one 60-second cross-sectional bucket",
+  "minimum_symbols_with_settled_observed_bid": 6,
+  "decision_rule": {
+    "direction": "UP_ONLY",
+    "select": "exactly the symbol with the highest frozen V6 raw up_prob in the bucket",
+    "down_head": "DISABLED_FOR_THIS_CHALLENGER",
+    "absolute_probability_threshold": null,
+    "tie_break": "symbol_ascending",
+    "otherwise": "WATCH"
+  },
+  "execution": {
+    "entry": "observed ask1 at prediction time",
+    "exit_diagnostic": "mean observed bid1 over +55s..+65s",
+    "execution_hurdle_bp": 2.0,
+    "gross_edge_bp": "100 * up_exec_return_pct",
+    "net_edge_bp": "gross_edge_bp - 2.0",
+    "correct": "up_exec_return_pct > 0.02 percent"
+  },
+  "governance": {
+    "development_day_2026_09_07_must_not_be_called_oos": true,
+    "no_parameter_changes_from_future_test_results": true,
+    "next_unseen_session_is_first_prospective_judge": true,
+    "historical_or_development_success_does_not_modify_production": true
+  },
+  "promotion_gate": {
+    "directional_accuracy_pct_min": 55.0,
+    "avg_net_edge_bp_min_exclusive": 0.0,
+    "coverage_pct_min": 5.0,
+    "directional_predictions_min": 100,
+    "wilson_95_lower_pct_min": 52.0,
+    "positive_net_edge_days_min": 3,
+    "required_unseen_trading_days_before_production": 3
+  },
+  "development_evidence_snapshot": {
+    "open_core_settled_rows": 367,
+    "open_core_invalid_rows": 104,
+    "legacy_threshold_directional_predictions": 0,
+    "cross_sectional_up_rank1_n": 46,
+    "cross_sectional_up_rank1_actionable_rate_pct": 52.17391304347826,
+    "cross_sectional_up_rank1_gross_edge_bp": 7.19422865263618,
+    "cross_sectional_up_rank1_net_edge_bp": 5.19422865263618,
+    "cross_sectional_down_rank1_n": 46,
+    "cross_sectional_down_rank1_actionable_rate_pct": 41.30434782608696,
+    "cross_sectional_down_rank1_net_edge_bp": -10.6850018018618
+  }
+}
