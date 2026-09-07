@@ -1,0 +1,56 @@
+{
+  "policy_id": "open-core-per-symbol-zrank1-frozen-20260907",
+  "role": "RESEARCH_CHALLENGER_ONLY",
+  "frozen_at_note": "Frozen after 2026-09-07 close using only 2026-09-07 OPEN_CORE as calibration history. Must not be evaluated as OOS on 2026-09-07. First eligible evidence is the next unseen trading day.",
+  "target_session": "OPEN_CORE_0930_1030",
+  "direction_policy": "UP_ONLY",
+  "down_enabled": false,
+  "candidate_universe": [
+    "301236.SZ",
+    "300308.SZ",
+    "000400.SZ",
+    "600522.SH",
+    "601179.SH",
+    "600105.SH",
+    "002916.SZ",
+    "000811.SZ"
+  ],
+  "score_frequency": "ONE_CROSS_SECTION_PER_60S_BUCKET",
+  "minimum_valid_symbols_per_bucket": 6,
+  "score": "z=(up_prob-calibration_mean)/calibration_sd",
+  "selection": "select exactly one symbol with highest z among valid symbols; ties resolved lexicographically by symbol; no score-gap or absolute-z threshold",
+  "calibration_source": "2026-09-07 OPEN_CORE settled V6 shadow probabilities only; fixed before next unseen day; no current-test-day adaptation",
+  "calibration": {
+    "000400.SZ": {"n": 47, "mean": 0.0768901058079557, "sd": 0.0428713381923644},
+    "000811.SZ": {"n": 49, "mean": 0.44251094801854, "sd": 0.227873796373893},
+    "002916.SZ": {"n": 38, "mean": 0.627695423873798, "sd": 0.234333966376659},
+    "300308.SZ": {"n": 47, "mean": 0.366669111127518, "sd": 0.204114406619228},
+    "301236.SZ": {"n": 46, "mean": 0.353563741658825, "sd": 0.141953681864597},
+    "600105.SH": {"n": 47, "mean": 0.289116714385216, "sd": 0.138840294588267},
+    "600522.SH": {"n": 47, "mean": 0.200946714519255, "sd": 0.101162357541966},
+    "601179.SH": {"n": 46, "mean": 0.071219834898648, "sd": 0.0263600572605293}
+  },
+  "execution_label": {
+    "entry": "observed ask1 at prediction time",
+    "exit": "mean observed bid1 from +55s through +65s",
+    "hurdle_bp": 2.0,
+    "accuracy_success": "ask_to_future_bid_return_bp > 2.0",
+    "net_edge_bp": "mean(ask_to_future_bid_return_bp) - 2.0"
+  },
+  "anti_leakage": [
+    "Do not recompute mean or sd from the evaluation day before or during evaluation.",
+    "Do not change universe, session, minimum-valid rule, tie break, direction policy, or execution label after seeing evaluation outcomes.",
+    "2026-09-07 remains development/calibration evidence only for this challenger."
+  ],
+  "promotion_gate": {
+    "accuracy_pct_min": 55.0,
+    "net_edge_bp_min_exclusive": 0.0,
+    "coverage_pct_min": 5.0,
+    "directional_n_min": 100,
+    "wilson_lower_pct_min": 52.0,
+    "positive_net_edge_unseen_days_min": 3,
+    "requires_no_leakage_parity_datasnooping_alarm": true,
+    "requires_both_accuracy_and_net_edge_improve_vs_benchmark": true,
+    "production_v18_unchanged": true
+  }
+}
