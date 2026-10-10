@@ -35,6 +35,7 @@ import pandas as pd
 
 from modules.cloud_bridge import CloudBridge, load_bridge_config
 from modules.market_clock import SHANGHAI, market_now, market_from_timestamp, continuous_market_open
+from modules.runtime_guard import acquire_bridge_lock
 import services.train_l1_60s_model_v3 as v3
 import services.train_l1_60s_model_v4 as core
 import services.train_l1_60s_model_v6_exec_aligned as v6
@@ -436,6 +437,10 @@ def _count_today(conn: sqlite3.Connection, day_start_ts: float) -> Tuple[int, in
 
 
 def main() -> None:
+    instance_lock = acquire_bridge_lock(port=49330)
+    if instance_lock is None:
+        print("V6 shadow runner already running; exiting duplicate.")
+        return
     print("AStock V6 prospective 60s shadow runner started")
     print(f"Runner: {RUNNER_VERSION}")
     print("Observed future bid settlement; recorder/production processes are not patched.")

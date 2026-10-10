@@ -13,6 +13,7 @@ from xtquant import xtdata
 
 import services.qmt_l2_training_recorder_v6 as v6
 from modules.level2_engine import analyze_level2
+from modules.runtime_guard import acquire_bridge_lock
 
 base = v6.base
 RECORDER_VERSION = "l1-training-recorder-v2-shanghai-tick-20261010"
@@ -125,6 +126,10 @@ base._write_status = _write_status
 
 
 def main() -> None:
+    instance_lock = acquire_bridge_lock(port=49329)
+    if instance_lock is None:
+        print("L1 training recorder already running; exiting duplicate.")
+        return
     print("AStock L1/Tick 60s training recorder started")
     print(f"Recorder: {RECORDER_VERSION}")
     print("Mode: L1_BASELINE - no Level-2 subscription is attempted.")

@@ -13,6 +13,7 @@ import unittest
 from modules.market_clock import market_now, continuous_market_open, SHANGHAI
 from modules.feed_health import tick_is_fresh
 from modules.qmt_live import normalize_tick
+from modules.runtime_guard import acquire_bridge_lock
 from services.learning_progress import inspect_learning_data, learning_progress
 
 
@@ -20,6 +21,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class MonitoringIntegrityTests(unittest.TestCase):
+    def test_single_instance_lock_rejects_duplicate(self):
+        first=acquire_bridge_lock(port=0)
+        self.assertIsNotNone(first)
+        try:
+            self.assertIsNone(acquire_bridge_lock(port=first.getsockname()[1]))
+        finally:
+            first.close()
+
     def test_same_instant_has_same_session_in_london_and_shanghai(self):
         for offset in (0, 1):
             london = timezone(timedelta(hours=offset))

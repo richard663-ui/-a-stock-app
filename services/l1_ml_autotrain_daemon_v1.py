@@ -18,6 +18,7 @@ from typing import Any, Dict, Tuple
 
 from modules.cloud_bridge import CloudBridge, load_bridge_config
 from modules.market_clock import market_now, continuous_market_open
+from modules.runtime_guard import acquire_bridge_lock
 from services.learning_progress import inspect_learning_data, learning_progress, export_learning_progress
 
 AUTO_TRAINER_VERSION = "l1-ml-autotrain-v1-20260904"
@@ -254,6 +255,10 @@ def _train(now: datetime, slot: str, counts: Dict[str, int], state: Dict[str, An
 
 
 def main() -> None:
+    instance_lock = acquire_bridge_lock(port=49328)
+    if instance_lock is None:
+        print("L1 auto-trainer already running; exiting duplicate.")
+        return
     print("AStock L1/Tick 60s ML auto-trainer started")
     print(f"Daemon: {AUTO_TRAINER_VERSION}")
     print("Schedules: 11:35 lunch + 15:10 after close. Research only; no auto deployment.")
