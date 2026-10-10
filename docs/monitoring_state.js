@@ -18,7 +18,7 @@
     const value=Number(score), confidence=Number(sig.confidence_score);
     return {direction:sig.direction,label:sig.label,sub:
       (Number.isFinite(value) ? '方向分 '+(value>=0?'+':'')+Math.round(value)+'/100' : '方向分 --')
-      +(Number.isFinite(confidence)&&confidence>0 ? ' · 可信度 '+Math.round(confidence)+'/100' : '')};
+      +(Number.isFinite(confidence)&&confidence>0 ? ' · 结构分 '+Math.round(confidence)+'/100' : '')};
   }
 
   const learningLabels={

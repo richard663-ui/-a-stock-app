@@ -1,7 +1,7 @@
 export const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 export const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SUPABASE_SERVICE_KEY') ?? '';
 export const BRIDGE_ID = 'family-qmt-01';
-export const MODEL_VERSION = 'mobile-v9-direction-confidence-macd-calibration';
+export const MODEL_VERSION = 'mobile-v10-exchange-window-prospective';
 const PASSWORD_SALT_B64 = 'j1uIbeJ1fb0EqE0f+l7nIg==';
 const PASSWORD_HASH_B64 = 'vnR5thLXCEsFVuAz9omEzvCFCHQcc6j1bF3tcU6mzwA=';
 const PASSWORD_ITERATIONS = 120000;

@@ -10,6 +10,7 @@ import streamlit as st
 from modules.data_sources import fetch_em_snapshot, fetch_tencent_kline, load_baostock_industry
 from modules.qishi import analyze_qishi
 from modules.utils import normalize_code, safe_get
+from modules.event_evidence import summarize_events
 
 
 FALLBACK_INDUSTRY = {
@@ -103,10 +104,10 @@ def detect_industry_concepts(code: str, snapshot: Dict[str, Any]) -> Tuple[str, 
     return "行业未识别", [], "未识别"
 
 
-def analyze_event_catalyst(code: str, event_text: str, concepts: List[str]) -> Dict[str, Any]:
+def analyze_event_catalyst(code: str, event_text: str, concepts: List[str], events=None) -> Dict[str, Any]:
     code = normalize_code(code)
     text = (event_text or "").lower()
-    score = 0
+    evidence = summarize_events(events)
     matched = []
     related_pool = []
     reasons = []
@@ -118,22 +119,19 @@ def analyze_event_catalyst(code: str, event_text: str, concepts: List[str]) -> D
         code_hit = any(code in stocks for stocks in cfg["directions"].values())
         if theme_hit or concept_hit or code_hit:
             matched.append(theme_name)
-            add = 20 if theme_hit else 10
-            if code_hit:
-                add += 20
-            score += add
             for direction, stocks in cfg["directions"].items():
                 related_pool.extend(stocks)
                 if code in stocks:
-                    reasons.append(f"个股命中事件方向：{theme_name} / {direction}")
+                    reasons.append(f"产业链映射（不是事件证据）：{theme_name} / {direction}")
             if theme_hit:
                 reasons.append(f"事件文字命中：{theme_name}")
 
     if concepts:
-        score += min(15, len(concepts) * 4)
         reasons.append(f"概念标签：{', '.join(concepts[:4])}")
 
-    score = min(100, score)
+    score = evidence['score']
+    if not score:
+        reasons.insert(0, '没有已核实的近期原始来源；概念、关键词和手写文字不增加催化分。')
     if score >= 70:
         label = "强催化"
     elif score >= 45:
@@ -149,33 +147,26 @@ def analyze_event_catalyst(code: str, event_text: str, concepts: List[str]) -> D
         "matched": matched,
         "related_pool": sorted(set(related_pool)),
         "reasons": reasons or ["未发现明确事件催化。"],
+        "evidence": evidence,
+        "active_for_short_horizon_signals": False,
     }
 
 
 def event_certainty_grade(event_text: str, news: List[Dict[str, str]], catalyst: Dict[str, Any]) -> Dict[str, Any]:
-    """把事件催化分成确定性等级：公告/官方事件/权威新闻/普通新闻/线索。"""
-    text = (event_text or '') + ' ' + ' '.join([str(n.get('title','')) + ' ' + str(n.get('source','')) for n in news or []])
-    low = text.lower()
-    level = 5
-    label = '五级：概念线索/联想'
-    certainty = '低'
-    reason = '主要是概念或关键词相关，暂未看到明确公告或权威事件。'
-
-    strong_company = ['公告','业绩预增','业绩快报','回购','增持','中标','重大合同','订单','重组','并购','定增','股权激励']
-    official_event = ['nvidia','英伟达','gtc','computex','rubin','blackwell','ai factory','政策','国务院','工信部','发改委','央行','证监会']
-    authoritative = ['reuters','bloomberg','财联社','新华社','证券时报','上海证券报','中国证券报','eastmoney','东方财富','同花顺']
-
-    if any(k.lower() in low for k in strong_company):
-        level = 1; label = '一级：公司公告/硬催化'; certainty = '高'; reason = '包含公告、业绩、订单、回购、增持、重大合同等硬催化关键词。'
-    elif any(k.lower() in low for k in official_event):
-        level = 2; label = '二级：官方/海外龙头产业事件'; certainty = '中高'; reason = '包含 NVIDIA、政策、产业发布会等行业级事件，通常属于产业链间接催化。'
-    elif any(k.lower() in low for k in authoritative):
-        level = 3; label = '三级：权威媒体/财经新闻'; certainty = '中'; reason = '来自较权威媒体或财经新闻，但不一定是公司直接公告。'
-    elif news:
-        level = 4; label = '四级：普通新闻线索'; certainty = '中低'; reason = '有相关新闻线索，但确定性和直接性一般。'
-
-    direct = '直接利好' if level == 1 else ('产业链间接利好' if level in [2,3] and catalyst.get('score',0) >= 35 else '相关线索')
-    return {'level': level, 'label': label, 'certainty': certainty, 'reason': reason, 'impact_type': direct}
+    """Source certainty and impact direction are separate from title keywords."""
+    evidence = summarize_events(news)
+    verified = [row for row in evidence['events'] if row['certainty_level'] == 1]
+    level = 1 if verified else (4 if news else 5)
+    impacts = {row['expected_impact'] for row in verified}
+    impact = ('positive' if impacts == {'positive'} else 'negative' if impacts == {'negative'}
+              else 'mixed' if impacts else 'neutral')
+    return {'level': level,
+            'label': '一级：已核实原始来源' if verified else '未核实新闻/概念线索',
+            'certainty': '有原始证据' if verified else '低',
+            'reason': '来源确定性不等于利好，事件方向需单独核实。',
+            'impact_type': {'positive': '已核实正面事件', 'negative': '已核实负面事件',
+                            'mixed': '影响混合，需复核', 'neutral': '影响未确认'}[impact],
+            'evidence': evidence}
 
 
 def build_event_direction_table(event_text: str) -> pd.DataFrame:
@@ -216,7 +207,10 @@ def fetch_google_news_rss(query: str, limit: int = 8) -> List[Dict[str, str]]:
             src = item.find('source')
             if src is not None and src.text:
                 source = src.text
-            items.append({'title': title, 'link': link, 'pubDate': pub, 'source': source, 'query': query})
+            items.append({'title': title, 'link': link, 'pubDate': pub, 'source': source, 'query': query,
+                          'first_seen_at': datetime.now(timezone.utc).isoformat(),
+                          'verified': False, 'expected_impact': 'neutral',
+                          'provider': 'google_news_rss', 'provider_cache_seconds': 900})
         return items
     except Exception:
         return []
@@ -228,12 +222,12 @@ def build_event_queries(code: str, snapshot: Dict[str, Any], industry: str, conc
     queries = []
     # 个股相关新闻
     if name:
-        queries.append(f'{name} 股票 利好 公告 订单 业绩')
+        queries.append(f'{name} 公告 业绩 订单 减持 风险')
     # 行业/概念相关新闻
     for c in concepts[:3]:
-        queries.append(f'{c} A股 利好 新闻')
+        queries.append(f'{c} A股 新闻 风险')
     if industry and industry != '行业未识别':
-        queries.append(f'{industry} A股 政策 利好')
+        queries.append(f'{industry} A股 政策 新闻')
     # 全球事件关键词，按概念定向
     ctext = ' '.join(concepts + [industry])
     if any(k in ctext for k in ['CPO','光模块','算力','通信设备','AI服务器']):
@@ -281,7 +275,11 @@ def auto_event_radar(code: str, snapshot: Dict[str, Any], industry: str, concept
         score += min(20, len(unique) * 2)
     score = min(100, score)
     label = '强事件线索' if score >= 70 else ('中等事件线索' if score >= 40 else ('弱事件线索' if score >= 15 else '暂无明显全球事件'))
-    return {'score': score, 'label': label, 'news': unique[:12], 'queries': queries, 'reasons': reasons or ['未自动发现明显全球事件线索。']}
+    evidence = summarize_events(unique[:12])
+    return {'score': evidence['score'], 'label': '未核实新闻线索' if unique else '暂无新闻证据',
+            'clue_score': score, 'news': evidence['events'], 'evidence': evidence, 'queries': queries,
+            'reasons': reasons or ['未自动发现明显全球事件线索。'],
+            'active_for_short_horizon_signals': False}
 
 
 def scan_event_pool(event_text: str, max_n: int = 40) -> pd.DataFrame:

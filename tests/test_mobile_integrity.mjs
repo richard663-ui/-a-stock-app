@@ -46,5 +46,30 @@ assert.equal(requests.some(url=>/tencent|qq.com/.test(url)),false);
 const learning=await (await handler(new Request('https://test/learning',{headers}))).json();
 assert.equal(learning.research_only,true);
 assert.equal(learning.auto_deployed,false);
+assert.equal((await handler(new Request('https://test/evaluation'))).status,401);
+const evaluation=await (await handler(new Request('https://test/evaluation',{headers}))).json();
+assert.equal(evaluation.calibrated_probability,false);
+assert.equal(evaluation.standard.automatic_promotion,false);
+assert.deepEqual(evaluation.summaries,[]);
+let writes=[];
+globalThis.fetch=async (url,init={})=>{
+  const path=String(url);requests.push(path);
+  if(init.method==='POST')writes.push({path,body:JSON.parse(init.body),headers:init.headers});
+  let rows=[];
+  if(path.includes('qmt_watch_requests'))rows=[{symbol:'600522.SH'}];
+  else if(path.includes('qmt_live_cache'))rows=[{...payload,ticks:Array.from({length:76},(_,i)=>({
+    time:now-(75-i)*1000,lastPrice:10+i*.001,volume:1000+i,amount:1000000+i*1000,
+    bidPrice:[10+i*.001-.005],askPrice:[10+i*.001+.005],bidVol:[100],askVol:[30]}))}];
+  return new Response(JSON.stringify(rows),{headers:{'content-type':'application/json'}});
+};
+const current=await (await handler(new Request('https://test/state',{headers}))).json();
+assert.equal(current.window_ready_60,true);
+assert.equal(current.window_ready_120,false);
+assert.equal(current.two_minute.direction,'WATCH');
+assert.equal(writes.length,1);
+assert.equal(writes[0].body.length,2);
+assert.equal(writes[0].body[0].direction,current.one_minute.direction);
+assert.equal(writes[0].body[0].model_version,current.model_version);
+assert.ok(writes[0].headers.Prefer.includes('ignore-duplicates'));
 Date.now=nativeNow;
 console.log('Mobile freshness, authenticated API and ML status tests PASS');

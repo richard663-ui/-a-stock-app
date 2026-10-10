@@ -19,6 +19,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
         if(url.endsWith('/learning'))body={training:{state:'WAITING_FRESH_DATA',pooled_samples:63165,
           learning_progress:{data_latest_date:'2026-09-07',new_samples_since_last_training:0}},
           recorder:{data_mode:'L1_BASELINE',labeled_counts_today:{}},model_results:[]};
+        else if(url.endsWith('/evaluation'))body={summaries:[]};
         else if(url.includes('/context'))body={symbol:'600522.SH',summary:'周期分化',timeframes:{}};
         else if(url.endsWith('/state'))body={symbol:'600522.SH',price:null,fresh:false,stale_seconds:8,
           one_minute:{direction:'WATCH',label:'数据延迟'},two_minute:{direction:'WATCH',label:'数据延迟'},
@@ -28,6 +29,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
       });
       await page.goto(pathToFileURL(path.join(root,'docs','index.html')).href);
       await page.locator('#learningState').filter({hasText:'等待新行情样本'}).waitFor();
+      await page.locator('#evaluationState').filter({hasText:'暂无前瞻样本'}).waitFor();
       assert.equal(await page.locator('#one').textContent(),'数据延迟');
       assert.equal(await page.locator('#price').textContent(),'--');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);

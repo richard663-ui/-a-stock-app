@@ -60,11 +60,15 @@ jobs:
         run: python services/v18_selftest.py
       - name: Run clock and learning-data regression tests
         run: python -m services.selftest_monitoring_integrity
+      - name: Run event evidence regression tests
+        run: python -m services.selftest_event_evidence
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Run mobile API regression tests
         run: node tests/test_mobile_integrity.mjs
+      - name: Run prospective direction standard tests
+        run: node tests/test_direction_standard.mjs
 
   windows-selftest:
     runs-on: windows-latest

@@ -45,7 +45,10 @@
   <div id="learningProgress" class="s">--</div>
   <div id="learningSchedule" class="s">训练时段：上海时间 11:35 / 15:10</div>
   <div id="learningResults" class="details"></div>
-  <div class="notice">方向分与可信度是当前结构评分。研究模型尚未通过上线验证；训练完成不等于预测有效。</div>
+  <div class="section">手机版预测实绩</div>
+  <div id="evaluationState" class="confirm-text">等待实绩记录</div>
+  <div id="evaluationResults" class="s">--</div>
+  <div class="notice">方向分和结构分不是胜率。实绩按版本单独记录；偏跌表示风险，不等于做空交易。研究模型尚未上线。</div>
   <div class="foot"><span id="updated">--</span><span id="latency">--</span></div>
   <button id="logout" class="logout">退出手机版</button>
 </div>
@@ -93,7 +96,7 @@ function paintFeedHealth(data){
 }
 function scheduleContext(){clearTimeout(contextTimer);contextTimer=setTimeout(()=>pollContext(false),document.hidden?90000:30000)}
 function scheduleMicro(){clearTimeout(microTimer);microTimer=setTimeout(pollMicro,document.hidden?5000:2000)}
-let learningTimer=null,learningBusy=false;
+let learningTimer=null,learningBusy=false,evaluationTimer=null,evaluationBusy=false;
 function escapeText(value){const element=document.createElement('span');element.textContent=String(value??'--');return element.innerHTML}
 function paintLearning(data){
   const training=data.training||{},progress=training.learning_progress||{},recorder=data.recorder||{};
@@ -108,15 +111,39 @@ function paintLearning(data){
   }).join('');
 }
 async function pollLearning(){if(!token||learningBusy)return;learningBusy=true;const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),5000);try{const response=await fetch(API+'/learning',{headers:headers(),signal:controller.signal,cache:'no-store'});if(response.ok)paintLearning(await response.json());else $('learningState').textContent='学习状态暂不可用'}catch{$('learningState').textContent='学习状态连接中断'}finally{clearTimeout(timeout);learningBusy=false;clearTimeout(learningTimer);if(token)learningTimer=setTimeout(pollLearning,30000)}}
+async function pollEvaluation(){
+  if(!token||evaluationBusy)return;
+  evaluationBusy=true;
+  const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),5000);
+  try{
+    const response=await fetch(API+'/evaluation',{headers:headers(),signal:controller.signal,cache:'no-store'});
+    if(!response.ok)throw new Error('evaluation unavailable');
+    const data=await response.json(),rows=data.summaries||[];
+    $('evaluationState').textContent=rows.length?'前瞻记录 · 样本仍需积累':'暂无前瞻样本';
+    const evaluated=rows.filter(row=>Number(row.evaluated_directional_count)>0);
+    $('evaluationResults').textContent=evaluated.length?evaluated.map(row=>{
+      const horizon=Number(row.horizon_seconds)/60,label=row.direction==='UP'?'偏涨':'偏跌';
+      return horizon+'分钟'+label+'：'+Number(row.evaluated_directional_count)+'条 / '
+        +Number(row.evaluated_days)+'天，方向命中 '+Number(row.descriptive_accuracy_pct).toFixed(1)+'%';
+    }).join('；')+'。相邻样本相关，以上不是已验证胜率。'
+      :'没有已结算的方向样本；休市、缺报价和未到期不记为预测成功。';
+  }catch{
+    $('evaluationState').textContent='实绩记录暂不可用';
+    $('evaluationResults').textContent='--';
+  }finally{
+    clearTimeout(timeout);evaluationBusy=false;clearTimeout(evaluationTimer);
+    if(token)evaluationTimer=setTimeout(pollEvaluation,30000);
+  }
+}
 async function poll(){if(!token){show('login');return}if(busy){schedule();return}busy=true;const c=new AbortController(),to=setTimeout(()=>c.abort(),2600);try{const r=await fetch(API+'/state',{headers:headers(),cache:'no-store',signal:c.signal});if(r.status===401){localStorage.removeItem(KEY);token='';show('login');return}if(!r.ok)throw 0;paint(await r.json())}catch{pauseForecasts();if(lastGood){setWarn('手机到云端网络短暂中断，继续显示上一帧并自动重试。');$('pill').textContent='重连中';$('pill').className='pill delay'}else setWarn('暂时无法读取实时数据，正在自动重试。')}finally{clearTimeout(to);busy=false;schedule()}}
 async function pollMicro(){if(!token||microBusy)return;microBusy=true;const c=new AbortController(),to=setTimeout(()=>c.abort(),2400);try{const r=await fetch(MICRO_API,{headers:headers(),cache:'no-store',signal:c.signal});if(r.ok)paintMicro(await r.json())}catch{}finally{clearTimeout(to);microBusy=false;scheduleMicro()}}
 async function pollContext(force=false){if(!token||contextBusy)return;contextBusy=true;const c=new AbortController(),to=setTimeout(()=>c.abort(),5200);try{const r=await fetch(API+'/context'+(force?'?force=1':''),{headers:headers(),cache:'no-store',signal:c.signal});if(r.status===401)return;if(!r.ok)throw 0;paintContext(await r.json())}catch{if(!lastContextAt){$('macdSummary').textContent='MACD暂不可用';$('macdResonance').textContent='不影响实时行情与1/2分钟核心计算'}}finally{clearTimeout(to);contextBusy=false;scheduleContext()}}
 $('code').addEventListener('focus',()=>editingCode=true);$('code').addEventListener('input',()=>editingCode=true);$('code').addEventListener('blur',()=>editingCode=false);
-$('go').onclick=async()=>{const b=$('go'),e=$('err');b.disabled=true;e.textContent='';try{const r=await fetch(API+'/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:$('pw').value})});if(!r.ok){e.textContent='访问码错误';return}const d=await r.json();token=d.session||'';if(!token)throw 0;localStorage.setItem(KEY,token);show('dash');pollLearning();poll();pollContext(true);pollMicro()}catch{e.textContent='网络连接失败，请重试'}finally{b.disabled=false}};
+$('go').onclick=async()=>{const b=$('go'),e=$('err');b.disabled=true;e.textContent='';try{const r=await fetch(API+'/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:$('pw').value})});if(!r.ok){e.textContent='访问码错误';return}const d=await r.json();token=d.session||'';if(!token)throw 0;localStorage.setItem(KEY,token);show('dash');pollLearning();pollEvaluation();poll();pollContext(true);pollMicro()}catch{e.textContent='网络连接失败，请重试'}finally{b.disabled=false}};
 $('switch').onclick=async()=>{const code=$('code').value.trim();if(!/^\d{6}$/.test(code)){alert('请输入6位股票代码');return}const b=$('switch');b.disabled=true;pendingCode=code;$('switchmsg').textContent='正在切换到 '+code+'...';try{const r=await fetch(API+'/switch',{method:'POST',headers:headers(true),body:JSON.stringify({code})});const d=await r.json().catch(()=>({}));if(r.status===401){localStorage.removeItem(KEY);token='';show('login');return}if(!r.ok||!d.ok)throw 0;$('switchmsg').textContent='切换请求已发送：'+code+'，等待QMT响应';lastContextSymbol='';lastState=null;lastMicro=null;setTimeout(poll,250);setTimeout(()=>pollContext(true),700);setTimeout(pollMicro,900)}catch{pendingCode='';$('switchmsg').textContent='切换失败，请再点一次';alert('切换失败，请重试')}finally{b.disabled=false}};
-$('logout').onclick=()=>{localStorage.removeItem(KEY);token='';clearTimeout(timer);clearTimeout(contextTimer);clearTimeout(microTimer);clearTimeout(learningTimer);show('login')};
+$('logout').onclick=()=>{localStorage.removeItem(KEY);token='';clearTimeout(timer);clearTimeout(contextTimer);clearTimeout(microTimer);clearTimeout(learningTimer);clearTimeout(evaluationTimer);show('login')};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&token){poll();pollMicro();if(Date.now()-lastContextAt>45000)pollContext(false)}});
-if(token){show('dash');pollLearning();poll();pollContext(false);pollMicro()}else show('login');
+if(token){show('dash');pollLearning();pollEvaluation();poll();pollContext(false);pollMicro()}else show('login');
 </script>
 </body>
 </html>
