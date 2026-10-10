@@ -45,6 +45,29 @@ function macdTransition(tf){ const x=Number(tf?.transition_score); return Number
 function weightedContext(ctx,dir,transition=false){ const weights=transition?{m1:.45,m5:.35,m15:.20}:{m1:.24,m5:.30,m15:.24,m30:.12,m60:.07,day:.02,week:.01};let s=0,w=0; for(const [k,wt] of Object.entries(weights)){const tf=ctx?.timeframes?.[k];const v=transition?macdTransition(tf):macdSignal(tf);if(v===null)continue;s+=wt*v;w+=wt;} return w>0?clamp(dir*s/w,-1,1):0; }
 function groupAlignment(groups,dir){ const caps={momentum:25,flow:25,book:15,location:15};let s=0,w=0;for(const [k,cap] of Object.entries(caps)){const v=Number(groups?.[k]);if(!Number.isFinite(v))continue;s+=cap*clamp(dir*v/cap,-1,1);w+=cap;}return w?clamp(s/w,-1,1):0; }
 function confidenceLabel(c){ if(c>=85)return'顶级候选｜待样本验证';if(c>=75)return'强';if(c>=60)return'较高';if(c>=45)return'一般';return'低'; }
-export function confidenceFor(model,ctx,horizon=60){ const score=horizon===120?model.score120:model.score60,dir=score>=15?1:score<=-15?-1:0;if(!dir)return{score:0,label:'中性',direction:'WATCH',calibrated_probability:false,empirical:false}; const supportObj=horizon===120?model.direction_support_120:model.direction_support_60,support=(dir>0?n(supportObj?.up,0):n(supportObj?.down,0))/4,disp=n(horizon===120?model.score120_dispersion:model.score60_dispersion,100),dispQ=1-clamp(disp/(horizon===120?70:55),0,1),strength=clamp(Math.abs(score)/40,0,1),groups=horizon===120?model.groups120:model.groups60,gAlign=groupAlignment(groups,dir),mAlign=weightedContext(ctx,dir,false),tAlign=weightedContext(ctx,dir,true),ex=n(horizon===120?model.exhaustion_120:model.exhaustion_60,0),risk=clamp(-dir*ex/(horizon===120?18:20),0,1); let c=30+10*strength+16*support+10*dispQ+14*gAlign+16*mAlign+6*tAlign-16*risk; if((ctx?.freshness_seconds??999)>120)c-=6; c=Math.round(clamp(c,0,100)); return{score:c,label:confidenceLabel(c),direction:dir>0?'UP':'DOWN',direction_strength:Math.round(strength*100),persistence:Math.round(support*100),dispersion_quality:Math.round(dispQ*100),group_alignment:Number(gAlign.toFixed(3)),macd_alignment:Number(mAlign.toFixed(3)),macd_transition_alignment:Number(tAlign.toFixed(3)),exhaustion_risk:Number(risk.toFixed(3)),calibrated_probability:false,empirical:false}; }
+export function confidenceFor(model,ctx,horizon=60){
+  const score=horizon===120?model.score120:model.score60,dir=score>=15?1:score<=-15?-1:0;
+  if(!dir)return{score:0,label:'中性',direction:'WATCH',calibrated_probability:false,empirical:false};
+  const supportObj=horizon===120?model.direction_support_120:model.direction_support_60,
+    support=(dir>0?n(supportObj?.up,0):n(supportObj?.down,0))/4,
+    dispersion=horizon===120?model.score120_dispersion:model.score60_dispersion,
+    disp=dispersion==null?100:n(dispersion,100),
+    dispQ=1-clamp(disp/(horizon===120?70:55),0,1),strength=clamp(Math.abs(score)/40,0,1),
+    groups=horizon===120?model.groups120:model.groups60,gAlign=groupAlignment(groups,dir);
+  const age=ctx?.freshness_seconds,contextFresh=age!=null&&Number.isFinite(Number(age))
+    &&Number(age)>=0&&Number(age)<=120,
+    mAlign=contextFresh?weightedContext(ctx,dir,false):0,
+    tAlign=contextFresh?weightedContext(ctx,dir,true):0,
+    ex=n(horizon===120?model.exhaustion_120:model.exhaustion_60,0),risk=clamp(-dir*ex/(horizon===120?18:20),0,1);
+  let c=30+10*strength+16*support+10*dispQ+14*gAlign+16*mAlign+6*tAlign-16*risk;
+  if(!contextFresh)c-=6;
+  c=Math.round(clamp(c,0,100));
+  return{score:c,label:confidenceLabel(c),direction:dir>0?'UP':'DOWN',
+    direction_strength:Math.round(strength*100),persistence:Math.round(support*100),
+    dispersion_quality:Math.round(dispQ*100),group_alignment:Number(gAlign.toFixed(3)),
+    macd_alignment:Number(mAlign.toFixed(3)),macd_transition_alignment:Number(tAlign.toFixed(3)),
+    macd_context_used:contextFresh,exhaustion_risk:Number(risk.toFixed(3)),
+    calibrated_probability:false,empirical:false};
+}
 export function scoreView(score){const s=Number(score),r=SCORE_STANDARD;if(s>=r.strong_strength)return{direction:'UP',label:'偏涨｜较强'};if(s>=r.medium_strength)return{direction:'UP',label:'偏涨｜中等'};if(s>=r.up_min)return{direction:'UP',label:'轻微偏涨'};if(s<=-r.strong_strength)return{direction:'DOWN',label:'偏跌｜较强'};if(s<=-r.medium_strength)return{direction:'DOWN',label:'偏跌｜中等'};if(s<=r.down_max)return{direction:'DOWN',label:'轻微偏跌'};return{direction:'WATCH',label:'震荡｜中性'};}
 export function forecast(score,ready,open,fresh,modelVersion,confidence){if(!open)return{direction:'WATCH',label:'休市',agreement:Math.abs(score),high_confidence:false,locked:false,confidence_score:0};if(!fresh)return{direction:'WATCH',label:'数据延迟',agreement:Math.abs(score),high_confidence:false,locked:false,confidence_score:0};if(!ready)return{direction:'WATCH',label:'数据补齐中',agreement:Math.abs(score),high_confidence:false,locked:false,confidence_score:0};const v=scoreView(score);return{...v,agreement:Math.abs(score),high_confidence:false,strong_signal:Math.abs(score)>=70,calibrated:false,locked:false,remaining_seconds:0,source:modelVersion,confidence_score:n(confidence?.score,0),confidence_label:confidence?.label||'--',confidence_empirical:false};}

@@ -16,7 +16,7 @@ export async function handler(req) {
   try {
     const url=new URL(req.url), path=url.pathname;
     if(req.method==='OPTIONS') return new Response(null,{status:204,headers:cors(req)});
-    if(path.endsWith('/health')) return json(req,{ok:true,service:'astock-mobile-api',version:11,
+    if(path.endsWith('/health')) return json(req,{ok:true,service:'astock-mobile-api',version:12,
       model:MODEL_VERSION,direction_confidence_split:true,macd_structure_calibration:true,
       calibrated_probability:false,exchange_timestamp_guard:true,learning_status:true,
       strict_time_windows:true,prospective_prediction_log:true});
@@ -25,7 +25,7 @@ export async function handler(req) {
       if(!await validPassword(String(body.password||''))) return json(req,{ok:false},401);
       return json(req,{ok:true,session:await makeSession()});
     }
-    if(path.endsWith('/')) return json(req,{ok:true,service:'astock-mobile-api',frontend:'GitHub Pages',version:11});
+    if(path.endsWith('/')) return json(req,{ok:true,service:'astock-mobile-api',frontend:'GitHub Pages',version:12});
     if(!await validSessionToken(req.headers.get('x-astock-session')||'')) return json(req,{error:'unauthorized'},401);
     if(path.endsWith('/learning')) return json(req,await learningState(rest));
     if(path.endsWith('/evaluation')) return json(req,await evaluationState(rest,BRIDGE_ID,MODEL_VERSION));

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {prepareTicks,timeWindow,historicalCutoff} from '../supabase/functions/astock-mobile/tick-window.ts';
-import {stableModel,scoreView} from '../supabase/functions/astock-mobile/market.ts';
+import {stableModel,scoreView,confidenceFor} from '../supabase/functions/astock-mobile/market.ts';
 import {buildPredictionRows,settlePrediction,recordAndSettle} from '../supabase/functions/astock-mobile/evaluation.ts';
 
 const now=Date.parse('2026-10-09T01:45:00Z');
@@ -30,6 +30,15 @@ const reset=ticks(100);reset[90]={...reset[90],volume:1,amount:1};
 assert.equal(stableModel(reset).ready60,false);
 assert.equal(scoreView(15).direction,'UP');assert.equal(scoreView(-15).direction,'DOWN');
 assert.equal(scoreView(14).direction,'WATCH');assert.equal(scoreView(70).label,'偏涨｜较强');
+const model=stableModel(ticks(150));
+const context={freshness_seconds:0,timeframes:{m1:{state_score:100,transition_score:1}}};
+assert.equal(confidenceFor(model,context).macd_context_used,true);
+for(const age of [121,null,-1,NaN,999]){
+  const invalidContext=confidenceFor(model,{...context,freshness_seconds:age});
+  assert.equal(invalidContext.macd_alignment,0);
+  assert.equal(invalidContext.macd_transition_alignment,0);
+  assert.equal(invalidContext.macd_context_used,false);
+}
 
 const state={fresh:true,market_open:true,price:10,bid1:9.99,ask1:10.01,
   data_time:new Date(now-1000).toISOString(),symbol:'SAMPLE.SH',model_version:'isolated-test',
