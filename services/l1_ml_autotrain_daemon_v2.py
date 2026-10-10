@@ -13,11 +13,12 @@ import subprocess
 import urllib.request
 from pathlib import Path
 from typing import Tuple
+from modules.market_clock import market_now
 
 import services.l1_ml_autotrain_daemon_v1 as base
 
 COMPAT_MARKER = "l1-ml-autotrain-v2-dedup-20260904"
-AUTO_TRAINER_VERSION = "l1-ml-autotrain-v6-multi-challenger-20260905"
+AUTO_TRAINER_VERSION = "l1-ml-autotrain-v7-fresh-data-shanghai-20261010"
 CORE_MARKER = "l1-60s-trainer-v4-asymmetric-regime-20260904"
 RUNNER_MARKER = "l1-60s-trainer-v4r-asymmetric-rotating-thin-20260904"
 V5_MARKER = "l1-60s-trainer-v5-robust-challenger-20260904"
@@ -152,6 +153,7 @@ def _result(rc: int, synced: bool) -> str:
 
 
 def _extended_slot(now) -> str:
+    now = market_now(now)
     normal = _BASE_SLOT(now)
     if normal:
         return normal

@@ -58,6 +58,13 @@ jobs:
           PY
       - name: Run deterministic V18 self-test
         run: python services/v18_selftest.py
+      - name: Run clock and learning-data regression tests
+        run: python -m services.selftest_monitoring_integrity
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run mobile API regression tests
+        run: node tests/test_mobile_integrity.mjs
 
   windows-selftest:
     runs-on: windows-latest

@@ -20,6 +20,7 @@ Governance:
 from __future__ import annotations
 
 import json
+import hashlib
 import sqlite3
 import subprocess
 import sys
@@ -33,11 +34,12 @@ import numpy as np
 import pandas as pd
 
 from modules.cloud_bridge import CloudBridge, load_bridge_config
+from modules.market_clock import SHANGHAI, market_now, market_from_timestamp, continuous_market_open
 import services.train_l1_60s_model_v3 as v3
 import services.train_l1_60s_model_v4 as core
 import services.train_l1_60s_model_v6_exec_aligned as v6
 
-RUNNER_VERSION = "l1-v6-shadow-runner-v1-observed-bid-20260905"
+RUNNER_VERSION = "l1-v6-shadow-runner-v2-shanghai-observed-bid-20261010"
 DATA_ROOT = Path.home() / "AStockData"
 TRAINING_ROOT = DATA_ROOT / "training"
 MODEL_DIR = DATA_ROOT / "models" / "l1_60s" / "v6_exec_aligned"
@@ -59,15 +61,11 @@ STABLE_SYMBOLS = tuple(v6.STABLE_SYMBOLS)
 
 
 def _now() -> datetime:
-    return datetime.now().astimezone()
+    return market_now()
 
 
 def _market_open(now: Optional[datetime] = None) -> bool:
-    d = now or _now()
-    if d.weekday() >= 5:
-        return False
-    m = d.hour * 60 + d.minute
-    return (570 <= m < 690) or (780 <= m < 900)
+    return continuous_market_open(now)
 
 
 def _phase(minute: float) -> str:
@@ -157,7 +155,7 @@ def _parse_dt(value: Any) -> Optional[datetime]:
         return None
     try:
         d = datetime.fromisoformat(text.replace("Z", "+00:00"))
-        return (d.astimezone() if d.tzinfo is not None else d.astimezone())
+        return market_now(d)
     except Exception:
         return None
 
@@ -199,6 +197,13 @@ def _freeze_model_for_day(day: str) -> Tuple[Dict[str, Any], Dict[str, Any], Pat
         path = Path(str(saved.get("model_path") or "")).expanduser()
         report_snapshot = dict(saved.get("report") or {})
         if path.exists() and report_snapshot:
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+            if saved.get("model_sha256") and saved["model_sha256"] != digest:
+                raise RuntimeError("Frozen model content changed; refusing to score.")
+            if not saved.get("model_sha256"):
+                saved["model_sha256"] = digest
+                state["days"][day] = saved
+                _save_freeze_state(state)
             bundle = joblib.load(path)
             version = str(saved.get("model_version") or _model_version(report_snapshot, path))
             return report_snapshot, bundle, path, version
@@ -206,7 +211,7 @@ def _freeze_model_for_day(day: str) -> Tuple[Dict[str, Any], Dict[str, Any], Pat
     report, bundle, path = _report_bundle()
     generated = _parse_dt(report.get("generated_at"))
     today = datetime.strptime(day, "%Y-%m-%d").date()
-    cutoff = datetime.combine(today, dtime(9, 25)).astimezone()
+    cutoff = datetime.combine(today, dtime(9, 25), tzinfo=SHANGHAI)
     # On a real trading day, a same-day post-09:25 model may contain that day's
     # labels and is not allowed as a fresh shadow model. Weekend bootstrap is
     # naturally older than the next trading day's cutoff.
@@ -218,6 +223,8 @@ def _freeze_model_for_day(day: str) -> Tuple[Dict[str, Any], Dict[str, Any], Pat
     days = dict(state.get("days") or {})
     days[day] = {
         "model_path": str(path), "model_version": version,
+        "model_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "market_timezone": "Asia/Shanghai",
         "frozen_at": _now().isoformat(timespec="seconds"),
         "report": {
             "trainer_version": report.get("trainer_version"),
@@ -288,10 +295,12 @@ def _heartbeat(bridge: CloudBridge, bridge_id: str, *, state: str, model_version
 
 
 def _candidate_rows(day_db: Path, now_ts: float) -> pd.DataFrame:
-    raw = _read_rows(day_db, now_ts - LOOKBACK_SECONDS, now_ts + 2.0)
+    raw = _read_rows(day_db, now_ts - LOOKBACK_SECONDS, now_ts)
     frame = _feature_frame(raw)
     if frame.empty:
         return frame
+    age = now_ts - pd.to_numeric(frame["generated_ts"], errors="coerce")
+    frame = frame[age.between(0, 12)].copy()
     frame["minute_bucket"] = (pd.to_numeric(frame["generated_ts"], errors="coerce") // 60).astype("Int64")
     frame = frame[frame["symbol"].astype(str).str.upper().isin(STABLE_SYMBOLS)].copy()
     minute = pd.to_numeric(frame.get("minute_of_day"), errors="coerce")
@@ -315,7 +324,7 @@ def _score_row(row: pd.Series, bundle: Dict[str, Any], model_version: str,
     ts = float(row["generated_ts"])
     minute = float(row.get("minute_of_day") or 0.0)
     symbol = str(row.get("symbol") or "").upper()
-    generated_at = _parse_dt(row.get("generated_at")) or datetime.fromtimestamp(ts).astimezone()
+    generated_at = _parse_dt(row.get("generated_at")) or market_from_timestamp(ts)
     return {
         "bridge_id": bridge_id, "sample_key": f"{symbol}:{int(ts // 60)}", "symbol": symbol,
         "generated_at": generated_at.isoformat(timespec="milliseconds"), "generated_ts": ts,
@@ -485,7 +494,7 @@ def main() -> None:
                     print(f"[WARN] {message}")
 
             for sample_key, version, symbol, generated_ts, payload in _pending_rows(pending_conn, now_ts):
-                sample_day = datetime.fromtimestamp(generated_ts).astimezone().strftime("%Y-%m-%d")
+                sample_day = market_from_timestamp(generated_ts).strftime("%Y-%m-%d")
                 future = _read_rows(_daily_db(sample_day), generated_ts + FUTURE_WINDOW_LO - 1.0,
                                     generated_ts + FUTURE_WINDOW_HI + 1.0, symbol=symbol)
                 settled = _settlement_from_rows(payload, future)
@@ -509,7 +518,7 @@ def main() -> None:
                     print(f"[WARN] settlement sync retained for retry: {exc}")
 
             if now_ts - last_heartbeat >= HEARTBEAT_SECONDS:
-                start = datetime.combine(now.date(), dtime.min).astimezone().timestamp()
+                start = datetime.combine(now.date(), dtime.min, tzinfo=SHANGHAI).timestamp()
                 predictions_today, settled_today = _count_today(pending_conn, start)
                 try:
                     _heartbeat(
@@ -522,6 +531,8 @@ def main() -> None:
                             "model_path": str(model_path) if model_path else None, "frozen_day": frozen_day,
                             "stable_symbols": list(STABLE_SYMBOLS), "settlement": "OBSERVED_BID1_MEAN_55_65S",
                             "score_frequency": "ONE_PER_SYMBOL_PER_60S_BUCKET", "auto_deployed": False,
+                            "market_timezone": "Asia/Shanghai",
+                            "model_sha256": hashlib.sha256(model_path.read_bytes()).hexdigest() if model_path else None,
                         },
                     )
                 except Exception as exc:

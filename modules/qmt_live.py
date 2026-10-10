@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any, Dict, Iterable, List
 
 import pandas as pd
+from modules.market_clock import market_now, market_from_timestamp
 
 try:
     from xtquant import xtdata
@@ -29,14 +30,14 @@ def _first(values, default=None):
 
 def _iso_time(value: Any) -> str:
     if isinstance(value, (datetime, pd.Timestamp)):
-        return pd.Timestamp(value).to_pydatetime().isoformat(timespec="milliseconds")
+        return market_now(pd.Timestamp(value).to_pydatetime()).isoformat(timespec="milliseconds")
     text = str(value or "").strip()
     for fmt in (
         "%Y%m%d %H:%M:%S.%f", "%Y%m%d %H:%M:%S",
         "%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S",
     ):
         try:
-            return datetime.strptime(text, fmt).isoformat(timespec="milliseconds")
+            return market_now(datetime.strptime(text, fmt)).isoformat(timespec="milliseconds")
         except Exception:
             pass
     try:
@@ -44,14 +45,17 @@ def _iso_time(value: Any) -> str:
         if number > 10_000_000_000:
             number /= 1000.0
         if number > 1_000_000_000:
-            return datetime.fromtimestamp(number).isoformat(timespec="milliseconds")
+            return market_from_timestamp(number).isoformat(timespec="milliseconds")
     except Exception:
         pass
-    return datetime.now().isoformat(timespec="milliseconds")
+    try:
+        return market_now(datetime.fromisoformat(text.replace("Z", "+00:00"))).isoformat(timespec="milliseconds")
+    except ValueError:
+        return market_now().isoformat(timespec="milliseconds")
 
 
 def normalize_tick(symbol: str, tick: dict, fallback_time: Any = None) -> dict:
-    captured = tick.get("captured_at") or tick.get("time") or tick.get("timetag") or fallback_time
+    captured = tick.get("time") or tick.get("captured_at") or tick.get("timetag") or fallback_time
     return {
         "symbol": symbol,
         "captured_at": _iso_time(captured),

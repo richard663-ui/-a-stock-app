@@ -15,6 +15,7 @@ from typing import Any, Dict
 
 import services.qmt_l2_training_recorder_v5 as v5
 from modules.cloud_bridge import CloudBridge, load_bridge_config
+from modules.market_clock import market_now
 
 base = v5.base
 RECORDER_VERSION = "l2-training-recorder-v6-morning-auction-20260903c"
@@ -29,7 +30,7 @@ _heartbeat_busy = False
 
 
 def _market_open_with_auction(now=None) -> bool:
-    d = now or datetime.now()
+    d = market_now(now)
     if d.weekday() >= 5:
         return False
     m = d.hour * 60 + d.minute
@@ -37,7 +38,7 @@ def _market_open_with_auction(now=None) -> bool:
 
 
 def _session_with_auction(now=None) -> str:
-    d = now or datetime.now()
+    d = market_now(now)
     m = d.hour * 60 + d.minute
     if 555 <= m < 565:
         return "OPEN_AUCTION"
@@ -65,7 +66,7 @@ def _cloud_heartbeat(payload: Dict[str, Any]) -> None:
             "bridge_id": cfg.bridge_id,
             "recorder_version": str(payload.get("recorder_version") or RECORDER_VERSION),
             "state": "RUNNING",
-            "updated_at": payload.get("updated_at") or datetime.now().astimezone().isoformat(timespec="seconds"),
+            "updated_at": payload.get("updated_at") or market_now().isoformat(timespec="seconds"),
             "market_open": bool(payload.get("market_open")),
             "symbols": payload.get("symbols") or [],
             "sample_counts_today": payload.get("sample_counts_today") or {},

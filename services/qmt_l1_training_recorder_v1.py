@@ -8,12 +8,14 @@ Level-2 subscription. This is the clean baseline used before paying for L2.
 from __future__ import annotations
 
 from typing import Any, Dict
+import time
+from xtquant import xtdata
 
 import services.qmt_l2_training_recorder_v6 as v6
 from modules.level2_engine import analyze_level2
 
 base = v6.base
-RECORDER_VERSION = "l1-training-recorder-v1-20260904"
+RECORDER_VERSION = "l1-training-recorder-v2-shanghai-tick-20261010"
 base.RECORDER_VERSION = RECORDER_VERSION
 
 _PERIODS = (
@@ -23,7 +25,7 @@ _PERIODS = (
 
 
 class L1OnlyManager:
-    """QMTLevel2Manager-compatible no-op provider.
+    """Subscribe to L1 ticks while reporting all Level-2 capabilities unavailable.
 
     Keeping the same interface lets the mature recorder/label pipeline run
     unchanged while guaranteeing that no broker/external L2 call can block it.
@@ -31,26 +33,55 @@ class L1OnlyManager:
 
     def __init__(self) -> None:
         self.symbol = ""
+        self.subscription_id = None
+        self.subscription_error = ""
+        self.last_attempt = 0.0
 
     @property
     def available_runtime(self) -> bool:
         return True
 
     def switch(self, symbol: str) -> Dict[str, Any]:
+        self.stop()
         self.symbol = str(symbol or "").upper().strip()
+        self._subscribe()
         return self.status()
 
     def stop(self) -> None:
-        return None
+        if self.subscription_id is not None:
+            try:
+                xtdata.unsubscribe_quote(self.subscription_id)
+            except Exception:
+                pass
+        self.subscription_id = None
+
+    def _subscribe(self) -> None:
+        if not self.symbol or self.subscription_id is not None:
+            return
+        if self.last_attempt and time.monotonic() - self.last_attempt < 10:
+            return
+        self.last_attempt = time.monotonic()
+        try:
+            subscription_id = xtdata.subscribe_quote(self.symbol, period="tick", count=0)
+            if subscription_id is None or int(subscription_id) < 0:
+                raise RuntimeError("QMT tick subscription rejected")
+            self.subscription_id = int(subscription_id)
+            self.subscription_error = ""
+        except Exception as exc:
+            self.subscription_error = str(exc)
 
     def refresh(self, force: bool = False) -> Dict[str, int]:
+        if force and time.monotonic() - self.last_attempt >= 10:
+            self.stop()
+        self._subscribe()
         return {p: 0 for p in _PERIODS}
 
     def status(self) -> Dict[str, Any]:
         return {
             "symbol": self.symbol,
             "runtime_available": True,
-            "runtime_error": "",
+            "runtime_error": self.subscription_error,
+            "tick_subscription_id": self.subscription_id,
             "capabilities": {
                 p: {"available": False, "subscription_id": None, "error": "L1_BASELINE", "source": "l1_baseline"}
                 for p in _PERIODS
@@ -61,6 +92,7 @@ class L1OnlyManager:
         }
 
     def snapshot(self) -> Dict[str, Any]:
+        self._subscribe()
         summary = analyze_level2(
             quotes=[], transactions=[], orders=[], quoteaux=[],
             transactioncount=[], orderqueue=[], window_seconds=60,

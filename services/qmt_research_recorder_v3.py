@@ -30,6 +30,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from xtquant import xtdata
 from modules.cloud_bridge import CloudBridge, load_bridge_config
+from modules.market_clock import market_now, market_from_timestamp
 from modules.qmt_live import normalize_tick
 from modules.research_forward_model import high_confidence, score_label, score_rows
 
@@ -110,7 +111,7 @@ def _i(value: Any, default: Optional[int] = None) -> Optional[int]:
 
 
 def _session_key(now: Optional[datetime] = None) -> str:
-    d = now or datetime.now()
+    d = market_now(now)
     if d.weekday() >= 5:
         return "CLOSED"
     m = d.hour * 60 + d.minute
@@ -122,7 +123,7 @@ def _session_key(now: Optional[datetime] = None) -> str:
 
 
 def _seconds_to_close(now: Optional[datetime] = None) -> int:
-    d = now or datetime.now()
+    d = market_now(now)
     m = d.hour * 60 + d.minute
     if 570 <= m < 690:
         return (690 - m) * 60 - d.second
@@ -256,7 +257,7 @@ class DailyStore:
         return conn
 
     def ensure(self) -> sqlite3.Connection:
-        day = datetime.now().strftime("%Y-%m-%d")
+        day = market_now().strftime("%Y-%m-%d")
         return self._open(day) if self.conn is None or self.day != day else self.conn
 
     def _maybe_commit(self):
@@ -277,7 +278,7 @@ class DailyStore:
             ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             str(row.get("symbol") or ""), str(row.get("captured_at") or ""),
-            datetime.now().astimezone().isoformat(timespec="milliseconds"),
+            market_now().isoformat(timespec="milliseconds"),
             _i(row.get("time")), str(row.get("timetag") or ""), _f(row.get("lastPrice")),
             _f(row.get("open")), _f(row.get("high")), _f(row.get("low")), _f(row.get("lastClose")),
             _f(row.get("avgPrice")), _f(row.get("amount")), _i(row.get("volume")),
@@ -298,7 +299,7 @@ class DailyStore:
                 symbol,generated_at,price,score60,score120,direction60,direction120,features_json,model_version
             ) VALUES (?,?,?,?,?,?,?,?,?)
         """, (
-            symbol, datetime.fromtimestamp(wall_ts).astimezone().isoformat(),
+            symbol, market_from_timestamp(wall_ts).isoformat(),
             float(metrics["price"]), int(metrics["score60"]), int(metrics["score120"]),
             d60["direction"], d120["direction"], _json(metrics), MODEL_VERSION,
         ))
@@ -338,7 +339,7 @@ class DailyStore:
                 correct = ret > 0 if sample["direction"] == "UP" else ret < 0
         delay = max(0.0, now_ts - float(sample["expires_ts"]))
         actual_horizon = max(0.0, now_ts - float(sample["generated_ts"]))
-        scored_at = datetime.fromtimestamp(now_ts).astimezone().isoformat()
+        scored_at = market_from_timestamp(now_ts).isoformat()
         conn = self.ensure()
         conn.execute("""
             UPDATE forward_eval_v3 SET
@@ -378,7 +379,7 @@ class DailyStore:
 
     def heartbeat(self, payload: Dict[str, Any]):
         conn = self.ensure()
-        now_text = datetime.now().astimezone().isoformat(timespec="seconds")
+        now_text = market_now().isoformat(timespec="seconds")
         conn.execute(
             "INSERT INTO recorder_meta(key,value,updated_at) VALUES('heartbeat',?,?) "
             "ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at",
@@ -495,7 +496,7 @@ class DurableUploader:
                 payload = {
                     "bridge_id": self.bridge.config.bridge_id,
                     "symbol": r[1], "horizon_seconds": int(r[2]),
-                    "bucket_start": datetime.fromtimestamp(int(r[3])).astimezone().isoformat(),
+                    "bucket_start": market_from_timestamp(int(r[3])).isoformat(),
                     "generated_at": r[4], "expires_at": r[5], "entry_price": r[6], "exit_price": r[7],
                     "return_pct": r[8], "direction": r[9], "score": int(r[10]), "score_abs": int(r[11]),
                     "tier": r[12], "high_confidence": bool(r[13]),
@@ -544,7 +545,7 @@ def _write_status(symbols: Iterable[str], counts: Dict[str, int], eval_counts: D
     DATA_ROOT.mkdir(parents=True, exist_ok=True)
     payload = {
         "ok": not bool(last_error),
-        "updated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "updated_at": market_now().isoformat(timespec="seconds"),
         "recorder_version": RECORDER_VERSION, "research_model": MODEL_VERSION,
         "production_model_reference": PRODUCTION_MODEL,
         "data_root": str(DATA_ROOT), "watchlist_file": str(WATCHLIST_PATH),
@@ -587,14 +588,14 @@ def main():
     last_watchlist = 0.0
     last_status = 0.0
     active_session = _session_key()
-    current_day = datetime.now().strftime("%Y-%m-%d")
+    current_day = market_now().strftime("%Y-%m-%d")
     last_error = ""
 
     now0 = time.time()
     try:
         for sample in store.load_unfinished():
             key = (sample["symbol"], sample["horizon_seconds"])
-            if sample["expires_ts"] > now0 and _session_key(datetime.fromtimestamp(sample["generated_ts"])) == _session_key():
+            if sample["expires_ts"] > now0 and _session_key(market_from_timestamp(sample["generated_ts"])) == _session_key():
                 pending[key] = sample
             else:
                 store.finalize_eval(sample, None, now0, False, "recorder_restart_or_gap")
@@ -605,7 +606,7 @@ def main():
     try:
         while True:
             loop_ts = time.time()
-            now_dt = datetime.now()
+            now_dt = market_now()
             day = now_dt.strftime("%Y-%m-%d")
             session = _session_key(now_dt)
 
@@ -730,8 +731,8 @@ def main():
                             sample = {
                                 "symbol": symbol, "horizon_seconds": horizon, "bucket_start": bucket,
                                 "generated_ts": generated_ts, "expires_ts": expires_ts,
-                                "generated_at": datetime.fromtimestamp(generated_ts).astimezone().isoformat(),
-                                "expires_at": datetime.fromtimestamp(expires_ts).astimezone().isoformat(),
+                                "generated_at": market_from_timestamp(generated_ts).isoformat(),
+                                "expires_at": market_from_timestamp(expires_ts).isoformat(),
                                 "entry_price": float(metrics["price"]), "direction": label["direction"],
                                 "score": score, "tier": label["tier"],
                                 "high_confidence": high_confidence(horizon, metrics),
@@ -755,7 +756,7 @@ def main():
                 except Exception as exc:
                     print(f"[WARN] status write error: {exc}")
                 print(
-                    f"{datetime.now().strftime('%H:%M:%S')} symbols={len(symbols)} "
+                    f"{market_now().strftime('%H:%M:%S')} symbols={len(symbols)} "
                     f"rows={sum(counts.values())} eval60={eval_counts['60']} "
                     f"eval120={eval_counts['120']} invalid={eval_counts['invalid']}"
                 )

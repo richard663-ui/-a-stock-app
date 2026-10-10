@@ -11,6 +11,8 @@ import time
 from collections import deque
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime
+from modules.market_clock import market_now, market_from_timestamp
+from modules.feed_health import tick_is_fresh
 from typing import Any, Deque, Dict, Optional, Set, Tuple
 
 from xtquant import xtdata
@@ -75,14 +77,14 @@ def main() -> None:
     last_watchlist = 0.0
     last_status = 0.0
     active_session = base._session_key()
-    current_day = datetime.now().strftime("%Y-%m-%d")
+    current_day = market_now().strftime("%Y-%m-%d")
     last_error = ""
 
     now0 = time.time()
     try:
         for sample in store.load_unfinished():
             key = (sample["symbol"], sample["horizon_seconds"])
-            same_session = base._session_key(datetime.fromtimestamp(sample["generated_ts"])) == base._session_key()
+            same_session = base._session_key(market_from_timestamp(sample["generated_ts"])) == base._session_key()
             if sample["expires_ts"] > now0 and same_session:
                 pending[key] = sample
             else:
@@ -94,7 +96,7 @@ def main() -> None:
     try:
         while True:
             loop_start = time.time()
-            now_dt = datetime.now()
+            now_dt = market_now()
             day = now_dt.strftime("%Y-%m-%d")
             session = base._session_key(now_dt)
 
@@ -167,6 +169,8 @@ def main() -> None:
                         if not tick:
                             continue
                         row = base.normalize_tick(symbol, tick)
+                        if session != "CLOSED" and not tick_is_fresh(row, loop_start):
+                            continue
                         latest_rows[symbol] = row
                         snap = base._snapshot_hash(row)
                         if snap != last_snapshot.get(symbol):
@@ -189,7 +193,8 @@ def main() -> None:
                 row = latest_rows.get(sample["symbol"]) or {}
                 price = base._f(row.get("lastPrice"))
                 delay = now_eval - float(sample["expires_ts"])
-                valid = bool(price and price > 0 and delay <= base.MAX_SCORE_DELAY_SECONDS and session != "CLOSED")
+                valid = bool(price and price > 0 and delay <= base.MAX_SCORE_DELAY_SECONDS
+                             and session != "CLOSED" and tick_is_fresh(row, now_eval))
                 reason = None if valid else ("late_scoring" if delay > base.MAX_SCORE_DELAY_SECONDS else "missing_price_or_session")
                 store.finalize_eval(sample, float(price) if price else None, now_eval, valid, reason)
                 pending.pop(key, None)
@@ -222,6 +227,8 @@ def main() -> None:
                     score_slow_skips += 1
                     continue
                 row_now = latest_rows.get(symbol) or {}
+                if not tick_is_fresh(row_now, ready_ts):
+                    continue
                 entry_price = base._f(row_now.get("lastPrice"))
                 if not entry_price or entry_price <= 0:
                     continue
@@ -245,8 +252,8 @@ def main() -> None:
                         "bucket_start": bucket,
                         "generated_ts": generated_ts,
                         "expires_ts": generated_ts + horizon,
-                        "generated_at": datetime.fromtimestamp(generated_ts).astimezone().isoformat(),
-                        "expires_at": datetime.fromtimestamp(generated_ts + horizon).astimezone().isoformat(),
+                        "generated_at": market_from_timestamp(generated_ts).isoformat(),
+                        "expires_at": market_from_timestamp(generated_ts + horizon).isoformat(),
                         "entry_price": float(entry_price),
                         "direction": label["direction"],
                         "score": score,
@@ -301,7 +308,7 @@ def main() -> None:
                 except Exception as exc:
                     print(f"[WARN] status write error: {exc}")
                 print(
-                    f"{datetime.now().strftime('%H:%M:%S')} symbols={len(symbols)} "
+                    f"{market_now().strftime('%H:%M:%S')} symbols={len(symbols)} "
                     f"rows={sum(counts.values())} eval60={eval_counts['60']} "
                     f"eval120={eval_counts['120']} invalid={eval_counts['invalid']} "
                     f"jobs={len(score_jobs)} slow_skip={score_slow_skips}"

@@ -28,6 +28,8 @@ if str(PROJECT_ROOT) not in sys.path:
 from xtquant import xtdata
 
 from modules.cloud_bridge import CloudBridge, load_bridge_config
+from modules.market_clock import continuous_market_open
+from modules.feed_health import tick_is_fresh
 from modules.direction_v18 import analyze_direction_v18
 from modules.prediction_journal import PredictionJournal
 from modules.qmt_level2 import QMTLevel2Manager
@@ -315,7 +317,10 @@ def main() -> None:
                     print(f"QMT recovery backfill: {len(rows)} buffered ticks")
 
             now = time.time()
-            qmt_healthy = bool(last_qmt_success and now - last_qmt_success <= QMT_HEALTH_GRACE_SECONDS)
+            connection_healthy = bool(last_qmt_success and now - last_qmt_success <= QMT_HEALTH_GRACE_SECONDS)
+            qmt_healthy = bool(connection_healthy and rows and (
+                not continuous_market_open() or tick_is_fresh(rows[-1], now)
+            ))
             feed_status = "online" if qmt_healthy and rows else ("qmt_disconnected" if rows else "waiting_qmt")
 
             if now - last_build >= LIVE_BUILD_SECONDS:
@@ -345,6 +350,8 @@ def main() -> None:
                 summary["validation"] = cached_validation
                 summary["qmt_feed_status"] = feed_status
                 summary["qmt_feed_healthy"] = qmt_healthy
+                summary["market_timezone"] = "Asia/Shanghai"
+                summary["exchange_tick_fresh"] = bool(rows and tick_is_fresh(rows[-1], now))
                 summary["buffered_ticks"] = len(rows)
                 summary["one_minute"] = {
                     "direction": direction.get("direction_60") if qmt_healthy else "WATCH",

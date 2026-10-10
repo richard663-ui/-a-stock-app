@@ -35,6 +35,8 @@ from xtquant import xtdata
 from modules.direction_v18 import analyze_direction_v18
 from modules.qmt_level2 import QMTLevel2Manager
 from modules.qmt_live import normalize_tick
+from modules.market_clock import market_now, market_from_timestamp
+from modules.feed_health import tick_is_fresh
 
 RECORDER_VERSION = "l2-training-recorder-v2-20260901"
 DATA_ROOT = Path(os.environ.get("ASTOCK_RESEARCH_DATA_DIR", str(Path.home() / "AStockData"))).expanduser()
@@ -120,7 +122,7 @@ def _load_watchlist() -> List[str]:
 
 
 def _market_open(now: Optional[datetime] = None) -> bool:
-    d = now or datetime.now()
+    d = market_now(now)
     if d.weekday() >= 5:
         return False
     m = d.hour * 60 + d.minute
@@ -128,7 +130,7 @@ def _market_open(now: Optional[datetime] = None) -> bool:
 
 
 def _session(now: Optional[datetime] = None) -> str:
-    d = now or datetime.now()
+    d = market_now(now)
     m = d.hour * 60 + d.minute
     if 570 <= m < 690:
         return "AM"
@@ -214,7 +216,7 @@ class DailyStore:
         return folder / "l2_training.sqlite3"
 
     def ensure(self) -> sqlite3.Connection:
-        day = datetime.now().strftime("%Y-%m-%d")
+        day = market_now().strftime("%Y-%m-%d")
         if self.conn is not None and self.day == day:
             return self.conn
         if self.conn is not None:
@@ -377,7 +379,7 @@ def _feature_snapshot(row: Dict[str, Any], tick_rows: Deque[Dict[str, Any]], sna
     lm = dict(summary.get("metrics") or {})
     available = dict(summary.get("available") or {})
     caps = dict(snap.get("capabilities") or {})
-    now = datetime.now()
+    now = market_now()
     last, last_close = book["last_price"], float(_f(row.get("lastClose"), 0.0) or 0.0)
     high, low = float(_f(row.get("high"), 0.0) or 0.0), float(_f(row.get("low"), 0.0) or 0.0)
     features: Dict[str, Any] = {
@@ -469,11 +471,22 @@ def main() -> None:
     event_counts: Dict[str, int] = {}
     symbols: List[str] = []
     last_reload = last_l2 = last_status = 0.0
+    current_day = market_now().date()
 
     try:
         while True:
             loop_ts = time.time()
-            now_dt = datetime.now()
+            now_dt = market_now()
+            if now_dt.date() != current_day:
+                current_day = now_dt.date()
+                pending.clear()
+                latest_rows.clear()
+                last_sample_bucket.clear()
+                last_tick_signature.clear()
+                for code in symbols:
+                    tick_rows[code].clear()
+                    price_history[code].clear()
+                    sample_counts[code] = label_counts[code] = event_counts[code] = 0
 
             if loop_ts - last_reload >= WATCHLIST_RELOAD_SECONDS:
                 symbols = _load_watchlist()
@@ -497,8 +510,14 @@ def main() -> None:
                 for s in symbols:
                     raw = raw_ticks.get(s) or {}
                     if not raw:
+                        if _market_open(now_dt):
+                            managers[s].refresh(force=True)
                         continue
                     row = normalize_tick(s, raw)
+                    if not tick_is_fresh(row, loop_ts):
+                        if _market_open(now_dt):
+                            managers[s].refresh(force=True)
+                        continue
                     latest_rows[s] = row
                     sig = _tick_signature(row)
                     if sig != last_tick_signature.get(s):
@@ -528,6 +547,8 @@ def main() -> None:
                     row, snap = latest_rows.get(s), snapshots.get(s)
                     if not row or not snap:
                         continue
+                    if not tick_is_fresh(row, loop_ts):
+                        continue
                     try:
                         features, meta = _feature_snapshot(row, tick_rows[s], snap)
                     except Exception as exc:
@@ -539,7 +560,7 @@ def main() -> None:
                     direction = meta["direction"]
                     sample = {
                         "symbol": s, "sample_bucket": bucket, "generated_ts": loop_ts,
-                        "generated_at": datetime.fromtimestamp(loop_ts).astimezone().isoformat(timespec="milliseconds"),
+                        "generated_at": market_from_timestamp(loop_ts).isoformat(timespec="milliseconds"),
                         "session": _session(now_dt), "last_price": book["last_price"], "bid1": book["bid1"],
                         "ask1": book["ask1"], "mid_price": book["mid_price"], "spread_pct": book["spread_pct"],
                         "label_threshold_pct": threshold, "true_l2": meta["true_l2"],
@@ -565,7 +586,8 @@ def main() -> None:
             if loop_ts - last_status >= STATUS_SECONDS:
                 payload = {
                     "ok": True,
-                    "updated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                    "updated_at": market_now().isoformat(timespec="seconds"),
+                    "market_timezone": "Asia/Shanghai",
                     "recorder_version": RECORDER_VERSION,
                     "symbols": symbols,
                     "primary_symbol": PRIMARY_SYMBOL,

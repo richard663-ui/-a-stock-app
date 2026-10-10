@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+const {renderForecast}=require('../docs/monitoring_state.js');
+const {feedHealth}=await import('../supabase/functions/astock-mobile/feed-health.ts');
+
+assert.equal(renderForecast({direction:'WATCH',label:'数据延迟'},50,8,1).direction,'WATCH');
+assert.equal(renderForecast({direction:'WATCH',label:'数据补齐中'},90,1,1).direction,'WATCH');
+assert.equal(renderForecast({direction:'WATCH',label:'震荡｜中性'},90,1,1).direction,'WATCH');
+assert.equal(renderForecast({direction:'UP',label:'偏涨'},50,1,1).direction,'UP');
+assert.equal(renderForecast(null,50,null,1).direction,'WATCH');
+assert.equal(renderForecast({direction:'DOWN',label:'偏跌'},-70,5,1).direction,'WATCH');
+
+const now=Date.parse('2026-10-09T01:45:00Z');
+const payload={status:'online',updated_at:new Date(now).toISOString(),ticks:[{time:now-1000}]};
+assert.equal(feedHealth(payload,now).fresh,true);
+assert.equal(feedHealth({...payload,ticks:[{time:now-60000}]},now).fresh,false);
+assert.equal(feedHealth({...payload,ticks:[{captured_at:new Date(now).toISOString()}]},now).fresh,false);
+assert.equal(feedHealth({...payload,updated_at:new Date(now-8000).toISOString()},now).fresh,false);
+assert.equal(feedHealth({...payload,ticks:[{time:now+60000}]},now).fresh,false);
+
+const nativeNow=Date.now;
+Date.now=()=>now;
+globalThis.Deno={env:{get:name=>name==='SUPABASE_SERVICE_ROLE_KEY'?'isolated-test-key':undefined},serve:()=>{}};
+let requests=[];
+globalThis.fetch=async url=>{
+  const path=String(url);requests.push(path);
+  if(!path.includes('/rest/v1/')) throw new Error('Unexpected online factor fetch');
+  let rows=[];
+  if(path.includes('qmt_watch_requests')) rows=[{symbol:'600522.SH'}];
+  else if(path.includes('qmt_live_cache')) rows=[{...payload,ticks:Array.from({length:40},(_,i)=>({time:now-120000+i*1000,lastPrice:10+i*.01,volume:1000+i,amount:1000000+i*1000,bidPrice:[10],askPrice:[10.01],bidVol:[100],askVol:[100]}))}];
+  else if(path.includes('mobile_macd_cache')) rows=[];
+  else if(path.includes('ml_training_status')) rows=[{state:'WAITING_FRESH_DATA',learning_progress:{data_latest_date:'2026-09-07'}}];
+  return new Response(JSON.stringify(rows),{headers:{'content-type':'application/json'}});
+};
+const {handler}=await import('../supabase/functions/astock-mobile/index.ts');
+const {makeSession}=await import('../supabase/functions/astock-mobile/auth.ts');
+assert.equal((await handler(new Request('https://test/state'))).status,401);
+const session=await makeSession();
+const headers={'x-astock-session':session};
+const state=await (await handler(new Request('https://test/state',{headers}))).json();
+assert.equal(state.fresh,false);
+assert.equal(state.one_minute.direction,'WATCH');
+assert.equal(state.one_minute.label,'数据延迟');
+assert.equal(requests.some(url=>/tencent|qq.com/.test(url)),false);
+const learning=await (await handler(new Request('https://test/learning',{headers}))).json();
+assert.equal(learning.research_only,true);
+assert.equal(learning.auto_deployed,false);
+Date.now=nativeNow;
+console.log('Mobile freshness, authenticated API and ML status tests PASS');

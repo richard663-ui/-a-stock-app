@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 
 from modules.cloud_bridge import CloudBridge, load_bridge_config
+from modules.market_clock import market_now, continuous_market_open
+from services.learning_progress import inspect_learning_data, learning_progress, export_learning_progress
 
 AUTO_TRAINER_VERSION = "l1-ml-autotrain-v1-20260904"
 DATA_ROOT = Path.home() / "AStockData"
@@ -46,6 +48,7 @@ def _save_state(state: Dict[str, Any]) -> None:
 
 
 def _slot(now: datetime) -> str:
+    now = market_now(now)
     if now.weekday() >= 5:
         return ""
     minute = now.hour * 60 + now.minute
@@ -57,10 +60,7 @@ def _slot(now: datetime) -> str:
 
 
 def _market_open(now: datetime) -> bool:
-    if now.weekday() >= 5:
-        return False
-    minute = now.hour * 60 + now.minute
-    return (9 * 60 + 30 <= minute < 11 * 60 + 30) or (13 * 60 <= minute < 15 * 60)
+    return continuous_market_open(now)
 
 
 def _eligible_count(scope: str) -> int:
@@ -98,10 +98,20 @@ def _eligible_count(scope: str) -> int:
 
 
 def _counts() -> Dict[str, int]:
-    return {
-        "priority_samples": _eligible_count(PRIORITY_SCOPE),
-        "pooled_samples": _eligible_count("ALL"),
-    }
+    return inspect_learning_data(DATA_ROOT, PRIORITY_SCOPE)
+
+
+def _refresh_learning_progress(counts: dict, state: dict) -> None:
+    try:
+        report = json.loads(_report_path("ALL").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        report = {}
+    progress = learning_progress(counts, state, report)
+    state["learning_progress"] = progress
+    export_learning_progress(progress, DATA_ROOT / "reports" / "learning_progress.csv")
+    if state.get("run_state") != "TRAINING":
+        state["run_state"] = progress["learning_state"]
+        state["message"] = progress["reason"]
 
 
 def _run_one(scope: str, minimum: int, log_handle) -> int:
@@ -159,7 +169,7 @@ def _sync_report(scope: str, log_handle) -> bool:
 def _publish(state: Dict[str, Any], counts: Dict[str, int], slot: str) -> None:
     try:
         bridge, bridge_id = _cloud()
-        now_text = datetime.now().astimezone().isoformat(timespec="seconds")
+        now_text = market_now().isoformat(timespec="seconds")
         payload = {
             "bridge_id": bridge_id,
             "daemon_version": AUTO_TRAINER_VERSION,
@@ -174,6 +184,7 @@ def _publish(state: Dict[str, Any], counts: Dict[str, int], slot: str) -> None:
             "priority_result": state.get("priority_result"),
             "pooled_result": state.get("pooled_result"),
             "message": state.get("message"),
+            "learning_progress": state.get("learning_progress", {}),
             "updated_at": now_text,
         }
         bridge._request(
@@ -193,9 +204,14 @@ def _result(rc: int, synced: bool) -> str:
 
 
 def _train(now: datetime, slot: str, counts: Dict[str, int], state: Dict[str, Any]) -> None:
+    _refresh_learning_progress(counts, state)
+    if not state["learning_progress"]["can_train"]:
+        _save_state(state)
+        _publish(state, counts, slot)
+        return
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     log_path = MODEL_DIR / f"autotrain_{now.strftime('%Y-%m-%d')}_{slot}.log"
-    attempt = datetime.now().astimezone().isoformat(timespec="seconds")
+    attempt = market_now().isoformat(timespec="seconds")
     state.update({
         "run_state": "TRAINING", "last_attempt_at": attempt,
         "priority_result": "PENDING", "pooled_result": "PENDING",
@@ -221,6 +237,9 @@ def _train(now: datetime, slot: str, counts: Dict[str, int], state: Dict[str, An
         if any(str(x).startswith("TRAINED") for x in results):
             state["run_state"] = "TRAINED"
             state["message"] = "At least one L1/Tick research model trained; no live deployment occurred."
+            if str(state["pooled_result"]).startswith("TRAINED"):
+                state["last_trained_samples"] = counts["pooled_samples"]
+                state["trained_dataset_fingerprint"] = counts["dataset_fingerprint"]
         elif results == {"SKIPPED_NOT_ENOUGH_DATA"}:
             state["run_state"] = "SKIPPED_NOT_ENOUGH_DATA"
             state["message"] = "L1/Tick trainer is healthy; valid labeled sample minimum has not been reached."
@@ -229,7 +248,8 @@ def _train(now: datetime, slot: str, counts: Dict[str, int], state: Dict[str, An
             state["message"] = "L1 training was attempted but at least one scope failed; inspect the local log."
         log.write(f"priority_result={state['priority_result']} pooled_result={state['pooled_result']} state={state['run_state']}\n")
 
-    state["last_finished_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+    state["last_finished_at"] = market_now().isoformat(timespec="seconds")
+    _refresh_learning_progress(counts, state)
     _save_state(state); _publish(state, counts, slot)
 
 
@@ -244,12 +264,15 @@ def main() -> None:
     state.setdefault("run_state", "IDLE")
     state.setdefault("message", "L1/Tick auto-trainer running; waiting for the next training slot.")
     counts = _counts(); last_refresh = time.time()
-    _save_state(state); _publish(state, counts, _slot(datetime.now()))
+    _refresh_learning_progress(counts, state)
+    _save_state(state); _publish(state, counts, _slot(market_now()))
 
     while True:
-        now = datetime.now(); slot = _slot(now); now_ts = time.time()
+        now = market_now(); slot = _slot(now); now_ts = time.time()
         if (not _market_open(now)) and now_ts - last_refresh >= COUNT_REFRESH_SECONDS:
             counts = _counts(); last_refresh = now_ts
+            _refresh_learning_progress(counts, state)
+            _save_state(state)
         if slot:
             key = f"{now.strftime('%Y-%m-%d')}:{slot}"
             if state.get("last_slot") != key or force_version_attempt:
@@ -258,7 +281,7 @@ def main() -> None:
                     _train(now, slot, counts, state)
                 except Exception as exc:
                     state["run_state"] = "ERROR"
-                    state["last_attempt_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+                    state["last_attempt_at"] = market_now().isoformat(timespec="seconds")
                     state["message"] = f"L1 auto-train exception: {exc}"
                     print(f"[WARN] L1 auto-train failed: {exc}")
                 finally:
