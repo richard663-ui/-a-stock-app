@@ -37,6 +37,7 @@ from modules.qmt_level2 import QMTLevel2Manager
 from modules.qmt_live import normalize_tick
 from modules.market_clock import market_now, market_from_timestamp
 from modules.feed_health import tick_is_fresh
+from modules.collection_health import collection_health
 
 RECORDER_VERSION = "l2-training-recorder-v2-20260901"
 DATA_ROOT = Path(os.environ.get("ASTOCK_RESEARCH_DATA_DIR", str(Path.home() / "AStockData"))).expanduser()
@@ -462,6 +463,7 @@ def main() -> None:
     tick_rows: Dict[str, Deque[Dict[str, Any]]] = {}
     price_history: Dict[str, Deque[Tuple[float, float, float]]] = {}
     latest_rows: Dict[str, Dict[str, Any]] = {}
+    feed_rows: Dict[str, Dict[str, Any]] = {}
     snapshots: Dict[str, Dict[str, Any]] = {}
     pending: Dict[Tuple[str, int], Dict[str, Any]] = {}
     last_sample_bucket: Dict[str, int] = {}
@@ -472,6 +474,7 @@ def main() -> None:
     symbols: List[str] = []
     last_reload = last_l2 = last_status = 0.0
     current_day = market_now().date()
+    started_at = market_now().isoformat(timespec="seconds")
 
     try:
         while True:
@@ -481,6 +484,7 @@ def main() -> None:
                 current_day = now_dt.date()
                 pending.clear()
                 latest_rows.clear()
+                feed_rows.clear()
                 last_sample_bucket.clear()
                 last_tick_signature.clear()
                 for code in symbols:
@@ -509,11 +513,13 @@ def main() -> None:
                     print(f"[WARN] QMT tick read: {exc}"); raw_ticks = {}
                 for s in symbols:
                     raw = raw_ticks.get(s) or {}
+                    feed_rows[s] = {}
                     if not raw:
                         if _market_open(now_dt):
                             managers[s].refresh(force=True)
                         continue
                     row = normalize_tick(s, raw)
+                    feed_rows[s] = row
                     if not tick_is_fresh(row, loop_ts):
                         if _market_open(now_dt):
                             managers[s].refresh(force=True)
@@ -598,6 +604,14 @@ def main() -> None:
                     "pending_labels": len(pending),
                     "data_root": str(DATA_ROOT / "training"),
                     "training_watchlist": str(TRAINING_WATCHLIST),
+                    "process_id": os.getpid(),
+                    "started_at": started_at,
+                    "runtime_root": str(PROJECT_ROOT),
+                    **collection_health(
+                        symbols, feed_rows,
+                        {s: len(tick_rows.get(s, ())) for s in symbols},
+                        _market_open(now_dt), loop_ts,
+                    ),
                 }
                 _write_status(payload)
                 print(

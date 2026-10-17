@@ -16,7 +16,7 @@ from modules.level2_engine import analyze_level2
 from modules.runtime_guard import acquire_bridge_lock
 
 base = v6.base
-RECORDER_VERSION = "l1-training-recorder-v2-shanghai-tick-20261010"
+RECORDER_VERSION = "l1-training-recorder-v3-startup-health-20261017"
 base.RECORDER_VERSION = RECORDER_VERSION
 
 _PERIODS = (
