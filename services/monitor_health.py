@@ -77,6 +77,8 @@ def report(data_root: Path, probe_qmt: bool = True) -> dict[str, Any]:
         "recorder": recorder,
         "samples_today": sum(recorder.get("sample_counts_today", {}).values()),
         "valid_labels_today": sum(recorder.get("labeled_counts_today", {}).values()),
+        "power_guard": recorder.get("power_guard") or {},
+        "continuity": recorder.get("continuity") or {},
         "learning": progress,
         "qmt": qmt,
     }

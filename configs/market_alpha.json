@@ -1,0 +1,22 @@
+{
+  "version": "market-alpha-research-v1-20261020",
+  "research_only": true,
+  "active_for_signals": false,
+  "preferred_sector": "沪深京A股",
+  "benchmark": "000300.SH",
+  "start_date": "20230101",
+  "horizons": [5, 20],
+  "minimum_history": 120,
+  "minimum_amount_20d": 20000000,
+  "required_data_coverage": 1.0,
+  "round_trip_cost_bp": 20,
+  "baseline_weights": {
+    "momentum_20d": 0.35,
+    "momentum_60d": 0.35,
+    "amount_20d": 0.15,
+    "low_volatility_20d": 0.15
+  },
+  "validation_tail_sessions": 252,
+  "historical_universe_point_in_time": false,
+  "automatic_model_promotion": false
+}

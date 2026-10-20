@@ -52,7 +52,7 @@ findstr /C:"l2-ml-autotrain-v3-morning-gated-20260903" "%TEMP%\l2_ml_autotrain_d
 findstr /C:"get_l2_cache" "%TEMP%\qmt_level2.py" >nul || goto :fail_download
 
 echo [2/7] Syntax check for the whole stack...
-for %%F in (collection_health.py feed_health.py market_clock.py) do (
+for %%F in (collection_health.py collection_runtime.py feed_health.py market_clock.py) do (
   curl.exe -L --fail --retry 3 -o "%TEMP%\%%F" "%BASE%/modules/%%F" || goto :fail_download
   "%PYEXE%" -m py_compile "%TEMP%\%%F" || goto :syntax
 )
@@ -74,7 +74,7 @@ del /q "%KILLVBS%" >nul 2>&1
 timeout /t 2 /nobreak >nul
 
 echo [3/7] Installing atomically matched Python files...
-for %%F in (collection_health.py feed_health.py market_clock.py) do copy /Y "%TEMP%\%%F" "%MODULEDIR%\%%F" >nul || goto :fail_install
+for %%F in (collection_health.py collection_runtime.py feed_health.py market_clock.py) do copy /Y "%TEMP%\%%F" "%MODULEDIR%\%%F" >nul || goto :fail_install
 for %%F in (qmt_l2_training_recorder_v2.py qmt_l2_training_recorder_v3.py qmt_l2_training_recorder_v4.py qmt_l2_training_recorder_v5.py qmt_l2_training_recorder_v6.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py l2_ml_autotrain_daemon.py l2_ml_autotrain_daemon_v3.py) do (
   copy /Y "%TEMP%\%%F" "%SERVICEDIR%\%%F" >nul || goto :fail_install
 )

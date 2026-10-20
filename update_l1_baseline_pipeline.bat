@@ -54,7 +54,7 @@ echo [1/7] Downloading L1 baseline files...
 for %%F in (qmt_l1_training_recorder_v1.py train_l1_60s_model_v1.py l1_ml_autotrain_daemon_v1.py) do (
   curl.exe -L --fail --retry 3 -o "%TEMP%\%%F" "%BASE%/services/%%F" || goto :fail_download
 )
-findstr /C:"l1-training-recorder-v3-startup-health-20261017" "%TEMP%\qmt_l1_training_recorder_v1.py" >nul || goto :fail_download
+findstr /C:"l1-training-recorder-v4-continuity-ac-awake-20261020" "%TEMP%\qmt_l1_training_recorder_v1.py" >nul || goto :fail_download
 findstr /C:"l1-60s-trainer-v1-purged-morning-gated-20260904" "%TEMP%\train_l1_60s_model_v1.py" >nul || goto :fail_download
 findstr /C:"l1-ml-autotrain-v1-20260904" "%TEMP%\l1_ml_autotrain_daemon_v1.py" >nul || goto :fail_download
 
@@ -64,7 +64,7 @@ for %%F in (qmt_l2_training_recorder_v2.py qmt_l2_training_recorder_v3.py qmt_l2
 )
 
 echo [2/7] Syntax checking the complete training stack...
-for %%F in (collection_health.py feed_health.py market_clock.py) do (
+for %%F in (collection_health.py collection_runtime.py feed_health.py market_clock.py) do (
   curl.exe -L --fail --retry 3 -o "%TEMP%\%%F" "%BASE%/modules/%%F" || goto :fail_download
   "%PYEXE%" -m py_compile "%TEMP%\%%F" || goto :fail_syntax
 )
@@ -86,7 +86,7 @@ del /q "%KILLVBS%" >nul 2>&1
 timeout /t 1 /nobreak >nul
 
 echo [3/7] Installing matched files...
-for %%F in (collection_health.py feed_health.py market_clock.py) do copy /Y "%TEMP%\%%F" "%MODULEDIR%\%%F" >nul || goto :fail_install
+for %%F in (collection_health.py collection_runtime.py feed_health.py market_clock.py) do copy /Y "%TEMP%\%%F" "%MODULEDIR%\%%F" >nul || goto :fail_install
 for %%F in (qmt_l1_training_recorder_v1.py train_l1_60s_model_v1.py l1_ml_autotrain_daemon_v1.py qmt_l2_training_recorder_v2.py qmt_l2_training_recorder_v3.py qmt_l2_training_recorder_v4.py qmt_l2_training_recorder_v5.py qmt_l2_training_recorder_v6.py train_l2_60s_model_v3.py train_l2_60s_model_v4.py train_l2_60s_model_v5.py) do (
   copy /Y "%TEMP%\%%F" "%SERVICEDIR%\%%F" >nul || goto :fail_install
 )
@@ -129,7 +129,7 @@ wscript.exe "%AUTOVBS%"
 timeout /t 5 /nobreak >nul
 
 echo [6/7] Verifying base L1 recorder...
-findstr /C:"l1-training-recorder-v3-startup-health-20261017" "%LOGFILE%" >nul 2>&1
+findstr /C:"l1-training-recorder-v4-continuity-ac-awake-20261020" "%LOGFILE%" >nul 2>&1
 if errorlevel 1 (echo [WARN] L1 recorder installed; marker not visible yet.) else (echo [PASS] L1/Tick 60s recorder active.)
 
 echo [7/7] Applying mandatory V7 forward + V6 multi-challenger ML runtime...

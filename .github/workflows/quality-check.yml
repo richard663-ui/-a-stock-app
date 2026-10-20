@@ -62,6 +62,10 @@ jobs:
         run: python -m services.selftest_monitoring_integrity
       - name: Verify recorder freshness and collection status
         run: python -m unittest discover -s tests -p test_collection_health.py -v
+      - name: Verify AC power guard and interrupted windows
+        run: python -m unittest discover -s tests -p test_collection_runtime.py -v
+      - name: Verify daily market-alpha time alignment
+        run: python -m unittest discover -s tests -p test_market_alpha.py -v
       - name: Run event evidence regression tests
         run: python -m services.selftest_event_evidence
       - uses: actions/setup-node@v4
@@ -87,6 +91,10 @@ jobs:
         run: python services/v18_selftest.py
       - name: Verify recorder freshness and collection status on Windows
         run: python -m unittest discover -s tests -p test_collection_health.py -v
+      - name: Verify AC power guard and interrupted windows on Windows
+        run: python -m unittest discover -s tests -p test_collection_runtime.py -v
+      - name: Verify daily market-alpha time alignment on Windows
+        run: python -m unittest discover -s tests -p test_market_alpha.py -v
       - name: Parse monitor launcher in Windows PowerShell
         shell: powershell
         run: |

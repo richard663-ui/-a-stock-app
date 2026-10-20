@@ -105,7 +105,7 @@ findstr /C:"l2-60s-trainer-v3-purged-selective-20260902" "%TEMP%\l2train3.py" >n
 findstr /C:"AStock L2 ML auto-trainer started" "%TEMP%\l2auto.py" >nul || goto :fail
 
 echo [2/7] Syntax check...
-for %%F in (collection_health.py feed_health.py market_clock.py) do (
+for %%F in (collection_health.py collection_runtime.py feed_health.py market_clock.py) do (
   curl.exe -L --fail --retry 3 -o "%TEMP%\%%F" "%BASE%/modules/%%F" || goto :fail
   "%PYEXE%" -m py_compile "%TEMP%\%%F" || goto :syntax
 )
@@ -120,7 +120,7 @@ if errorlevel 1 (
 )
 
 echo [4/7] Installing...
-for %%F in (collection_health.py feed_health.py market_clock.py) do copy /Y "%TEMP%\%%F" "%MODULEDIR%\%%F" >nul || goto :fail
+for %%F in (collection_health.py collection_runtime.py feed_health.py market_clock.py) do copy /Y "%TEMP%\%%F" "%MODULEDIR%\%%F" >nul || goto :fail
 copy /Y "%TEMP%\l2recv5.py" "%REC%" >nul || goto :fail
 copy /Y "%TEMP%\l2recv4.py" "%REC4%" >nul || goto :fail
 copy /Y "%TEMP%\l2recv3.py" "%REC3%" >nul || goto :fail

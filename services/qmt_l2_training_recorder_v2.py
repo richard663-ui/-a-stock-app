@@ -36,8 +36,9 @@ from modules.direction_v18 import analyze_direction_v18
 from modules.qmt_level2 import QMTLevel2Manager
 from modules.qmt_live import normalize_tick
 from modules.market_clock import market_now, market_from_timestamp
-from modules.feed_health import tick_is_fresh
+from modules.feed_health import tick_is_fresh, tick_timestamp
 from modules.collection_health import collection_health
+from modules.collection_runtime import RecorderPowerGuard, CollectionContinuity
 
 RECORDER_VERSION = "l2-training-recorder-v2-20260901"
 DATA_ROOT = Path(os.environ.get("ASTOCK_RESEARCH_DATA_DIR", str(Path.home() / "AStockData"))).expanduser()
@@ -475,11 +476,31 @@ def main() -> None:
     last_reload = last_l2 = last_status = 0.0
     current_day = market_now().date()
     started_at = market_now().isoformat(timespec="seconds")
+    power_guard = RecorderPowerGuard()
+    continuity = CollectionContinuity()
+    last_power_update = 0.0
+
+    def reset_window(code, reason):
+        tick_rows[code].clear()
+        price_history[code].clear()
+        latest_rows.pop(code, None)
+        last_tick_signature.pop(code, None)
+        for key, sample in list(pending.items()):
+            if sample["symbol"] == code:
+                store.finalize(sample, {"valid": False, "invalid_reason": reason})
+                pending.pop(key, None)
 
     try:
         while True:
             loop_ts = time.time()
             now_dt = market_now()
+            if loop_ts - last_power_update >= 10 or loop_ts < last_power_update:
+                power_guard.update()
+                last_power_update = loop_ts
+            if continuity.observe_loop(loop_ts):
+                for code in symbols:
+                    reset_window(code, "collection_loop_interrupted")
+                print("[WARN] Collection loop interrupted; buffers reset and pending labels invalidated.")
             if now_dt.date() != current_day:
                 current_day = now_dt.date()
                 pending.clear()
@@ -524,6 +545,8 @@ def main() -> None:
                         if _market_open(now_dt):
                             managers[s].refresh(force=True)
                         continue
+                    if continuity.observe_tick(s, tick_timestamp(row)):
+                        reset_window(s, "exchange_tick_gap")
                     latest_rows[s] = row
                     sig = _tick_signature(row)
                     if sig != last_tick_signature.get(s):
@@ -607,6 +630,8 @@ def main() -> None:
                     "process_id": os.getpid(),
                     "started_at": started_at,
                     "runtime_root": str(PROJECT_ROOT),
+                    "power_guard": power_guard.status(),
+                    "continuity": continuity.status(),
                     **collection_health(
                         symbols, feed_rows,
                         {s: len(tick_rows.get(s, ())) for s in symbols},
@@ -625,6 +650,7 @@ def main() -> None:
     except KeyboardInterrupt:
         print("Level-2 ML training recorder stopped")
     finally:
+        power_guard.close()
         for mgr in managers.values():
             try: mgr.stop()
             except Exception: pass
