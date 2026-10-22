@@ -1,0 +1,730 @@
+{
+ "model": "mobile-v10-exchange-window-prospective (Python parity port)",
+ "generated_at": "2026-10-23T07:46:25+08:00",
+ "days": 10,
+ "symbols": [
+  "000400.SZ",
+  "000811.SZ",
+  "002916.SZ",
+  "300308.SZ",
+  "301236.SZ",
+  "301666.SZ",
+  "600105.SH",
+  "600522.SH",
+  "601179.SH"
+ ],
+ "overall_overlapping_10s": {
+  "evaluated_moments": 29130,
+  "mean_mid_ret_bp_all": 0.06,
+  "UP": {
+   "calls": 7420,
+   "coverage_pct": 25.47,
+   "hit_rate_pct": 34.06,
+   "base_rate_pct": 34.63,
+   "mean_mid_ret_bp": -0.33,
+   "mean_executable_net_bp_after_fees": -14.92,
+   "share_profitable_after_costs_pct": 14.22,
+   "by_strength": {
+    "15-39": {
+     "calls": 5650,
+     "mean_mid_ret_bp": -0.14,
+     "mean_executable_net_bp": -14.89
+    },
+    "40-69": {
+     "calls": 1741,
+     "mean_mid_ret_bp": -1.04,
+     "mean_executable_net_bp": -15.14
+    },
+    "70+": {
+     "calls": 29,
+     "mean_mid_ret_bp": 5.45,
+     "mean_executable_net_bp": -7.73
+    }
+   }
+  },
+  "DOWN": {
+   "calls": 7666,
+   "coverage_pct": 26.32,
+   "hit_rate_pct": 37.19,
+   "base_rate_pct": 35.8,
+   "mean_mid_ret_bp": 0.41,
+   "mean_executable_net_bp_after_fees": -14.71,
+   "share_profitable_after_costs_pct": 12.64,
+   "by_strength": {
+    "15-39": {
+     "calls": 5782,
+     "mean_mid_ret_bp": 0.03,
+     "mean_executable_net_bp": -14.55
+    },
+    "40-69": {
+     "calls": 1855,
+     "mean_mid_ret_bp": 1.49,
+     "mean_executable_net_bp": -15.15
+    },
+    "70+": {
+     "calls": 29,
+     "mean_mid_ret_bp": 6.05,
+     "mean_executable_net_bp": -19.14
+    }
+   }
+  },
+  "median_spread_bp": 3.3383408446007556,
+  "round_trip_fees_bp": 10.2
+ },
+ "overall_non_overlapping_60s": {
+  "evaluated_moments": 5084,
+  "mean_mid_ret_bp_all": 0.08,
+  "UP": {
+   "calls": 1278,
+   "coverage_pct": 25.14,
+   "hit_rate_pct": 33.88,
+   "base_rate_pct": 34.54,
+   "mean_mid_ret_bp": -0.62,
+   "mean_executable_net_bp_after_fees": -15.13,
+   "share_profitable_after_costs_pct": 14.71,
+   "by_strength": {
+    "15-39": {
+     "calls": 982,
+     "mean_mid_ret_bp": -0.62,
+     "mean_executable_net_bp": -15.27
+    },
+    "40-69": {
+     "calls": 291,
+     "mean_mid_ret_bp": -0.68,
+     "mean_executable_net_bp": -14.73
+    },
+    "70+": {
+     "calls": 5,
+     "mean_mid_ret_bp": 1.13,
+     "mean_executable_net_bp": -12.5
+    }
+   }
+  },
+  "DOWN": {
+   "calls": 1308,
+   "coverage_pct": 25.73,
+   "hit_rate_pct": 35.32,
+   "base_rate_pct": 36.09,
+   "mean_mid_ret_bp": 0.81,
+   "mean_executable_net_bp_after_fees": -15.08,
+   "share_profitable_after_costs_pct": 11.77,
+   "by_strength": {
+    "15-39": {
+     "calls": 970,
+     "mean_mid_ret_bp": 0.53,
+     "mean_executable_net_bp": -15.02
+    },
+    "40-69": {
+     "calls": 332,
+     "mean_mid_ret_bp": 1.49,
+     "mean_executable_net_bp": -15.11
+    },
+    "70+": {
+     "calls": 6,
+     "mean_mid_ret_bp": 10.09,
+     "mean_executable_net_bp": -22.56
+    }
+   }
+  },
+  "median_spread_bp": 3.318400530944604,
+  "round_trip_fees_bp": 10.2
+ },
+ "per_day": {
+  "2026-08-26": {
+   "source": "raw",
+   "evaluated_moments": 1025,
+   "mean_mid_ret_bp_all": 0.29,
+   "UP": {
+    "calls": 318,
+    "coverage_pct": 31.02,
+    "hit_rate_pct": 34.59,
+    "base_rate_pct": 32.0,
+    "mean_mid_ret_bp": 1.03,
+    "mean_executable_net_bp_after_fees": -13.11,
+    "share_profitable_after_costs_pct": 9.43,
+    "by_strength": {
+     "15-39": {
+      "calls": 263,
+      "mean_mid_ret_bp": 1.56,
+      "mean_executable_net_bp": -12.6
+     },
+     "40-69": {
+      "calls": 55,
+      "mean_mid_ret_bp": -1.47,
+      "mean_executable_net_bp": -15.57
+     },
+     "70+": {
+      "calls": 0,
+      "mean_mid_ret_bp": null,
+      "mean_executable_net_bp": null
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 227,
+    "coverage_pct": 22.15,
+    "hit_rate_pct": 38.33,
+    "base_rate_pct": 29.85,
+    "mean_mid_ret_bp": -0.82,
+    "mean_executable_net_bp_after_fees": -13.13,
+    "share_profitable_after_costs_pct": 6.61,
+    "by_strength": {
+     "15-39": {
+      "calls": 195,
+      "mean_mid_ret_bp": -0.41,
+      "mean_executable_net_bp": -13.49
+     },
+     "40-69": {
+      "calls": 32,
+      "mean_mid_ret_bp": -3.28,
+      "mean_executable_net_bp": -10.95
+     },
+     "70+": {
+      "calls": 0,
+      "mean_mid_ret_bp": null,
+      "mean_executable_net_bp": null
+     }
+    }
+   },
+   "median_spread_bp": 2.7148092846491423,
+   "round_trip_fees_bp": 10.2
+  },
+  "2026-08-27": {
+   "source": "raw",
+   "evaluated_moments": 894,
+   "mean_mid_ret_bp_all": 1.33,
+   "UP": {
+    "calls": 247,
+    "coverage_pct": 27.63,
+    "hit_rate_pct": 44.53,
+    "base_rate_pct": 40.16,
+    "mean_mid_ret_bp": 1.31,
+    "mean_executable_net_bp_after_fees": -12.22,
+    "share_profitable_after_costs_pct": 15.79,
+    "by_strength": {
+     "15-39": {
+      "calls": 170,
+      "mean_mid_ret_bp": 2.19,
+      "mean_executable_net_bp": -11.27
+     },
+     "40-69": {
+      "calls": 77,
+      "mean_mid_ret_bp": -0.65,
+      "mean_executable_net_bp": -14.3
+     },
+     "70+": {
+      "calls": 0,
+      "mean_mid_ret_bp": null,
+      "mean_executable_net_bp": null
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 243,
+    "coverage_pct": 27.18,
+    "hit_rate_pct": 41.56,
+    "base_rate_pct": 35.57,
+    "mean_mid_ret_bp": 0.42,
+    "mean_executable_net_bp_after_fees": -13.66,
+    "share_profitable_after_costs_pct": 9.47,
+    "by_strength": {
+     "15-39": {
+      "calls": 183,
+      "mean_mid_ret_bp": 1.59,
+      "mean_executable_net_bp": -14.87
+     },
+     "40-69": {
+      "calls": 60,
+      "mean_mid_ret_bp": -3.15,
+      "mean_executable_net_bp": -9.95
+     },
+     "70+": {
+      "calls": 0,
+      "mean_mid_ret_bp": null,
+      "mean_executable_net_bp": null
+     }
+    }
+   },
+   "median_spread_bp": 2.684924150892203,
+   "round_trip_fees_bp": 10.2
+  },
+  "2026-08-28": {
+   "source": "raw",
+   "evaluated_moments": 1383,
+   "mean_mid_ret_bp_all": -1.06,
+   "UP": {
+    "calls": 321,
+    "coverage_pct": 23.21,
+    "hit_rate_pct": 38.01,
+    "base_rate_pct": 34.78,
+    "mean_mid_ret_bp": 0.43,
+    "mean_executable_net_bp_after_fees": -12.94,
+    "share_profitable_after_costs_pct": 18.07,
+    "by_strength": {
+     "15-39": {
+      "calls": 241,
+      "mean_mid_ret_bp": 1.13,
+      "mean_executable_net_bp": -12.23
+     },
+     "40-69": {
+      "calls": 78,
+      "mean_mid_ret_bp": -1.29,
+      "mean_executable_net_bp": -14.69
+     },
+     "70+": {
+      "calls": 2,
+      "mean_mid_ret_bp": -17.3,
+      "mean_executable_net_bp": -30.05
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 429,
+    "coverage_pct": 31.02,
+    "hit_rate_pct": 43.12,
+    "base_rate_pct": 41.94,
+    "mean_mid_ret_bp": -1.43,
+    "mean_executable_net_bp_after_fees": -11.47,
+    "share_profitable_after_costs_pct": 17.95,
+    "by_strength": {
+     "15-39": {
+      "calls": 252,
+      "mean_mid_ret_bp": -2.23,
+      "mean_executable_net_bp": -10.91
+     },
+     "40-69": {
+      "calls": 175,
+      "mean_mid_ret_bp": -0.21,
+      "mean_executable_net_bp": -12.34
+     },
+     "70+": {
+      "calls": 2,
+      "mean_mid_ret_bp": -7.18,
+      "mean_executable_net_bp": -6.87
+     }
+    }
+   },
+   "median_spread_bp": 2.6270852489158045,
+   "round_trip_fees_bp": 10.2
+  },
+  "2026-08-31": {
+   "source": "raw",
+   "evaluated_moments": 1336,
+   "mean_mid_ret_bp_all": 0.15,
+   "UP": {
+    "calls": 349,
+    "coverage_pct": 26.12,
+    "hit_rate_pct": 42.12,
+    "base_rate_pct": 40.04,
+    "mean_mid_ret_bp": 1.13,
+    "mean_executable_net_bp_after_fees": -12.51,
+    "share_profitable_after_costs_pct": 20.34,
+    "by_strength": {
+     "15-39": {
+      "calls": 249,
+      "mean_mid_ret_bp": 0.76,
+      "mean_executable_net_bp": -12.92
+     },
+     "40-69": {
+      "calls": 97,
+      "mean_mid_ret_bp": 1.02,
+      "mean_executable_net_bp": -12.5
+     },
+     "70+": {
+      "calls": 3,
+      "mean_mid_ret_bp": 35.22,
+      "mean_executable_net_bp": 20.69
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 321,
+    "coverage_pct": 24.03,
+    "hit_rate_pct": 35.2,
+    "base_rate_pct": 37.8,
+    "mean_mid_ret_bp": 0.7,
+    "mean_executable_net_bp_after_fees": -13.99,
+    "share_profitable_after_costs_pct": 19.0,
+    "by_strength": {
+     "15-39": {
+      "calls": 190,
+      "mean_mid_ret_bp": 1.9,
+      "mean_executable_net_bp": -15.36
+     },
+     "40-69": {
+      "calls": 125,
+      "mean_mid_ret_bp": -0.98,
+      "mean_executable_net_bp": -12.05
+     },
+     "70+": {
+      "calls": 6,
+      "mean_mid_ret_bp": -2.05,
+      "mean_executable_net_bp": -10.63
+     }
+    }
+   },
+   "median_spread_bp": 2.645852626008205,
+   "round_trip_fees_bp": 10.2
+  },
+  "2026-09-01": {
+   "source": "raw",
+   "evaluated_moments": 990,
+   "mean_mid_ret_bp_all": -2.38,
+   "UP": {
+    "calls": 166,
+    "coverage_pct": 16.77,
+    "hit_rate_pct": 22.89,
+    "base_rate_pct": 33.23,
+    "mean_mid_ret_bp": -6.19,
+    "mean_executable_net_bp_after_fees": -22.41,
+    "share_profitable_after_costs_pct": 7.23,
+    "by_strength": {
+     "15-39": {
+      "calls": 130,
+      "mean_mid_ret_bp": -6.39,
+      "mean_executable_net_bp": -22.81
+     },
+     "40-69": {
+      "calls": 36,
+      "mean_mid_ret_bp": -5.48,
+      "mean_executable_net_bp": -20.94
+     },
+     "70+": {
+      "calls": 0,
+      "mean_mid_ret_bp": null,
+      "mean_executable_net_bp": null
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 344,
+    "coverage_pct": 34.75,
+    "hit_rate_pct": 33.72,
+    "base_rate_pct": 40.4,
+    "mean_mid_ret_bp": 1.4,
+    "mean_executable_net_bp_after_fees": -16.48,
+    "share_profitable_after_costs_pct": 16.86,
+    "by_strength": {
+     "15-39": {
+      "calls": 239,
+      "mean_mid_ret_bp": -1.49,
+      "mean_executable_net_bp": -13.79
+     },
+     "40-69": {
+      "calls": 103,
+      "mean_mid_ret_bp": 7.45,
+      "mean_executable_net_bp": -22.07
+     },
+     "70+": {
+      "calls": 2,
+      "mean_mid_ret_bp": 35.56,
+      "mean_executable_net_bp": -51.06
+     }
+    }
+   },
+   "median_spread_bp": 3.8512510902442356,
+   "round_trip_fees_bp": 10.2
+  },
+  "2026-09-02": {
+   "source": "raw",
+   "evaluated_moments": 427,
+   "mean_mid_ret_bp_all": 0.84,
+   "UP": {
+    "calls": 105,
+    "coverage_pct": 24.59,
+    "hit_rate_pct": 30.48,
+    "base_rate_pct": 35.83,
+    "mean_mid_ret_bp": -3.95,
+    "mean_executable_net_bp_after_fees": -18.41,
+    "share_profitable_after_costs_pct": 13.33,
+    "by_strength": {
+     "15-39": {
+      "calls": 80,
+      "mean_mid_ret_bp": -1.26,
+      "mean_executable_net_bp": -15.59
+     },
+     "40-69": {
+      "calls": 25,
+      "mean_mid_ret_bp": -12.55,
+      "mean_executable_net_bp": -27.44
+     },
+     "70+": {
+      "calls": 0,
+      "mean_mid_ret_bp": null,
+      "mean_executable_net_bp": null
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 111,
+    "coverage_pct": 26.0,
+    "hit_rate_pct": 34.23,
+    "base_rate_pct": 34.89,
+    "mean_mid_ret_bp": 2.49,
+    "mean_executable_net_bp_after_fees": -16.3,
+    "share_profitable_after_costs_pct": 9.91,
+    "by_strength": {
+     "15-39": {
+      "calls": 86,
+      "mean_mid_ret_bp": 1.02,
+      "mean_executable_net_bp": -14.76
+     },
+     "40-69": {
+      "calls": 24,
+      "mean_mid_ret_bp": 6.87,
+      "mean_executable_net_bp": -21.02
+     },
+     "70+": {
+      "calls": 1,
+      "mean_mid_ret_bp": 23.83,
+      "mean_executable_net_bp": -36.23
+     }
+    }
+   },
+   "median_spread_bp": 2.6763013515316505,
+   "round_trip_fees_bp": 10.2
+  },
+  "2026-09-03": {
+   "source": "raw",
+   "evaluated_moments": 992,
+   "mean_mid_ret_bp_all": 2.16,
+   "UP": {
+    "calls": 318,
+    "coverage_pct": 32.06,
+    "hit_rate_pct": 39.31,
+    "base_rate_pct": 42.94,
+    "mean_mid_ret_bp": 1.63,
+    "mean_executable_net_bp_after_fees": -12.83,
+    "share_profitable_after_costs_pct": 20.13,
+    "by_strength": {
+     "15-39": {
+      "calls": 235,
+      "mean_mid_ret_bp": 0.96,
+      "mean_executable_net_bp": -13.56
+     },
+     "40-69": {
+      "calls": 83,
+      "mean_mid_ret_bp": 3.54,
+      "mean_executable_net_bp": -10.77
+     },
+     "70+": {
+      "calls": 0,
+      "mean_mid_ret_bp": null,
+      "mean_executable_net_bp": null
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 197,
+    "coverage_pct": 19.86,
+    "hit_rate_pct": 29.95,
+    "base_rate_pct": 29.44,
+    "mean_mid_ret_bp": 1.61,
+    "mean_executable_net_bp_after_fees": -15.95,
+    "share_profitable_after_costs_pct": 13.2,
+    "by_strength": {
+     "15-39": {
+      "calls": 140,
+      "mean_mid_ret_bp": 1.03,
+      "mean_executable_net_bp": -15.44
+     },
+     "40-69": {
+      "calls": 56,
+      "mean_mid_ret_bp": 2.8,
+      "mean_executable_net_bp": -17.0
+     },
+     "70+": {
+      "calls": 1,
+      "mean_mid_ret_bp": 15.68,
+      "mean_executable_net_bp": -28.46
+     }
+    }
+   },
+   "median_spread_bp": 3.0529690123639175,
+   "round_trip_fees_bp": 10.2
+  },
+  "2026-09-04": {
+   "source": "raw",
+   "evaluated_moments": 4514,
+   "mean_mid_ret_bp_all": -1.69,
+   "UP": {
+    "calls": 1066,
+    "coverage_pct": 23.62,
+    "hit_rate_pct": 30.02,
+    "base_rate_pct": 29.49,
+    "mean_mid_ret_bp": -1.32,
+    "mean_executable_net_bp_after_fees": -15.66,
+    "share_profitable_after_costs_pct": 10.6,
+    "by_strength": {
+     "15-39": {
+      "calls": 845,
+      "mean_mid_ret_bp": -1.12,
+      "mean_executable_net_bp": -15.64
+     },
+     "40-69": {
+      "calls": 214,
+      "mean_mid_ret_bp": -2.28,
+      "mean_executable_net_bp": -15.94
+     },
+     "70+": {
+      "calls": 7,
+      "mean_mid_ret_bp": 3.8,
+      "mean_executable_net_bp": -9.7
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 1275,
+    "coverage_pct": 28.25,
+    "hit_rate_pct": 44.86,
+    "base_rate_pct": 41.91,
+    "mean_mid_ret_bp": -2.06,
+    "mean_executable_net_bp_after_fees": -11.86,
+    "share_profitable_after_costs_pct": 15.29,
+    "by_strength": {
+     "15-39": {
+      "calls": 964,
+      "mean_mid_ret_bp": -2.28,
+      "mean_executable_net_bp": -11.86
+     },
+     "40-69": {
+      "calls": 310,
+      "mean_mid_ret_bp": -1.38,
+      "mean_executable_net_bp": -11.89
+     },
+     "70+": {
+      "calls": 1,
+      "mean_mid_ret_bp": -6.36,
+      "mean_executable_net_bp": -9.47
+     }
+    }
+   },
+   "median_spread_bp": 3.1167212092894236,
+   "round_trip_fees_bp": 10.2
+  },
+  "2026-09-07": {
+   "source": "raw",
+   "evaluated_moments": 7307,
+   "mean_mid_ret_bp_all": 1.39,
+   "UP": {
+    "calls": 1926,
+    "coverage_pct": 26.36,
+    "hit_rate_pct": 36.45,
+    "base_rate_pct": 36.61,
+    "mean_mid_ret_bp": 1.01,
+    "mean_executable_net_bp_after_fees": -13.74,
+    "share_profitable_after_costs_pct": 17.34,
+    "by_strength": {
+     "15-39": {
+      "calls": 1453,
+      "mean_mid_ret_bp": 0.33,
+      "mean_executable_net_bp": -14.63
+     },
+     "40-69": {
+      "calls": 462,
+      "mean_mid_ret_bp": 3.05,
+      "mean_executable_net_bp": -11.09
+     },
+     "70+": {
+      "calls": 11,
+      "mean_mid_ret_bp": 4.97,
+      "mean_executable_net_bp": -7.21
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 1795,
+    "coverage_pct": 24.57,
+    "hit_rate_pct": 33.87,
+    "base_rate_pct": 32.48,
+    "mean_mid_ret_bp": 2.12,
+    "mean_executable_net_bp_after_fees": -16.27,
+    "share_profitable_after_costs_pct": 10.86,
+    "by_strength": {
+     "15-39": {
+      "calls": 1370,
+      "mean_mid_ret_bp": 1.35,
+      "mean_executable_net_bp": -15.6
+     },
+     "40-69": {
+      "calls": 421,
+      "mean_mid_ret_bp": 4.43,
+      "mean_executable_net_bp": -18.25
+     },
+     "70+": {
+      "calls": 4,
+      "mean_mid_ret_bp": 21.86,
+      "mean_executable_net_bp": -34.55
+     }
+    }
+   },
+   "median_spread_bp": 3.064194882793936,
+   "round_trip_fees_bp": 10.2
+  },
+  "2026-10-21": {
+   "source": "raw",
+   "evaluated_moments": 10262,
+   "mean_mid_ret_bp_all": -0.11,
+   "UP": {
+    "calls": 2604,
+    "coverage_pct": 25.38,
+    "hit_rate_pct": 31.53,
+    "base_rate_pct": 33.82,
+    "mean_mid_ret_bp": -1.24,
+    "mean_executable_net_bp_after_fees": -16.18,
+    "share_profitable_after_costs_pct": 12.29,
+    "by_strength": {
+     "15-39": {
+      "calls": 1984,
+      "mean_mid_ret_bp": -0.43,
+      "mean_executable_net_bp": -15.56
+     },
+     "40-69": {
+      "calls": 614,
+      "mean_mid_ret_bp": -3.89,
+      "mean_executable_net_bp": -18.19
+     },
+     "70+": {
+      "calls": 6,
+      "mean_mid_ret_bp": 0.97,
+      "mean_executable_net_bp": -13.14
+     }
+    }
+   },
+   "DOWN": {
+    "calls": 2724,
+    "coverage_pct": 26.54,
+    "hit_rate_pct": 35.68,
+    "base_rate_pct": 35.22,
+    "mean_mid_ret_bp": 0.49,
+    "mean_executable_net_bp_after_fees": -15.46,
+    "share_profitable_after_costs_pct": 11.31,
+    "by_strength": {
+     "15-39": {
+      "calls": 2163,
+      "mean_mid_ret_bp": 0.3,
+      "mean_executable_net_bp": -15.52
+     },
+     "40-69": {
+      "calls": 549,
+      "mean_mid_ret_bp": 1.27,
+      "mean_executable_net_bp": -15.28
+     },
+     "70+": {
+      "calls": 12,
+      "mean_mid_ret_bp": 0.87,
+      "mean_executable_net_bp": -13.59
+     }
+    }
+   },
+   "median_spread_bp": 3.514320857494839,
+   "round_trip_fees_bp": 10.2
+  }
+ },
+ "caveats": [
+  "Historical replay, not prospective; overlapping 10 s samples are correlated.",
+  "Executable results assume fills at the quoted best bid/ask with no queueing.",
+  "DOWN execution requires shares bought on a previous day (T+1).",
+  "Fees from configs/costs.json (a-share-costs-v1-20261023); spread paid via ask/bid prices."
+ ]
+}
