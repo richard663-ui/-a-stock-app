@@ -368,6 +368,47 @@ def write_status(path: Path, payload: Dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+class CloudPublisher:
+    """Best-effort upload of live status to collection_health_v1 (never blocks the loop)."""
+
+    def __init__(self) -> None:
+        self.disabled_until = 0.0
+        self.error = ""
+        self.busy = False
+        self.bridge = None
+        self.bridge_id = ""
+
+    def publish(self, payload: Dict[str, Any], now: float) -> None:
+        if self.busy or now < self.disabled_until:
+            return
+        self.busy = True
+        import threading
+        threading.Thread(target=self._run, args=(payload, now), daemon=True, name="collection-cloud").start()
+
+    def _run(self, payload: Dict[str, Any], now: float) -> None:
+        try:
+            if self.bridge is None:
+                from modules.cloud_bridge import CloudBridge, load_bridge_config
+                cfg = load_bridge_config()
+                if not cfg.ok:
+                    self.error, self.disabled_until = "bridge config incomplete", now + 3600
+                    return
+                self.bridge, self.bridge_id = CloudBridge(cfg, timeout=5.0), cfg.bridge_id
+            row = {"bridge_id": self.bridge_id, "updated_at": payload["checked_at"],
+                   "monitor_version": MONITOR_VERSION, "overall": payload["overall"], "phase": payload["phase"],
+                   "trading_day": payload["trading_day"], "findings": payload["findings"],
+                   "symbols": payload["symbols"], "processes": payload["processes"]}
+            self.bridge._request("POST", "collection_health_v1?on_conflict=bridge_id", json=row,
+                                 headers={"Prefer": "resolution=merge-duplicates,return=minimal"})
+            self.error = ""
+        except Exception as exc:
+            # 404 = table not created yet (migration pending): retry hourly, otherwise in 2 minutes.
+            self.error = f"{type(exc).__name__}: {str(exc)[:120]}"
+            self.disabled_until = now + (3600 if "404" in str(exc) else 120)
+        finally:
+            self.busy = False
+
+
 def daily_report(root: Path, day: date, cfg: Dict[str, Any]) -> Optional[Finding]:
     from services.collection_report import build_report, write_outputs
     calendar = load_calendar(root)
@@ -401,6 +442,8 @@ def main() -> int:
     last_proc = last_power = 0.0
     last_loop: Optional[float] = None
     done: Dict[str, str] = {}
+    cloud = CloudPublisher()
+    last_cloud = 0.0
     print(f"Collection monitor {MONITOR_VERSION} started; data root {root}")
     while True:
         now = time.time()
@@ -467,7 +510,7 @@ def main() -> int:
             record = dispatcher.dispatch(alert)
             print(f"{now_dt:%H:%M:%S} ALERT {record['severity']} {record['key']}: {record['message']}")
         overall = max([f.severity for f in findings] + ["OK"], key=lambda s: SEVERITY_RANK[s])
-        write_status(out_dir / "live_status.json", {
+        status_payload = {
             "monitor_version": MONITOR_VERSION, "checked_at": now_dt.isoformat(timespec="seconds"),
             "trading_day": trading, "calendar_basis": basis, "phase": phase, "overall": overall,
             "findings": [f.__dict__ for f in findings],
@@ -477,7 +520,12 @@ def main() -> int:
             "processes": processes, "ac_power": ctx.ac, "power_setting_risks": power_risks,
             "integrity_ok": integrity.get("ok") if integrity else None,
             "alert_delivery_error": dispatcher.last_delivery_error,
-        })
+            "cloud_publish_error": cloud.error,
+        }
+        write_status(out_dir / "live_status.json", status_payload)
+        if now - last_cloud >= 60:
+            cloud.publish(status_payload, now)
+            last_cloud = now
         time.sleep(max(1.0, m["interval_seconds"] - (time.time() - now)))
 
 

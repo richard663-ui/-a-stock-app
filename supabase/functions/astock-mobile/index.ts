@@ -1,4 +1,4 @@
-import {BRIDGE_ID,MODEL_VERSION,cors,json,makeSession,rest,validPassword,validSessionToken} from './auth.ts';
+import {BRIDGE_ID,MODEL_VERSION,cors,json,handleLogin,rest,serverError,validSessionToken} from './auth.ts';
 import {arr,forecast,last,marketOpen,n,stableModel,confidenceFor,SCORE_STANDARD} from './market.ts';
 import {getMacdContext} from './macd.ts';
 import {feedHealth} from './feed-health.ts';
@@ -16,16 +16,12 @@ export async function handler(req) {
   try {
     const url=new URL(req.url), path=url.pathname;
     if(req.method==='OPTIONS') return new Response(null,{status:204,headers:cors(req)});
-    if(path.endsWith('/health')) return json(req,{ok:true,service:'astock-mobile-api',version:12,
+    if(path.endsWith('/health')) return json(req,{ok:true,service:'astock-mobile-api',version:13,
       model:MODEL_VERSION,direction_confidence_split:true,macd_structure_calibration:true,
       calibrated_probability:false,exchange_timestamp_guard:true,learning_status:true,
-      strict_time_windows:true,prospective_prediction_log:true});
-    if(path.endsWith('/login')&&req.method==='POST') {
-      const body=await req.json().catch(()=>({}));
-      if(!await validPassword(String(body.password||''))) return json(req,{ok:false},401);
-      return json(req,{ok:true,session:await makeSession()});
-    }
-    if(path.endsWith('/')) return json(req,{ok:true,service:'astock-mobile-api',frontend:'GitHub Pages',version:12});
+      strict_time_windows:true,prospective_prediction_log:true,login_rate_limit:true});
+    if(path.endsWith('/login')&&req.method==='POST') return await handleLogin(req);
+    if(path.endsWith('/')) return json(req,{ok:true,service:'astock-mobile-api',frontend:'GitHub Pages',version:13});
     if(!await validSessionToken(req.headers.get('x-astock-session')||'')) return json(req,{error:'unauthorized'},401);
     if(path.endsWith('/learning')) return json(req,await learningState(rest));
     if(path.endsWith('/evaluation')) return json(req,await evaluationState(rest,BRIDGE_ID,MODEL_VERSION));
@@ -118,7 +114,7 @@ export async function handler(req) {
     }
     return json(req,{error:'not found'},404);
   } catch(e) {
-    return json(req,{error:'temporary backend error',detail:String(e instanceof Error?e.message:e)},500);
+    return serverError(req,e);
   }
 }
 Deno.serve(handler);

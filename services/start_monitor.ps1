@@ -7,20 +7,29 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $installRoot = Join-Path $env:LOCALAPPDATA 'AStockQMT'
 $runtimeDir = Join-Path $installRoot 'runtime'
-$serviceSpecs = @(
-    @{ Name = '行情同步'; Script = 'qmt_cloud_bridge.py'; Watchdog = 'AStockQMTCloudBridgeWatchdog.cmd' },
-    @{ Name = '训练数据采集'; Script = 'qmt_l1_training_recorder_v1.py'; Watchdog = 'AStockL2TrainingWatchdog.cmd' },
-    @{ Name = '自动学习'; Script = 'l1_ml_autotrain_daemon_v2.py'; Watchdog = 'AStockL2MLAutoTrainWatchdog.cmd' },
-    @{ Name = '预测研究记录'; Script = 'qmt_research_recorder_v7.py'; Watchdog = 'AStockResearchWatchdog.cmd' },
-    @{ Name = '影子验证'; Script = 'l1_v6_shadow_runner_v1.py'; Watchdog = 'AStockV6ShadowWatchdog.cmd' }
-)
+# This script runs from <install root>\current\services; the release root holds deploy\services.json.
+$releaseRoot = Split-Path -Parent $PSScriptRoot
+$registryPath = Join-Path $releaseRoot 'deploy\services.json'
+if (Test-Path -LiteralPath $registryPath) {
+    $serviceSpecs = @((Get-Content -LiteralPath $registryPath -Raw -Encoding UTF8 | ConvertFrom-Json).services | ForEach-Object {
+        @{ Name = $_.name; Script = ($_.script -replace '/', '\'); Watchdog = $_.watchdog }
+    })
+} else {
+    $serviceSpecs = @(
+        @{ Name = '行情同步'; Script = 'services\qmt_cloud_bridge.py'; Watchdog = 'AStockQMTCloudBridgeWatchdog.cmd' },
+        @{ Name = '训练数据采集'; Script = 'services\qmt_l1_training_recorder_v1.py'; Watchdog = 'AStockL2TrainingWatchdog.cmd' },
+        @{ Name = '自动学习'; Script = 'services\l1_ml_autotrain_daemon_v2.py'; Watchdog = 'AStockL2MLAutoTrainWatchdog.cmd' },
+        @{ Name = '预测研究记录'; Script = 'services\qmt_research_recorder_v7.py'; Watchdog = 'AStockResearchWatchdog.cmd' },
+        @{ Name = '影子验证'; Script = 'services\l1_v6_shadow_runner_v1.py'; Watchdog = 'AStockV6ShadowWatchdog.cmd' }
+    )
+}
 
 function Get-Processes {
     return @(Get-CimInstance Win32_Process | Where-Object { $_.Name -in @('python.exe', 'pythonw.exe', 'cmd.exe', 'XtMiniQmt.exe', 'XtItClient.exe') })
 }
 
 function Get-Workers($Spec, $Processes) {
-    $scriptPath = Join-Path $installRoot ('services\' + $Spec.Script)
+    $scriptPath = Join-Path $releaseRoot $Spec.Script
     return @($Processes | Where-Object {
         $_.Name -in @('python.exe', 'pythonw.exe') -and
         $_.CommandLine -and $_.CommandLine.IndexOf($scriptPath, [StringComparison]::OrdinalIgnoreCase) -ge 0
@@ -49,11 +58,11 @@ function Find-QmtShortcut {
 }
 
 function Get-DataHealth($PythonPath) {
-    $probeScript = Join-Path $installRoot 'services\monitor_health.py'
+    $probeScript = Join-Path $releaseRoot 'services\monitor_health.py'
     $probeOut = Join-Path $runtimeDir 'monitor_health_probe.json'
     $probeErr = Join-Path $runtimeDir 'monitor_health_probe.err'
     $probe = Start-Process -FilePath $PythonPath -ArgumentList ('"{0}"' -f $probeScript) `
-        -WorkingDirectory $installRoot -WindowStyle Hidden -PassThru `
+        -WorkingDirectory $releaseRoot -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $probeOut -RedirectStandardError $probeErr
     # Retain the handle before a short-lived process exits (Windows PowerShell 5).
     $probeHandle = $probe.Handle
@@ -168,8 +177,31 @@ try {
         $stateNames = @{ MARKET_CLOSED = '采样时段之外'; READY = '全部行情已就绪'; PARTIAL_FEED = '部分行情可用'; WARMING_UP = '正在预热'; WAITING_FRESH_TICKS = '等待新鲜行情' }
         Write-Host ('采集状态：' + $stateNames[$health.recorder.collection_state])
     }
+    $statePath = Join-Path $installRoot 'install_state.json'
+    if (Test-Path -LiteralPath $statePath) {
+        $installState = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        Write-Host ('已安装代码版本（commit）：' + $installState.current_commit.Substring(0, 12) + '  安装于 ' + $installState.installed_at)
+    } else {
+        Write-Host '未找到固定版本记录：请用 INSTALL_RUNTIME.cmd 安装已审核的版本。' -ForegroundColor Yellow
+    }
+    $integrityPath = Join-Path $runtimeDir 'integrity_status.json'
+    if (Test-Path -LiteralPath $integrityPath) {
+        $integrity = Get-Content -LiteralPath $integrityPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($integrity.ok) { Write-Host '代码完整性：通过（与审核版本一致）' }
+        else { Write-Host ('代码完整性：失败，后台拒绝启动。' + (($integrity.problems) -join '; ')) -ForegroundColor Red }
+    }
+    $livePath = Join-Path $env:USERPROFILE 'AStockData\reports\collection\live_status.json'
+    if (Test-Path -LiteralPath $livePath) {
+        $live = Get-Content -LiteralPath $livePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $color = 'Gray'; if ($live.overall -eq 'CRITICAL') { $color = 'Red' } elseif ($live.overall -eq 'WARN') { $color = 'Yellow' }
+        Write-Host ('采集健康监控：' + $live.overall + '（' + $live.checked_at + '）') -ForegroundColor $color
+        foreach ($f in @($live.findings)) { if ($f.title) { Write-Host ('  - ' + $f.title + '：' + $f.message) -ForegroundColor $color } }
+        if (@($live.power_setting_risks).Count) {
+            Write-Host ('电源风险：' + (@($live.power_setting_risks) -join '; ') + '。按电源键或合盖会让电脑待机、停止采集；请用 Win+L 锁屏。') -ForegroundColor Yellow
+        }
+    }
     $result = [PSCustomObject]@{
-        launcher_version = 'monitor-startup-20261017'
+        launcher_version = 'monitor-startup-20261023-pinned'
         services = $serviceResults
         miniqmt_running = $qmtProcesses.Count -gt 0
         health = $health

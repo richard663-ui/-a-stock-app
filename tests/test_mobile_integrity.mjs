@@ -21,7 +21,8 @@ assert.equal(feedHealth({...payload,ticks:[{time:now+60000}]},now).fresh,false);
 
 const nativeNow=Date.now;
 Date.now=()=>now;
-globalThis.Deno={env:{get:name=>name==='SUPABASE_SERVICE_ROLE_KEY'?'isolated-test-key':undefined},serve:()=>{}};
+const testEnv={SUPABASE_SERVICE_ROLE_KEY:'isolated-test-key',ASTOCK_SESSION_SECRET:'isolated-session-secret'};
+globalThis.Deno={env:{get:name=>testEnv[name]},serve:()=>{}};
 let requests=[];
 globalThis.fetch=async url=>{
   const path=String(url);requests.push(path);

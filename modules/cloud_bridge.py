@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import os
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import certifi
 import requests
@@ -41,6 +43,17 @@ class BridgeConfig:
     url: str
     service_key: str
     bridge_id: str
+    # Least-privilege device login (supabase/migrations/*bridge_device_least_privilege.sql).
+    publishable_key: str = ""
+    device_email: str = ""
+    device_password: str = ""
+
+    @property
+    def mode(self) -> str:
+        """device = Supabase Auth user + RLS; secret = sb_secret_ key; legacy_jwt = service_role JWT."""
+        if self.device_email and self.device_password and self.publishable_key and not self.service_key:
+            return "device"
+        return "secret" if self.service_key.startswith("sb_secret_") else "legacy_jwt"
 
     def validation_errors(self) -> List[str]:
         errors: List[str] = []
@@ -53,8 +66,11 @@ class BridgeConfig:
         elif _contains_non_ascii(self.url):
             errors.append("SUPABASE_URL contains Chinese or other non-ASCII characters")
 
-        if not self.service_key:
-            errors.append("SUPABASE_SERVICE_KEY is missing")
+        if self.mode == "device":
+            if not (self.publishable_key.startswith("sb_publishable_") or self.publishable_key.startswith("eyJ")):
+                errors.append("SUPABASE_PUBLISHABLE_KEY must be an sb_publishable_ key or legacy anon JWT")
+        elif not self.service_key:
+            errors.append("SUPABASE_SERVICE_KEY is missing (or configure BRIDGE_DEVICE_EMAIL/PASSWORD + SUPABASE_PUBLISHABLE_KEY)")
         else:
             placeholders = ("YOUR_", "CHANGE_ME", "这里", "粘贴", "填写", "密钥")
             if any(x in self.service_key for x in placeholders):
@@ -132,11 +148,52 @@ def load_bridge_config(streamlit_secrets: Optional[Any] = None) -> BridgeConfig:
         or os.environ.get("BRIDGE_ID")
         or ""
     )
+
+    def pick(name: str) -> str:
+        return _clean_text(section.get(name) or values.get(name) or os.environ.get(name) or "")
+
     return BridgeConfig(
         _clean_text(url).rstrip("/"),
         _clean_text(key),
         _clean_text(bridge_id),
+        publishable_key=pick("SUPABASE_PUBLISHABLE_KEY"),
+        device_email=pick("BRIDGE_DEVICE_EMAIL"),
+        device_password=pick("BRIDGE_DEVICE_PASSWORD"),
     )
+
+
+_TOKEN_LOCK = threading.Lock()
+_TOKENS: Dict[Tuple[str, str], Dict[str, Any]] = {}
+
+
+def _device_token(config: BridgeConfig, session: requests.Session, timeout: float, force: bool = False) -> str:
+    """Process-wide cached Supabase Auth session for the device user.
+
+    Recorders create many short-lived CloudBridge objects (e.g. per heartbeat),
+    so tokens are shared per process to avoid hitting Auth rate limits.
+    """
+    key = (config.url, config.device_email)
+    with _TOKEN_LOCK:
+        cached = _TOKENS.get(key) or {}
+        if not force and cached.get("access_token") and cached.get("expires_at", 0) - time.time() > 120:
+            return cached["access_token"]
+        headers = {"apikey": config.publishable_key, "Content-Type": "application/json"}
+        attempts = []
+        if cached.get("refresh_token") and not force:
+            attempts.append(("refresh_token", {"refresh_token": cached["refresh_token"]}))
+        attempts.append(("password", {"email": config.device_email, "password": config.device_password}))
+        last_error = ""
+        for grant, body in attempts:
+            response = session.post(f"{config.url}/auth/v1/token?grant_type={grant}", json=body, headers=headers,
+                                    timeout=(6.0, timeout), verify=certifi.where())
+            if response.status_code == 200:
+                data = response.json()
+                _TOKENS[key] = {"access_token": data["access_token"], "refresh_token": data.get("refresh_token"),
+                                "expires_at": time.time() + float(data.get("expires_in") or 3600)}
+                return data["access_token"]
+            last_error = f"{grant}: HTTP {response.status_code}"
+        _TOKENS.pop(key, None)
+        raise PermissionError(f"Supabase device sign-in failed ({last_error}); check BRIDGE_DEVICE_EMAIL/PASSWORD")
 
 
 def _build_session(*, trust_env: bool) -> requests.Session:
@@ -171,18 +228,23 @@ class CloudBridge:
         self.config = config
         self.timeout = timeout
         self.base = f"{config.url}/rest/v1"
-        self.headers = {
-            "apikey": config.service_key,
-            "Content-Type": "application/json",
-        }
-        if config.service_key.startswith("eyJ"):
-            self.headers["Authorization"] = f"Bearer {config.service_key}"
+        self.mode = config.mode
+        if self.mode == "device":
+            self.headers = {"apikey": config.publishable_key, "Content-Type": "application/json"}
+        else:
+            self.headers = {"apikey": config.service_key, "Content-Type": "application/json"}
+            # New sb_secret_ keys are not JWTs and must not be sent as Bearer tokens.
+            if config.service_key.startswith("eyJ"):
+                self.headers["Authorization"] = f"Bearer {config.service_key}"
 
         self._direct_session = _build_session(trust_env=False)
         self._system_session = _build_session(trust_env=True)
 
     def _request_once(self, session: requests.Session, method: str, path: str, **kwargs):
         headers = dict(self.headers)
+        if self.mode == "device":
+            force = bool(kwargs.pop("_force_token", False))
+            headers["Authorization"] = "Bearer " + _device_token(self.config, session, self.timeout, force=force)
         headers.update(kwargs.pop("headers", {}) or {})
         return session.request(
             method,
@@ -197,7 +259,10 @@ class CloudBridge:
         errors: List[str] = []
         for mode, session in (("direct", self._direct_session), ("system-proxy", self._system_session)):
             try:
-                response = self._request_once(session, method, path, **kwargs)
+                response = self._request_once(session, method, path, **dict(kwargs))
+                if response.status_code == 401 and self.mode == "device":
+                    # Access token revoked or expired early: sign in again once.
+                    response = self._request_once(session, method, path, _force_token=True, **dict(kwargs))
                 response.raise_for_status()
                 if not response.content:
                     return None

@@ -44,7 +44,9 @@ function macdSignal(tf){ const x=Number(tf?.state_score); return Number.isFinite
 function macdTransition(tf){ const x=Number(tf?.transition_score); return Number.isFinite(x)?clamp(x,-1,1):null; }
 function weightedContext(ctx,dir,transition=false){ const weights=transition?{m1:.45,m5:.35,m15:.20}:{m1:.24,m5:.30,m15:.24,m30:.12,m60:.07,day:.02,week:.01};let s=0,w=0; for(const [k,wt] of Object.entries(weights)){const tf=ctx?.timeframes?.[k];const v=transition?macdTransition(tf):macdSignal(tf);if(v===null)continue;s+=wt*v;w+=wt;} return w>0?clamp(dir*s/w,-1,1):0; }
 function groupAlignment(groups,dir){ const caps={momentum:25,flow:25,book:15,location:15};let s=0,w=0;for(const [k,cap] of Object.entries(caps)){const v=Number(groups?.[k]);if(!Number.isFinite(v))continue;s+=cap*clamp(dir*v/cap,-1,1);w+=cap;}return w?clamp(s/w,-1,1):0; }
-function confidenceLabel(c){ if(c>=85)return'顶级候选｜待样本验证';if(c>=75)return'强';if(c>=60)return'较高';if(c>=45)return'一般';return'低'; }
+// Structural agreement of the hand-weighted factor groups. Not a win probability:
+// no calibration against outcomes exists yet (see docs/COMPONENTS.md).
+function confidenceLabel(c){ if(c>=85)return'结构高度一致（未校准）';if(c>=75)return'结构较一致（未校准）';if(c>=60)return'结构偏一致（未校准）';if(c>=45)return'结构分歧';return'结构混乱'; }
 export function confidenceFor(model,ctx,horizon=60){
   const score=horizon===120?model.score120:model.score60,dir=score>=15?1:score<=-15?-1:0;
   if(!dir)return{score:0,label:'中性',direction:'WATCH',calibrated_probability:false,empirical:false};
