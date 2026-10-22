@@ -1,0 +1,81 @@
+{
+  "schema": "astock-runtime-services-v1",
+  "notes": "Single source of truth for the Windows background services. Read by deploy/install_runtime.ps1, services/start_monitor.ps1 and services/collection_monitor.py.",
+  "services": [
+    {
+      "id": "bridge",
+      "name": "行情同步",
+      "script": "services/qmt_cloud_bridge.py",
+      "watchdog": "AStockQMTCloudBridgeWatchdog.cmd",
+      "startup": "AStockQMTCloudBridge.vbs",
+      "log": "bridge_console.log",
+      "restart_seconds": 3,
+      "stop_exit_code": null,
+      "collects_market_data": true
+    },
+    {
+      "id": "training_recorder",
+      "name": "训练数据采集",
+      "script": "services/qmt_l1_training_recorder_v1.py",
+      "watchdog": "AStockL2TrainingWatchdog.cmd",
+      "startup": "AStockL2TrainingRecorder.vbs",
+      "log": "l2_training_recorder.log",
+      "restart_seconds": 5,
+      "stop_exit_code": null,
+      "collects_market_data": true
+    },
+    {
+      "id": "research_recorder",
+      "name": "预测研究记录",
+      "script": "services/qmt_research_recorder_v7.py",
+      "watchdog": "AStockResearchWatchdog.cmd",
+      "startup": "AStockQMTResearchRecorder.vbs",
+      "log": "research_recorder.log",
+      "restart_seconds": 5,
+      "stop_exit_code": 17,
+      "collects_market_data": true
+    },
+    {
+      "id": "autotrain",
+      "name": "自动学习",
+      "script": "services/l1_ml_autotrain_daemon_v2.py",
+      "watchdog": "AStockL2MLAutoTrainWatchdog.cmd",
+      "startup": "AStockL2MLAutoTrain.vbs",
+      "log": "l2_ml_autotrain_daemon.log",
+      "restart_seconds": 10,
+      "stop_exit_code": null,
+      "collects_market_data": false
+    },
+    {
+      "id": "v6_shadow",
+      "name": "影子验证",
+      "script": "services/l1_v6_shadow_runner_v1.py",
+      "watchdog": "AStockV6ShadowWatchdog.cmd",
+      "startup": "AStockV6ProspectiveShadow.vbs",
+      "log": "v6_shadow_runner.log",
+      "restart_seconds": 10,
+      "stop_exit_code": null,
+      "collects_market_data": false
+    },
+    {
+      "id": "collection_monitor",
+      "name": "采集健康监控",
+      "script": "services/collection_monitor.py",
+      "watchdog": "AStockCollectionMonitorWatchdog.cmd",
+      "startup": "AStockCollectionMonitor.vbs",
+      "log": "collection_monitor.log",
+      "restart_seconds": 10,
+      "stop_exit_code": 17,
+      "collects_market_data": false
+    }
+  ],
+  "preflight": [
+    ["-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py"],
+    ["services/v18_selftest.py"],
+    ["-m", "services.selftest_monitoring_integrity"],
+    ["-m", "services.selftest_event_evidence"],
+    ["services/selftest_l1_trainer_v4r.py"],
+    ["services/selftest_l1_trainer_v6.py"],
+    ["services/selftest_l1_v6_shadow_runner_v1.py"]
+  ]
+}

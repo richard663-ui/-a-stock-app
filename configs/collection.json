@@ -1,0 +1,25 @@
+{
+  "version": "collection-health-v1-20261023",
+  "basket": [
+    "301236.SZ", "300308.SZ", "000400.SZ", "600522.SH",
+    "601179.SH", "600105.SH", "002916.SZ", "000811.SZ"
+  ],
+  "sample_seconds": 5,
+  "coverage_good_pct": 95.0,
+  "coverage_partial_pct": 50.0,
+  "gap_report_seconds": 30,
+  "stale_run_samples": 12,
+  "monitor": {
+    "interval_seconds": 15,
+    "training_stale_seconds": 60,
+    "raw_stale_seconds": 120,
+    "heartbeat_stale_seconds": 45,
+    "warn_after_checks": 2,
+    "critical_after_seconds": 180,
+    "process_check_seconds": 60,
+    "min_free_disk_gb": 5,
+    "daily_report_after": "15:10",
+    "calendar_refresh_after": "16:00",
+    "repeat_alert_minutes": 30
+  }
+}

@@ -2,6 +2,7 @@
 """Find a valid local secrets.toml and persist it outside downloaded ZIP folders."""
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -41,25 +42,11 @@ def _copy(src: Path, dst: Path) -> None:
 
 
 def _candidates():
-    seen = set()
-    roots = [
-        PROJECT_ROOT.parent,
-        Path.home() / "Desktop",
-        Path.home() / "OneDrive" / "Desktop",
-    ]
-    for root in roots:
-        if not root.exists():
-            continue
-        try:
-            for path in root.glob("**/.streamlit/secrets.toml"):
-                resolved = path.resolve()
-                key = str(resolved).lower()
-                if key in seen or resolved == PROJECT_SECRET.resolve():
-                    continue
-                seen.add(key)
-                yield path
-        except Exception:
-            continue
+    # Only an explicitly named file is considered. Recursively scanning Desktop
+    # or OneDrive could pick up another project's credentials and copy them here.
+    explicit = os.environ.get("ASTOCK_SECRETS_FILE", "").strip()
+    if explicit:
+        yield Path(explicit).expanduser()
 
 
 def main() -> int:

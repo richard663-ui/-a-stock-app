@@ -34,6 +34,7 @@ from modules.direction_v18 import analyze_direction_v18
 from modules.prediction_journal import PredictionJournal
 from modules.qmt_level2 import QMTLevel2Manager
 from modules.qmt_live import normalize_tick
+from modules.paths import runtime_dir
 from modules.runtime_guard import acquire_bridge_lock
 
 CLOUD_TICK_LIMIT = 600
@@ -227,7 +228,7 @@ def main() -> None:
         raise SystemExit("Bridge configuration is incomplete. Run repair_and_start_bridge.bat once.")
 
     l2 = QMTLevel2Manager()
-    journal = PredictionJournal(PROJECT_ROOT / "runtime" / "one_minute_predictions.sqlite3")
+    journal = PredictionJournal(runtime_dir() / "one_minute_predictions.sqlite3")
 
     stop = threading.Event()
     requested_state: Dict[str, str] = {"symbol": ""}

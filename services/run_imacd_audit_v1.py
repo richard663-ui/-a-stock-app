@@ -4,7 +4,6 @@ from __future__ import annotations
 import importlib
 import json
 import os
-import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -13,24 +12,12 @@ import services.imacd_research_audit_v1 as imacd
 import services.qmt_l1_60s_walkforward_v1 as base
 
 CHAIN = (
-    (
-        "services.v4r_imacd_filter_audit_v1", "v4r_imacd_filter_audit_v1.py",
-        "v4r-imacd-regime-filter-audit-v1-20260906",
-        "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_imacd_filter_audit_v1.py",
-        "V4R x iMACD filter",
-    ),
-    (
-        "services.v4r_meta_label_audit_v1", "v4r_meta_label_audit_v1.py",
-        "v4r-meta-label-exec-audit-v1-20260906",
-        "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_meta_label_audit_v1.py",
-        "V4R meta-label",
-    ),
-    (
-        "services.v4r_cross_sectional_rank_audit_v1", "v4r_cross_sectional_rank_audit_v1.py",
-        "v4r-cross-sectional-rank-audit-v1-20260906",
-        "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services/v4r_cross_sectional_rank_audit_v1.py",
-        "V4R cross-sectional ranking",
-    ),
+    ("services.v4r_imacd_filter_audit_v1", "v4r_imacd_filter_audit_v1.py",
+     "v4r-imacd-regime-filter-audit-v1-20260906", "V4R x iMACD filter"),
+    ("services.v4r_meta_label_audit_v1", "v4r_meta_label_audit_v1.py",
+     "v4r-meta-label-exec-audit-v1-20260906", "V4R meta-label"),
+    ("services.v4r_cross_sectional_rank_audit_v1", "v4r_cross_sectional_rank_audit_v1.py",
+     "v4r-cross-sectional-rank-audit-v1-20260906", "V4R cross-sectional ranking"),
 )
 
 
@@ -55,35 +42,20 @@ def _find_latest_complete_v3(root: Path) -> Optional[Tuple[Path, Dict[str, Any],
     return None
 
 
-def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, label: str,
+def _bootstrap_module(module_name: str, filename: str, marker: str, label: str,
                       dataset_root: Path, dates: List[str]) -> int:
-    """Fetch downstream audit and force it to reuse the already selected complete dataset."""
-    service_dir = Path(__file__).resolve().parent
-    target = service_dir / filename
-    needs_refresh = True
-    if target.exists():
-        try:
-            needs_refresh = marker not in target.read_text(encoding="utf-8", errors="ignore")
-        except Exception:
-            needs_refresh = True
-    if needs_refresh:
-        print(f"[RESEARCH CHAIN] Fetching latest {label} audit...")
-        tmp = target.with_suffix(".tmp")
-        try:
-            with urllib.request.urlopen(url, timeout=25) as response:
-                text = response.read().decode("utf-8")
-            if marker not in text:
-                raise RuntimeError(f"downloaded {label} module failed version marker check")
-            tmp.write_text(text, encoding="utf-8")
-            tmp.replace(target)
-        except Exception as exc:
-            try:
-                tmp.unlink(missing_ok=True)
-            except Exception:
-                pass
-            print(f"[RESEARCH CHAIN FAIL] {label}: {type(exc).__name__}: {exc}")
-            return 1
-    importlib.invalidate_caches()
+    """Run a downstream audit from the installed release on the selected dataset.
+
+    Audits ship with the pinned release; code is never downloaded at runtime.
+    """
+    target = Path(__file__).resolve().parent / filename
+    try:
+        present = marker in target.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        present = False
+    if not present:
+        print(f"[RESEARCH CHAIN FAIL] {label}: {filename} with version {marker} is not in the installed release")
+        return 1
     try:
         mod = importlib.import_module(module_name)
         run_fn = getattr(mod, "run", None)
@@ -108,9 +80,9 @@ def _bootstrap_module(module_name: str, filename: str, marker: str, url: str, la
 
 
 def _run_chain(dataset_root: Path, dates: List[str]) -> int:
-    for module_name, filename, marker, url, label in CHAIN:
+    for module_name, filename, marker, label in CHAIN:
         print(f"[RESEARCH CHAIN] Continuing into {label} audit.")
-        rc = _bootstrap_module(module_name, filename, marker, url, label, dataset_root, dates)
+        rc = _bootstrap_module(module_name, filename, marker, label, dataset_root, dates)
         if rc != 0:
             return rc
     return 0

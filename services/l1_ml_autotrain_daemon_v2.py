@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import subprocess
-import urllib.request
 from pathlib import Path
 from typing import Tuple
 from modules.market_clock import market_now
@@ -24,7 +23,6 @@ RUNNER_MARKER = "l1-60s-trainer-v4r-asymmetric-rotating-thin-20260904"
 V5_MARKER = "l1-60s-trainer-v5-robust-challenger-20260904"
 V5R_MARKER = "l1-60s-trainer-v5r-robust-challenger-20260904"
 V6_MARKER = "l1-60s-trainer-v6-exec-aligned-stock-intercept-robust-20260905"
-ROOT = "https://raw.githubusercontent.com/richard663-ui/-a-stock-app/main/services"
 CORE_PATH = Path(__file__).with_name("train_l1_60s_model_v4.py")
 RUNNER_PATH = Path(__file__).with_name("train_l1_60s_model_v4r.py")
 V5_PATH = Path(__file__).with_name("train_l1_60s_model_v5_challenger.py")
@@ -38,27 +36,27 @@ _LAST_V6 = "NOT_RUN"
 _BASE_SLOT = base._slot
 
 
-def _ensure(path: Path, url: str, marker: str) -> None:
+class TrainerFilesMissing(RuntimeError):
+    """The pinned release is incomplete; training must not fetch code at runtime."""
+
+
+def _ensure(path: Path, marker: str) -> None:
+    # Trainers ship inside the pinned, hash-verified release. Never download
+    # code at runtime: a missing or unexpected file is a deployment error.
     try:
-        if path.exists() and marker in path.read_text(encoding="utf-8", errors="ignore"):
-            return
-    except Exception:
-        pass
-    with urllib.request.urlopen(url, timeout=15) as resp:
-        text = resp.read().decode("utf-8")
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError as exc:
+        raise TrainerFilesMissing(f"{path.name} missing from the installed release") from exc
     if marker not in text:
-        raise RuntimeError(f"downloaded trainer failed marker check: {path.name}")
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(text, encoding="utf-8")
-    tmp.replace(path)
+        raise TrainerFilesMissing(f"{path.name} does not contain expected version {marker}")
 
 
 def _ensure_stack() -> None:
-    _ensure(CORE_PATH, f"{ROOT}/train_l1_60s_model_v4.py", CORE_MARKER)
-    _ensure(RUNNER_PATH, f"{ROOT}/train_l1_60s_model_v4r.py", RUNNER_MARKER)
-    _ensure(V5_PATH, f"{ROOT}/train_l1_60s_model_v5_challenger.py", V5_MARKER)
-    _ensure(V5R_PATH, f"{ROOT}/train_l1_60s_model_v5r.py", V5R_MARKER)
-    _ensure(V6_PATH, f"{ROOT}/train_l1_60s_model_v6_exec_aligned.py", V6_MARKER)
+    _ensure(CORE_PATH, CORE_MARKER)
+    _ensure(RUNNER_PATH, RUNNER_MARKER)
+    _ensure(V5_PATH, V5_MARKER)
+    _ensure(V5R_PATH, V5R_MARKER)
+    _ensure(V6_PATH, V6_MARKER)
 
 
 def _run_process(path: Path, scope: str, minimum: int, log_handle) -> Tuple[int, str]:
@@ -169,7 +167,12 @@ def main() -> None:
     print("AStock L1/Tick ML champion-multi-challenger daemon started")
     print(f"Daemon: {AUTO_TRAINER_VERSION}")
     print(f"Compatibility marker: {COMPAT_MARKER}")
-    _ensure_stack()
+    try:
+        _ensure_stack()
+    except TrainerFilesMissing as exc:
+        # Exit non-zero; the watchdog retries, and the collection monitor reports it.
+        print(f"[ERROR] TRAINER_FILES_MISSING: {exc}. Reinstall a pinned release; nothing is downloaded.")
+        raise SystemExit(4)
     base.AUTO_TRAINER_VERSION = AUTO_TRAINER_VERSION
     base.TRAINER = RUNNER_PATH
     base._run_one = _run_one
