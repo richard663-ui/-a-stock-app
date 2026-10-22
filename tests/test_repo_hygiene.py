@@ -23,6 +23,10 @@ class HygieneTests(unittest.TestCase):
     def test_current_tree_is_clean(self):
         self.assertEqual(hygiene.main(), 0)
 
+    def test_every_module_is_in_the_component_registry(self):
+        from tools import component_registry
+        self.assertEqual(component_registry.main(["--check"]), 0)
+
 
 if __name__ == "__main__":
     unittest.main()

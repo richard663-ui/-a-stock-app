@@ -78,6 +78,20 @@ class MobileV10ParityTests(unittest.TestCase):
         self.assertGreater(nonzero, 20, "fixtures must exercise non-trivial scores")
         self.assertEqual(compared, 25 * 7)
 
+    def test_python_secret_tool_matches_edge_function_verification(self):
+        node = node_binary()
+        if not node:
+            self.skipTest("node not installed")
+        import base64
+        from tools.make_mobile_secrets import derive
+        salt = b"0123456789abcdef"
+        hashed = derive("correct horse battery staple", salt, 1000)
+        script = str(ROOT / "tests" / "parity" / "verify_password.mjs")
+        for attempt, expected in (("correct horse battery staple", "true"), ("wrong", "false")):
+            out = subprocess.run([node, script, hashed, base64.b64encode(salt).decode(), "1000", attempt],
+                                 capture_output=True, text=True, cwd=str(ROOT), timeout=60)
+            self.assertEqual(out.stdout.strip(), expected, out.stderr[-400:])
+
     def test_session_key_matches_shanghai_sessions(self):
         self.assertEqual(m10.session_key(START_MS), "2026-10-21/AM")
         self.assertIsNone(m10.session_key(START_MS + 2 * 3600 * 1000))      # 12:00 lunch
