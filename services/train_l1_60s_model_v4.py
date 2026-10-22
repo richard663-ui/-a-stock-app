@@ -34,6 +34,24 @@ from sklearn.utils.class_weight import compute_sample_weight
 
 import services.train_l1_60s_model_v3 as v3
 import services.train_l2_60s_model_v3 as splitbase
+from modules.costs import load_cost_model
+
+# Realistic A-share round trip (fees + spread for mid-based edges). The legacy
+# 2 bp "avg_net_edge_bp" is kept unchanged for comparability with past reports.
+COST_MODEL = load_cost_model()
+
+
+def _realistic_fields(frame: pd.DataFrame, active: np.ndarray, signed_bp: np.ndarray,
+                      include_spread: bool = True) -> Dict[str, Any]:
+    if not len(signed_bp):
+        return {"avg_round_trip_cost_bp": None, "avg_net_edge_realistic_bp": None,
+                "cost_model": COST_MODEL.version, "cost_includes_spread": include_spread}
+    spread = frame["spread_pct"].to_numpy(dtype=float)[active] if "spread_pct" in frame else np.zeros(len(signed_bp))
+    costs = np.asarray(COST_MODEL.costs_bp(spread, include_spread), dtype=float)
+    return {"avg_round_trip_cost_bp": float(np.mean(costs)),
+            "avg_net_edge_realistic_bp": float(np.mean(signed_bp - costs)),
+            "cost_model": COST_MODEL.version, "cost_includes_spread": include_spread,
+            "assumes_existing_position_for_t1": True}
 
 TRAINER_VERSION = "l1-60s-trainer-v4-asymmetric-regime-20260904"
 DATA_ROOT = Path.home() / "AStockData"
@@ -189,6 +207,7 @@ def _head_metrics(frame: pd.DataFrame, prob: np.ndarray, threshold: float, direc
                   hurdle_bp: float, target_col: str) -> Dict[str, Any]:
     active = np.asarray(prob >= threshold)
     n = int(active.sum())
+    signed = np.zeros(0)
     if n:
         truth = frame[target_col].astype(int).to_numpy()[active]
         ret = frame[RET_TARGET].astype(float).to_numpy()[active]
@@ -204,6 +223,7 @@ def _head_metrics(frame: pd.DataFrame, prob: np.ndarray, threshold: float, direc
         "avg_gross_edge_bp": gross,
         "execution_hurdle_bp": float(hurdle_bp),
         "avg_net_edge_bp": (gross - float(hurdle_bp)) if gross is not None else None,
+        **_realistic_fields(frame, active, signed),
     }
 
 
@@ -250,6 +270,7 @@ def _combined_metrics(frame: pd.DataFrame, pred: np.ndarray, hurdle_bp: float) -
     ret = frame[RET_TARGET].astype(float).to_numpy()
     active = np.isin(pred, [-1, 1]) & np.isfinite(ret)
     n = int(active.sum())
+    signed = np.zeros(0)
     if n:
         acc = float((pred[active] == y[active]).mean() * 100.0)
         signed = np.where(pred[active] == 1, ret[active], -ret[active]) * 100.0
@@ -266,6 +287,7 @@ def _combined_metrics(frame: pd.DataFrame, pred: np.ndarray, hurdle_bp: float) -
         "up_predictions": up_n, "down_predictions": down_n,
         "avg_gross_edge_bp": gross, "execution_hurdle_bp": float(hurdle_bp),
         "avg_net_edge_bp": (gross - float(hurdle_bp)) if gross is not None else None,
+        **_realistic_fields(frame, active, signed),
     }
 
 
@@ -289,6 +311,8 @@ def _readiness(meta: Dict[str, Any], combined: Dict[str, Any], opening: Dict[str
     if int(combined.get("directional_predictions") or 0) < MIN_SHADOW_SIGNALS: reasons.append("too_few_directional_test_signals")
     if float(combined.get("directional_accuracy_pct") or 0.0) < MIN_SHADOW_ACCURACY: reasons.append("directional_accuracy_below_55")
     if float(combined.get("avg_net_edge_bp") if combined.get("avg_net_edge_bp") is not None else -1e9) <= 0.0: reasons.append("net_edge_not_positive")
+    realistic = combined.get("avg_net_edge_realistic_bp")
+    if realistic is None or float(realistic) <= 0.0: reasons.append("realistic_cost_net_edge_not_positive")
     if int(opening.get("n") or 0) < MIN_OPEN_TEST_N: reasons.append("opening_hour_test_too_small")
     if int(opening.get("directional_predictions") or 0) < MIN_OPEN_SIGNALS: reasons.append("opening_hour_too_few_signals")
     if float(opening.get("directional_accuracy_pct") or 0.0) < MIN_OPEN_ACCURACY: reasons.append("opening_hour_accuracy_below_55")

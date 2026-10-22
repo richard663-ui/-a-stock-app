@@ -51,7 +51,9 @@ def _iso_time(value: Any) -> str:
     try:
         return market_now(datetime.fromisoformat(text.replace("Z", "+00:00"))).isoformat(timespec="milliseconds")
     except ValueError:
-        return market_now().isoformat(timespec="milliseconds")
+        # Never substitute the local clock for an unreadable exchange time:
+        # an empty value makes freshness checks reject the row instead.
+        return ""
 
 
 def normalize_tick(symbol: str, tick: dict, fallback_time: Any = None) -> dict:

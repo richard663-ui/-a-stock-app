@@ -41,10 +41,12 @@ def make_action(snapshot, qishi, catalyst, l2, has_position, cost, position_pct)
 
     if hard_bad:
         buy_grade, buy_label, new_pos = "D", "不建议买入", "0%"
+    # Thresholds and position ranges are hand-set rules with no out-of-sample
+    # validation; they are labelled experimental and are not sizing advice.
     elif q_score >= 82 and f_score >= 58 and flow_strong and catalyst_ok and risk_state == "风险可控" and red_days <= 3:
-        buy_grade, buy_label, new_pos = "A", "可分批买入", "20%-40%"
+        buy_grade, buy_label, new_pos = "A", "可分批买入（实验规则）", "20%-40%（未验证）"
     elif q_score >= 62 and f_score >= 45 and (flow_positive or catalyst_ok) and not strong_but_high:
-        buy_grade, buy_label, new_pos = "B", "可小仓试探", "10%-20%"
+        buy_grade, buy_label, new_pos = "B", "可小仓试探（实验规则）", "10%-20%（未验证）"
     elif q_score >= 75 and strong_but_high:
         buy_grade, buy_label, new_pos = "C", "强趋势但不追高", "0%"
         reasons_not_high.append("位置偏高，新仓等回踩")

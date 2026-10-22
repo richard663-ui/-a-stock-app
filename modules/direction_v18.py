@@ -220,7 +220,14 @@ def analyze_direction_v18(ticks: pd.DataFrame, l2: Dict[str, Any] | None = None)
     direction = raw_direction if selective_pass else "WATCH"
     high_conf = bool(candidate_high_conf and selective_pass)
     out["direction_60"] = direction
-    out["label_60"] = _label(raw_direction, "高置信") if selective_pass else "震荡｜保护性观望"
+    if selective_pass:
+        out["label_60"] = _label(raw_direction, "高置信")
+    elif not core_l2:
+        # Without real Level-2 trades this engine never emits a direction; say so
+        # instead of implying the market is range-bound.
+        out["label_60"] = "观望｜需真实L2（L1模式不输出方向）"
+    else:
+        out["label_60"] = "震荡｜保护性观望"
     out["condition_agreement"] = agreement
     out["signal_strength"] = agreement if selective_pass else 0
     out["confidence_tier"] = "高置信" if selective_pass else "保护性WATCH"

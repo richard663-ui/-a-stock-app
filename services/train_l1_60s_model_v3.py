@@ -99,6 +99,17 @@ def _expand(raw: pd.DataFrame) -> pd.DataFrame:
     out["phase_pm"] = ((minute >= 780) & (minute < 900)).astype(float)
 
     group_cols = ["symbol"] + (["trade_date"] if "trade_date" in out.columns else [])
+    # A 5-second change is only defined between consecutive 5-second samples.
+    # Across lunch, outages or dropped rows it is unknown (NaN, imputed by the
+    # models), not zero and not a change over minutes or days.
+    if "sample_bucket" in out.columns:
+        bucket = pd.to_numeric(out["sample_bucket"], errors="coerce")
+    else:
+        bucket = (out["generated_ts"] // 5) * 5
+    out["_bucket"] = bucket
+    prev_bucket = out.groupby(group_cols, sort=False, dropna=False)["_bucket"].shift()
+    contiguous = (out["_bucket"] - prev_bucket) == 5
+    contiguous_prev = contiguous.groupby([out[c] for c in group_cols], sort=False, dropna=False).shift(fill_value=False)
     for src, dst in (
         ("volume", "volume_delta_5s"), ("amount", "amount_delta_5s"),
         ("spread_pct", "spread_change_5s"),
@@ -109,13 +120,15 @@ def _expand(raw: pd.DataFrame) -> pd.DataFrame:
     ):
         s = num(src)
         out[src] = s
-        out[dst] = out.groupby(group_cols, sort=False, dropna=False)[src].diff().fillna(0.0)
+        out[dst] = out.groupby(group_cols, sort=False, dropna=False)[src].diff().where(contiguous)
     out["volume_delta_5s"] = out["volume_delta_5s"].clip(lower=0.0)
     out["amount_delta_5s"] = out["amount_delta_5s"].clip(lower=0.0)
     out["log_volume_delta_5s"] = np.log1p(out["volume_delta_5s"])
     out["log_amount_delta_5s"] = np.log1p(out["amount_delta_5s"])
-    out["volume_accel_5s"] = out.groupby(group_cols, sort=False, dropna=False)["volume_delta_5s"].diff().fillna(0.0)
-    out["amount_accel_5s"] = out.groupby(group_cols, sort=False, dropna=False)["amount_delta_5s"].diff().fillna(0.0)
+    both = contiguous & contiguous_prev
+    out["volume_accel_5s"] = out.groupby(group_cols, sort=False, dropna=False)["volume_delta_5s"].diff().where(both)
+    out["amount_accel_5s"] = out.groupby(group_cols, sort=False, dropna=False)["amount_delta_5s"].diff().where(both)
+    out = out.drop(columns=["_bucket"])
 
     c10, c30, c60 = num("change_10s_pct"), num("change_30s_pct"), num("change_60s_pct")
     out["momentum_accel_10_30"] = c10 - c30 / 3.0

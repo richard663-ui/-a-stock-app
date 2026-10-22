@@ -50,7 +50,8 @@ FREEZE_STATE_PATH = LOCAL_STATE_DIR / "v6_shadow_freeze.json"
 PENDING_DB_PATH = LOCAL_STATE_DIR / "v6_shadow_pending.sqlite3"
 TRAINER_PATH = Path(__file__).with_name("train_l1_60s_model_v6_exec_aligned.py")
 MODEL_FAMILY = "logistic_balanced"
-HURDLE_BP = 2.0
+HURDLE_BP = 2.0   # legacy research hurdle, kept for comparability
+REALISTIC_FEES_BP = core.COST_MODEL.round_trip_fees_bp()
 LOOKBACK_SECONDS = 300.0
 SETTLE_AFTER_SECONDS = 67.0
 FUTURE_WINDOW_LO = 55.0
@@ -396,6 +397,10 @@ def _settlement_from_rows(payload: Dict[str, Any], future: pd.DataFrame) -> Opti
             **dict(payload.get("diagnostic") or {}), "future_window_rows": int(len(window)),
             "future_valid_bid_rows": int(len(valid_bids)), "execution_hurdle_bp": HURDLE_BP,
             "settlement_is_observed_bid_not_proxy": True,
+            # Entry at ask and exit at bid already pay the spread; fees and stamp duty remain.
+            "realistic_fees_bp": REALISTIC_FEES_BP,
+            "net_edge_realistic_bp": (gross - REALISTIC_FEES_BP) if gross is not None else None,
+            "cost_model": core.COST_MODEL.version,
         },
         "updated_at": _now().isoformat(timespec="seconds"),
     }

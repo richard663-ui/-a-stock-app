@@ -1,0 +1,10 @@
+{
+  "version": "a-share-costs-v1-20261023",
+  "notes": "Set commission_rate and commission_min_cny to your actual broker terms. Stamp duty 0.05% applies to sells only (since 2023-08-28). Transfer fee 0.001% per side on both exchanges.",
+  "commission_rate": 0.00025,
+  "commission_min_cny": 5.0,
+  "stamp_duty_sell_rate": 0.0005,
+  "transfer_fee_rate": 0.00001,
+  "reference_notional_cny": 20000,
+  "extra_slippage_bp": 0.0
+}

@@ -132,6 +132,7 @@ def _head_metrics_exec(frame: pd.DataFrame, prob: np.ndarray, threshold: float,
                        direction: int, hurdle_bp: float, target_col: str) -> Dict[str, Any]:
     active = np.asarray(prob >= threshold)
     n = int(active.sum())
+    realistic = core._realistic_fields(frame, active, np.zeros(0), include_spread=False)
     if n:
         truth = frame[target_col].astype(int).to_numpy()[active]
         if direction == 1:
@@ -141,9 +142,15 @@ def _head_metrics_exec(frame: pd.DataFrame, prob: np.ndarray, threshold: float,
         finite = np.isfinite(economic)
         accuracy = float((truth[finite] == 1).mean() * 100.0) if finite.any() else None
         gross = float(np.mean(economic[finite])) if finite.any() else None
+        if finite.any():
+            # The ask->bid proxy already pays the spread; only fees and stamp duty remain.
+            mask = np.zeros(len(frame), dtype=bool)
+            mask[np.where(active)[0][finite]] = True
+            realistic = core._realistic_fields(frame, mask, economic[finite], include_spread=False)
     else:
         accuracy = gross = None
     return {
+        **realistic,
         "n": int(len(frame)), "directional_predictions": n,
         "directional_coverage_pct": 100.0 * n / len(frame) if len(frame) else None,
         "directional_accuracy_pct": accuracy,
@@ -161,7 +168,10 @@ def _combined_metrics_exec(frame: pd.DataFrame, pred: np.ndarray, hurdle_bp: flo
     active = np.isin(pred, [-1, 1])
     finite = active & np.where(pred == 1, np.isfinite(up_ret), np.isfinite(dn_ret))
     n = int(finite.sum())
+    realistic = core._realistic_fields(frame, finite, np.zeros(0), include_spread=False)
     if n:
+        economic_finite = np.where(pred == 1, up_ret, -dn_ret)[finite] * 100.0
+        realistic = core._realistic_fields(frame, finite, economic_finite, include_spread=False)
         truth_up = frame[core.UP_TARGET].astype(int).to_numpy()
         truth_dn = frame[core.DOWN_TARGET].astype(int).to_numpy()
         correct = np.where(pred == 1, truth_up == 1, truth_dn == 1)
@@ -182,6 +192,7 @@ def _combined_metrics_exec(frame: pd.DataFrame, pred: np.ndarray, hurdle_bp: flo
         "execution_hurdle_bp": float(hurdle_bp),
         "avg_net_edge_bp": (gross - float(hurdle_bp)) if gross is not None else None,
         "economic_metric_policy": TARGET_POLICY,
+        **realistic,
     }
 
 

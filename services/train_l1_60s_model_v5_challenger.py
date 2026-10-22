@@ -49,13 +49,32 @@ _LAST_SPLIT_META: Dict[str, Any] = {}
 
 def _robust_split(frame: pd.DataFrame):
     global _LAST_SPLIT_META
-    dates = [d for d in sorted(frame["trade_date"].dropna().unique()) if d and d != "NaT"]
+    dates, chosen, coverage = splitbase.qualified_split_days(frame, 3)
+    if chosen and chosen[0]:
+        # Two validation days and one test day, all with enough data; training
+        # strictly precedes validation and thin days in between are not used.
+        train_dates, (val_a, val_b, test_date) = chosen
+        meta = {
+            "protocol": f"ROBUST_DAY_HOLDOUT train={train_dates[0]}..{train_dates[-1]} val={val_a}..{val_b} test={test_date}",
+            "out_of_sample_by_day": True, "maturity": "STANDARD", "purge_seconds": 0,
+            "history_days": len(dates), "validation_days": 2, "history_grade": "MULTI_VALIDATION",
+            "min_eval_day_coverage": splitbase.MIN_EVAL_DAY_COVERAGE,
+            "eval_day_coverage": {d: round(coverage.get(d, 0.0), 3) for d in (val_a, val_b, test_date)},
+            "days_not_used": [d for d in dates if d not in train_dates and d not in (val_a, val_b, test_date)],
+        }
+        _LAST_SPLIT_META = meta
+        return (
+            frame[frame["trade_date"].isin(train_dates)].copy(),
+            frame[frame["trade_date"].isin([val_a, val_b])].copy(),
+            frame[frame["trade_date"] == test_date].copy(), meta,
+        )
     if len(dates) >= 5:
         train_dates, val_dates, test_date = dates[:-3], dates[-3:-1], dates[-1]
         meta = {
-            "protocol": f"ROBUST_DAY_HOLDOUT train={train_dates[0]}..{train_dates[-1]} val={val_dates[0]}..{val_dates[-1]} test={test_date}",
-            "out_of_sample_by_day": True, "maturity": "STANDARD", "purge_seconds": 0,
-            "history_days": len(dates), "validation_days": 2, "history_grade": "MULTI_VALIDATION",
+            "protocol": f"LOW_COVERAGE_ROBUST_HOLDOUT train={train_dates[0]}..{train_dates[-1]} val={val_dates[0]}..{val_dates[-1]} test={test_date}",
+            "out_of_sample_by_day": True, "maturity": "LOW_COVERAGE", "purge_seconds": 0,
+            "history_days": len(dates), "validation_days": 2, "history_grade": "LOW_COVERAGE_EVAL_DAYS",
+            "eval_day_coverage": {d: round(coverage.get(d, 0.0), 3) for d in (*val_dates, test_date)},
         }
         _LAST_SPLIT_META = meta
         return (
@@ -65,9 +84,10 @@ def _robust_split(frame: pd.DataFrame):
         )
     if len(dates) == 4:
         train_dates, val_date, test_date = dates[:2], dates[2], dates[3]
+        covered = all(coverage.get(d, 0.0) >= splitbase.MIN_EVAL_DAY_COVERAGE for d in (val_date, test_date))
         meta = {
             "protocol": f"FOUR_DAY_HOLDOUT train={train_dates[0]}..{train_dates[-1]} val={val_date} test={test_date}",
-            "out_of_sample_by_day": True, "maturity": "STANDARD", "purge_seconds": 0,
+            "out_of_sample_by_day": True, "maturity": "STANDARD" if covered else "LOW_COVERAGE", "purge_seconds": 0,
             "history_days": 4, "validation_days": 1, "history_grade": "EARLY_4_DAY",
         }
         _LAST_SPLIT_META = meta
@@ -77,9 +97,10 @@ def _robust_split(frame: pd.DataFrame):
             frame[frame["trade_date"] == test_date].copy(), meta,
         )
     if len(dates) == 3:
+        covered = all(coverage.get(d, 0.0) >= splitbase.MIN_EVAL_DAY_COVERAGE for d in dates[1:3])
         meta = {
             "protocol": f"THIN_3_DAY_HOLDOUT train={dates[0]} val={dates[1]} test={dates[2]}",
-            "out_of_sample_by_day": True, "maturity": "STANDARD", "purge_seconds": 0,
+            "out_of_sample_by_day": True, "maturity": "STANDARD" if covered else "LOW_COVERAGE", "purge_seconds": 0,
             "history_days": 3, "validation_days": 1, "history_grade": "THIN_3_DAY",
         }
         _LAST_SPLIT_META = meta

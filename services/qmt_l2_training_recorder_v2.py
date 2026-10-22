@@ -384,7 +384,12 @@ def _feature_snapshot(row: Dict[str, Any], tick_rows: Deque[Dict[str, Any]], sna
     now = market_now()
     last, last_close = book["last_price"], float(_f(row.get("lastClose"), 0.0) or 0.0)
     high, low = float(_f(row.get("high"), 0.0) or 0.0), float(_f(row.get("low"), 0.0) or 0.0)
+    exchange_ts = tick_timestamp(row)
     features: Dict[str, Any] = {
+        # Data-quality audit fields (not model features): exchange time of the
+        # quote behind this sample and its age when sampled.
+        "exchange_ts": exchange_ts,
+        "exchange_age_s": round(time.time() - exchange_ts, 3) if exchange_ts else None,
         "minute_of_day": now.hour * 60 + now.minute + now.second / 60.0,
         "session_am": int(_session(now) == "AM"),
         "spread_pct": book["spread_pct"],

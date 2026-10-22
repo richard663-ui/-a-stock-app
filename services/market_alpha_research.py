@@ -31,12 +31,27 @@ def main():
         as_of = status["as_of"]
         report = coverage(universe["stock_code"].tolist(), root, as_of,
                           config["minimum_history"], config["benchmark"])
-        ready = bool(report["data_ready"].all())
+        stocks = report.loc[~report["is_benchmark"]]
+        benchmark_ready = bool(report.loc[report["is_benchmark"], "data_ready"].all())
+        fraction = float(stocks["data_ready"].mean()) if len(stocks) else 0.0
+        required = float(config.get("required_data_coverage", 1.0))
+        # A suspended stock has no bar for as_of; demanding 100% blocks research
+        # forever. Proceed above the threshold and list every exclusion explicitly.
+        ready = benchmark_ready and fraction >= required
+        excluded = stocks.loc[~stocks["data_ready"], ["stock_code", "latest_date", "history_rows", "issue"]]
+        atomic_csv(excluded, output / "excluded_stocks.csv")
+        coverage_detail = (f"{fraction:.1%} of {len(stocks)} stocks fresh for {as_of} (required {required:.0%}); "
+                           f"benchmark fresh={benchmark_ready}; {len(excluded)} stale/suspended/missing stocks "
+                           "are excluded from the latest ranking and listed in excluded_stocks.csv")
     except (OSError, ValueError, KeyError) as exc:
         ready = False
         status = {"issue": type(exc).__name__ + ": " + str(exc)}
+        coverage_detail = status["issue"]
+        report = pd.DataFrame(columns=["stock_code", "history_rows", "is_benchmark"])
     validations = [{"check": "daily_universe_coverage", "status": "PASS" if ready else "FAIL",
-                    "detail": "Every current-universe stock and benchmark requires fresh daily data."},
+                    "detail": coverage_detail},
+                   {"check": "excluded_stocks", "status": "WARN",
+                    "detail": "Suspension cannot yet be told apart from missing data; exclusions are listed, never filled."},
                    {"check": "research_isolation", "status": "PASS", "detail": "No live scores or signal labels are changed."},
                    {"check": "historical_universe", "status": "WARN", "detail": "Current-universe snapshot; historical survivorship/selection bias remains."},
                    {"check": "execution_and_costs", "status": "WARN", "detail": "Next-open price proxy; fills/limits/slippage not simulated, fixed cost is an assumption."},
@@ -49,7 +64,10 @@ def main():
     benchmark = pd.read_csv(root / "daily" / (config["benchmark"] + ".csv"))
     calendar = pd.to_datetime(benchmark["date"])
     frames = []
-    for index, code in enumerate(universe["stock_code"], 1):
+    # Use every stock with a valid cache: a stock stale today still has a valid
+    # past, and dropping it from history would add survivorship-style bias.
+    cached = set(report.loc[(~report["is_benchmark"]) & (report["history_rows"] > 0), "stock_code"])
+    for index, code in enumerate([c for c in universe["stock_code"] if c in cached], 1):
         prices = pd.read_csv(root / "daily" / (code + ".csv"))
         features = daily_features(prices, calendar)
         labeled = attach_forward_labels(features, benchmark, config["horizons"], config["round_trip_cost_bp"])

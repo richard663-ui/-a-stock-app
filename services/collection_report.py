@@ -61,7 +61,8 @@ def load_training(path: Path) -> List[Tuple]:
             return []
         return conn.execute(
             "SELECT upper(symbol), sample_bucket, generated_ts, valid, labeled_at IS NOT NULL, mid_price, "
-            "CAST(json_extract(features_json,'$.volume') AS REAL), recorder_version "
+            "CAST(json_extract(features_json,'$.volume') AS REAL), recorder_version, "
+            "CAST(json_extract(features_json,'$.exchange_age_s') AS REAL) "
             "FROM training_samples_v2 ORDER BY generated_ts"
         ).fetchall()
     except sqlite3.Error:
@@ -178,6 +179,9 @@ def analyze_day(root: Path, day: date, symbols: Iterable[str], cfg: Dict[str, An
                 "raw_10s_coverage_pct": round(raw_cov, 2),
                 "duplicate_bucket_rows": dup,
                 "suspected_stale_runs": stale_runs(part, cfg["stale_run_samples"]) if name != "OPEN_AUCTION" else 0,
+                # Recorded from 2026-10-23 on; earlier rows have no exchange age.
+                "max_exchange_age_s": max((r[8] for r in part if len(r) > 8 and r[8] is not None), default=None),
+                "future_timestamp_rows": sum(1 for r in part if len(r) > 8 and r[8] is not None and r[8] < -2),
                 "recorder_versions": "|".join(sorted({r[7] for r in part})),
             })
         for start, end in find_gaps(union, lo, hi, cfg["gap_report_seconds"]):

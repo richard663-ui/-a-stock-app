@@ -203,7 +203,8 @@ def _market_open(now: datetime) -> bool:
     if now.weekday() >= 5:
         return False
     minute = now.hour * 60 + now.minute
-    return (570 <= minute <= 690) or (780 <= minute <= 900)
+    # Continuous trading ends at 11:30:00 and 15:00:00 (end exclusive, like modules/market_clock).
+    return (570 <= minute < 690) or (780 <= minute < 900)
 
 
 def analyze_short_direction(ticks: pd.DataFrame) -> Dict[str, Any]:

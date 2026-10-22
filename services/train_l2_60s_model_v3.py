@@ -124,10 +124,45 @@ def _single_day_purged(frame: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame,
     return train, val, test, meta
 
 
+MIN_EVAL_DAY_COVERAGE = 0.5        # share of expected (symbol x minute) slots a val/test day needs
+EXPECTED_MINUTES_PER_DAY = 240     # continuous trading minutes
+
+
+def eval_day_coverage(frame: pd.DataFrame) -> Dict[str, float]:
+    """Per trade_date: fraction of (symbol, minute) slots with at least one sample."""
+    if frame.empty or "trade_date" not in frame:
+        return {}
+    work = pd.DataFrame({
+        "trade_date": frame["trade_date"].astype(str),
+        "symbol": frame["symbol"].astype(str).str.upper(),
+        "minute": (pd.to_numeric(frame["generated_ts"], errors="coerce") // 60),
+    }).dropna()
+    symbols = max(1, work["symbol"].nunique())
+    slots = work.drop_duplicates().groupby("trade_date").size()
+    return {d: float(n) / (symbols * EXPECTED_MINUTES_PER_DAY) for d, n in slots.items()}
+
+
+def qualified_split_days(frame: pd.DataFrame, n_eval_days: int):
+    """Chronological days, evaluation days with enough data, and the coverage map.
+
+    A validation/test day with a few minutes of data (e.g. after a PC standby)
+    must never choose thresholds or decide readiness.
+    """
+    dates = [d for d in sorted(frame["trade_date"].dropna().astype(str).unique()) if d and d != "NaT"]
+    coverage = eval_day_coverage(frame)
+    eligible = [d for d in dates if coverage.get(d, 0.0) >= MIN_EVAL_DAY_COVERAGE]
+    if len(eligible) < n_eval_days:
+        return dates, None, coverage
+    eval_days = eligible[-n_eval_days:]
+    train = [d for d in dates if d < eval_days[0]]
+    return dates, (train, eval_days), coverage
+
+
 def _split(frame: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, Dict[str, Any]]:
-    dates = [d for d in sorted(frame["trade_date"].dropna().unique()) if d and d != "NaT"]
-    if len(dates) >= 3:
-        train_dates, val_date, test_date = dates[:-2], dates[-2], dates[-1]
+    dates, chosen, coverage = qualified_split_days(frame, 2)
+    if chosen and chosen[0]:
+        train_dates, (val_date, test_date) = chosen
+        skipped = [d for d in dates if d not in train_dates and d not in (val_date, test_date)]
         return (
             frame[frame["trade_date"].isin(train_dates)].copy(),
             frame[frame["trade_date"] == val_date].copy(),
@@ -135,8 +170,27 @@ def _split(frame: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFram
             {
                 "protocol": f"DAY_HOLDOUT train={train_dates[0]}..{train_dates[-1]} val={val_date} test={test_date}",
                 "out_of_sample_by_day": True,
-                "maturity": "STANDARD",
+                "maturity": "STANDARD" if len(train_dates) >= 1 else "EARLY",
                 "purge_seconds": 0,
+                "min_eval_day_coverage": MIN_EVAL_DAY_COVERAGE,
+                "eval_day_coverage": {d: round(coverage.get(d, 0.0), 3) for d in (val_date, test_date)},
+                "days_not_used": skipped,
+            },
+        )
+    if len(dates) >= 3:
+        train_dates, val_date, test_date = dates[:-2], dates[-2], dates[-1]
+        return (
+            frame[frame["trade_date"].isin(train_dates)].copy(),
+            frame[frame["trade_date"] == val_date].copy(),
+            frame[frame["trade_date"] == test_date].copy(),
+            {
+                "protocol": f"LOW_COVERAGE_DAY_HOLDOUT train={train_dates[0]}..{train_dates[-1]} val={val_date} test={test_date}",
+                "out_of_sample_by_day": True,
+                # Fewer than two well-covered days: results are diagnostic only.
+                "maturity": "LOW_COVERAGE",
+                "purge_seconds": 0,
+                "min_eval_day_coverage": MIN_EVAL_DAY_COVERAGE,
+                "eval_day_coverage": {d: round(coverage.get(d, 0.0), 3) for d in (val_date, test_date)},
             },
         )
     if len(dates) == 2:
