@@ -2,48 +2,43 @@ name: Production quality check
 
 on:
   push:
-    branches: [main, level2-v18, v18-final, v18-hotfix-cloud-import, v18-hotfix-windows-sqlite, v18-hotfix-streamlit-fragment]
+    branches: [main, 'hardening/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+# Read-only token: CI never needs to write to the repository.
+permissions:
+  contents: read
 
 jobs:
   linux-quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
+      - name: Repository hygiene (no secrets, no runtime code downloads)
+        run: python tools/check_repo_hygiene.py
       - name: Compile Python source
-        run: python -m compileall -q app_1.py app_v17.py app_v18.py app_v18_final.py app_v18_live.py modules services
+        run: python -m compileall -q app_1.py app_v18_live.py modules services deploy tools tests
       - name: Verify required production files
         run: |
-          test -f app_1.py
-          test -f app_v18_live.py
-          test -f app_v18_final.py
-          test -f modules/cloud_bridge.py
-          test -f modules/short_direction.py
-          test -f modules/direction_v18.py
-          test -f modules/level2_engine.py
-          test -f modules/qmt_level2.py
-          test -f modules/setup_vwap.py
-          test -f modules/prediction_journal.py
-          test -f services/qmt_cloud_bridge.py
-          test -f services/qmt_capability_probe.py
-          test -f services/v18_selftest.py
-          test -f services/v18_doctor.py
-          test -f check_v18_final.bat
-          test -f install_cloud_bridge_startup.bat
-          test -f repair_and_start_bridge.bat
+          for f in app_1.py app_v18_live.py modules/cloud_bridge.py modules/direction_v18.py \
+                   modules/level2_engine.py modules/qmt_level2.py modules/setup_vwap.py \
+                   modules/prediction_journal.py services/qmt_cloud_bridge.py services/collection_monitor.py \
+                   deploy/install_runtime.ps1 deploy/verify_install.py deploy/services.json; do
+            test -f "$f" || { echo "missing $f"; exit 1; }
+          done
       - name: Verify fragment refresh architecture
         run: |
           grep -q "from app_v18_live import" app_1.py
           grep -q "st.fragment" app_v18_live.py
           ! grep -q "streamlit_autorefresh" app_v18_live.py
           ! grep -q "streamlit-autorefresh" requirements.txt
-      - name: Install self-test dependencies
-        run: python -m pip install -q pandas numpy
+      - name: Install test dependencies
+        run: python -m pip install -q pandas numpy requests certifi "scikit-learn>=1.5,<2.0" "joblib>=1.4"
       - name: Verify Streamlit-Cloud-safe Level-2 import without xtquant
         run: |
           python - <<'PY'
@@ -56,50 +51,44 @@ jobs:
           assert snap['summary']['ok'] is False
           print('[PASS] qmt_level2 imports and degrades safely without xtquant')
           PY
-      - name: Run deterministic V18 self-test
-        run: python services/v18_selftest.py
-      - name: Run clock and learning-data regression tests
-        run: python -m services.selftest_monitoring_integrity
-      - name: Verify recorder freshness and collection status
-        run: python -m unittest discover -s tests -p test_collection_health.py -v
-      - name: Verify AC power guard and interrupted windows
-        run: python -m unittest discover -s tests -p test_collection_runtime.py -v
-      - name: Verify daily market-alpha time alignment
-        run: python -m unittest discover -s tests -p test_market_alpha.py -v
-      - name: Run event evidence regression tests
-        run: python -m services.selftest_event_evidence
-      - uses: actions/setup-node@v4
+      - name: Unit tests (deployment, collection health, costs, splits, auth, market alpha)
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Deterministic self-tests
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python services/v18_selftest.py
+          python -m services.selftest_monitoring_integrity
+          python -m services.selftest_event_evidence
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '24'
-      - name: Run mobile API regression tests
-        run: node tests/test_mobile_integrity.mjs
-      - name: Run prospective direction standard tests
-        run: node tests/test_direction_standard.mjs
+      - name: Mobile API, direction standard and edge security tests
+        run: |
+          node tests/test_mobile_integrity.mjs
+          node tests/test_direction_standard.mjs
+          node tests/test_mobile_security.mjs
 
   windows-selftest:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: '3.12'
-      - name: Install self-test dependencies
-        run: python -m pip install -q pandas numpy
+      - name: Install test dependencies
+        run: python -m pip install -q pandas numpy requests certifi "scikit-learn>=1.5,<2.0" "joblib>=1.4"
       - name: Compile Python source
-        run: python -m compileall -q app_1.py app_v18_live.py app_v18_final.py modules services
-      - name: Run deterministic V18 self-test on Windows
+        run: python -m compileall -q app_1.py app_v18_live.py modules services deploy tools tests
+      - name: Unit tests on Windows (junction-based integrity checks included)
+        run: python -m unittest discover -s tests -p "test_*.py" -v
+      - name: Deterministic V18 self-test on Windows
         run: python services/v18_selftest.py
-      - name: Verify recorder freshness and collection status on Windows
-        run: python -m unittest discover -s tests -p test_collection_health.py -v
-      - name: Verify AC power guard and interrupted windows on Windows
-        run: python -m unittest discover -s tests -p test_collection_runtime.py -v
-      - name: Verify daily market-alpha time alignment on Windows
-        run: python -m unittest discover -s tests -p test_market_alpha.py -v
-      - name: Parse monitor launcher in Windows PowerShell
+      - name: Parse PowerShell scripts with Windows PowerShell 5.1
         shell: powershell
         run: |
-          $tokens = $null
-          $errors = $null
-          [void][System.Management.Automation.Language.Parser]::ParseFile(
-            (Join-Path $PWD 'services/start_monitor.ps1'), [ref]$tokens, [ref]$errors)
-          if ($errors.Count) { throw ($errors | Out-String) }
+          foreach ($f in @('services/start_monitor.ps1', 'deploy/install_runtime.ps1', 'deploy/restore_pre_pinning_runtime.ps1')) {
+            $tokens = $null; $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $f), [ref]$tokens, [ref]$errors)
+            if ($errors.Count) { throw ($f + ': ' + ($errors | Out-String)) }
+          }
