@@ -31,6 +31,19 @@ held only on some nights. The monitor detected and logged both interruptions
 Fix: `tools/set_collection_power_settings.ps1 -Apply` (all plans, AC only) and an
 `alerts.toml` webhook. The monitor now also flags a non-zero AC sleep timeout.
 
+### Recovery from QMT history (2026-10-24)
+
+QMT keeps about 21 trading days of tick history (and one year of 5-minute bars).
+The backfill recovered the 8-stock basket plus both benchmarks for **21 sessions**:
+Sep 1–4, Sep 23–24, Sep 28–30 and every session from Oct 8 to Oct 23, stored in
+`AStockData\backfill\qmt_history` with 464,810 replay samples in
+`backfill\training_replay` (labelled `QMT_HISTORY_DOWNLOAD`, never mixed into the
+live archive). Sep 1–4 were captured by a test run on Oct 22 while still inside the
+window; Sep 7 is partial (not every symbol); Sep 8–22 were outside the retention
+window and are lost. Replay
+samples are rebuilt from history snapshots (about 3 s apart), not from the live
+recorder, so models must keep them as a separately labelled source.
+
 ## Mechanism
 
 - The laptop uses **Modern Standby** (S0 low-power idle). In the OEM "Silent"

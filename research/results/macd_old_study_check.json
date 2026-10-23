@@ -13,22 +13,22 @@
  ],
  "periods": {
   "2015-2021": {
-   "golden_crosses_above_zero": 219,
-   "next_day_up_rate": 0.4429,
-   "same_stocks_all_days_up_rate": 0.4967,
-   "p_value_vs_own_base_rate": 0.1116
+   "golden_crosses_above_zero": 296,
+   "next_day_up_rate": 0.4257,
+   "same_stocks_all_days_up_rate": 0.5,
+   "p_value_vs_own_base_rate": 0.0106
   },
   "2022-2026": {
-   "golden_crosses_above_zero": 120,
-   "next_day_up_rate": 0.4833,
-   "same_stocks_all_days_up_rate": 0.4667,
-   "p_value_vs_own_base_rate": 0.7156
+   "golden_crosses_above_zero": 148,
+   "next_day_up_rate": 0.527,
+   "same_stocks_all_days_up_rate": 0.4704,
+   "p_value_vs_own_base_rate": 0.1673
   },
   "old_study_window_2022-08_to_2026-08": {
-   "golden_crosses_above_zero": 111,
-   "next_day_up_rate": 0.4775,
-   "same_stocks_all_days_up_rate": 0.4681,
-   "p_value_vs_own_base_rate": 0.8435
+   "golden_crosses_above_zero": 134,
+   "next_day_up_rate": 0.5373,
+   "same_stocks_all_days_up_rate": 0.472,
+   "p_value_vs_own_base_rate": 0.13
   }
  }
 }
