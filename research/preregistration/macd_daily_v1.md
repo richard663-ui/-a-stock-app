@@ -120,3 +120,16 @@ no production weights change as part of this study.
      clustered in time". The calendar-time (date-mean) figures stay in the results
      file as a secondary view. The reason for the switch is the consistency check,
      not the direction of any MACD result.
+- **Data correction after the first holdout evaluation (2026-10-24).** A
+  cross-check against BaoStock showed that the research store's QMT daily bars
+  were dated one day early: xtdata labels its index in the PC's local time zone
+  (UTC+1), so a bar at 00:00 Shanghai carried the previous date, and the trading-
+  calendar filter then dropped every Monday and post-holiday session (about 20% of
+  days). Row order was intact, so there was no look-ahead, but MACD and horizons
+  were computed on gapped series. The builder now dates bars from the epoch
+  `time` field (test: `tests/test_research_daily.py`); the store, features, cross
+  sections, development and holdout results are recomputed with **no change to
+  hypotheses, parameters, rules or estimators**. The holdout is therefore evaluated
+  a second time, on corrected data only; both versions stay in git history
+  (commits f039ada and later). Production caches were not affected: the
+  market-alpha pipeline already dates bars from `time`.

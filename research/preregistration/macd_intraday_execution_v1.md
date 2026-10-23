@@ -50,4 +50,8 @@ Fewer than 3 bp is too small to matter after 0.1–0.3% round-trip costs.
 
 ## Changes after the first run
 
-(none yet)
+- 5-minute bars are dated from the epoch `time` field and were never affected by
+  the daily-store dating bug. The 400-stock liquidity screen used that mis-dated
+  daily store (dates one session early); for a 20-day average-amount screen this is
+  immaterial, and redrawing the sample after seeing results would be worse, so the
+  sample is kept.

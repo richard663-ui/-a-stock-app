@@ -29,7 +29,21 @@ import pyarrow.dataset as ds
 
 OUT = Path.home() / "AStockData" / "research_daily"
 INDICES = ["000300.SH", "000905.SH", "000852.SH", "000001.SH", "399006.SZ"]
-FIELDS = ["open", "high", "low", "close", "volume", "amount", "preClose", "suspendFlag"]
+FIELDS = ["time", "open", "high", "low", "close", "volume", "amount", "preClose", "suspendFlag"]
+
+
+def bar_dates(raw: pd.DataFrame) -> pd.DatetimeIndex:
+    """Shanghai trading dates of QMT bars.
+
+    xtdata formats its index in the PC's local time zone: on a UTC+1 machine a daily
+    bar stamped 00:00 Shanghai is labelled 17:00 of the previous day, so the index
+    date is one day early (and Mondays land on Sundays). The epoch-ms 'time' field
+    is unambiguous.
+    """
+    if "time" in raw:
+        ts = pd.to_datetime(pd.to_numeric(raw["time"], errors="coerce"), unit="ms", utc=True)
+        return pd.DatetimeIndex(ts.dt.tz_convert("Asia/Shanghai").dt.tz_localize(None).dt.normalize())
+    raise ValueError("QMT bars without the epoch 'time' field cannot be dated safely")
 
 
 def _frame(data: dict, adjusted: dict) -> pd.DataFrame:
@@ -41,7 +55,7 @@ def _frame(data: dict, adjusted: dict) -> pd.DataFrame:
         # QMT can return a different date set for adjusted and raw series; align on raw dates.
         adj = adj[~adj.index.duplicated()].reindex(raw.index)
         df = pd.DataFrame({
-            "date": pd.to_datetime(raw.index.astype(str), format="%Y%m%d"),
+            "date": bar_dates(raw),
             "symbol": symbol,
             "open": adj["open"].to_numpy(float), "high": adj["high"].to_numpy(float),
             "low": adj["low"].to_numpy(float), "close": adj["close"].to_numpy(float),
