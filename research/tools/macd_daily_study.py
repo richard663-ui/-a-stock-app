@@ -258,6 +258,12 @@ def cross_block(frame: pd.DataFrame, sample_dates: set) -> dict:
                         alone = _ols_coef(y, Xr[:, [j]])[0]
                         with_c = _ols_coef(y, np.column_stack([Xr[:, j], ctrl]))[0]
                         fm_rows.append((date, h, feat, float(alone), float(with_c)))
+                    # Every indicator together: each coefficient is its marginal (non-duplicated) value.
+                    joint = _ols_coef(y, Xr)
+                    for j, feat in enumerate(MACD_FEATURES + CONTROLS):
+                        fm_rows.append((date, h, f"JOINT:{feat}", float("nan"), float(joint[j])))
+                    for j, feat in enumerate(CONTROLS):
+                        fm_rows.append((date, h, f"ALONE:{feat}", float(_ols_coef(y, ctrl[:, [j]])[0]), float("nan")))
                     if h == HORIZONS[0]:
                         corr = pd.DataFrame(Xr, columns=MACD_FEATURES + CONTROLS).corr().loc[MACD_FEATURES]
                         for feat in MACD_FEATURES:
@@ -408,10 +414,17 @@ def run_report(period: str) -> dict:
         out["ic"][f"{feat}|{h}"] = {"mean_ic": round(float(g["ic"].mean()), 4),
                                     "icir": round(float(g["ic"].mean() / g["ic"].std()), 3),
                                     "nw_t": round(nw_t(g["ic"].to_numpy(), h), 2), "dates": int(len(g))}
+    out["joint_model"] = {}
     for (feat, h), g in fm.groupby(["feature", "h"]):
         g = g.sort_values("date")
         lag = max(1, h // 5)
         alone_t, ctrl_t = nw_t(g["coef_alone"].to_numpy(), lag), nw_t(g["coef_controls"].to_numpy(), lag)
+        if ":" in feat:
+            kind, name = feat.split(":", 1)
+            slot = out["joint_model"].setdefault(f"{name}|{h}", {})
+            col, t = ("coef_alone", alone_t) if kind == "ALONE" else ("coef_controls", ctrl_t)
+            slot[kind.lower()] = {"coef": round(float(g[col].mean()), 5), "t": round(t, 2)}
+            continue
         out["fama_macbeth"][f"{feat}|{h}"] = {
             "coef_alone": round(float(g["coef_alone"].mean()), 5), "t_alone": round(alone_t, 2),
             "coef_with_controls": round(float(g["coef_controls"].mean()), 5), "t_with_controls": round(ctrl_t, 2),

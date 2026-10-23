@@ -94,4 +94,6 @@ no production weights change as part of this study.
 
 ## Changes after the first run
 
-(none yet)
+- Before the first run (no results seen): added a joint Fama-MacBeth regression
+  of all indicators together, and each control alone. Descriptive only, for the
+  redundancy question; it is not a pass/fail test.
