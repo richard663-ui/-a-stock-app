@@ -1,212 +1,111 @@
-# Next-generation quantitative roadmap
+# Next-generation quantitative roadmap (v2, 2026-10-24)
 
-Written after the October 2026 audit and hardening cycle. The guiding question
-is not "can we predict the next minute" but "where can a retail investor with
-one PC, a broker QMT terminal and a few hours a week plausibly earn a durable,
-measurable, risk-adjusted excess return".
+The question is not "can we predict the next minute" but "where can a retail
+investor with one PC, a broker QMT terminal and a few hours a week earn a durable,
+measurable, risk-adjusted excess return". v2 adds the full-market factor study,
+the pre-registered MACD study and the audit of the current market-alpha baseline.
 
-## 1. Independent assessment of the current system
+## 1. What the evidence says now
 
-**Engineering.** Until this cycle the system was fragile in exactly the places
-that decide whether research is possible: code was pulled from a moving branch
-onto the brokerage PC, and data collection failed on 31 of 32 trading days
-(standby, power loss, no login). Both are now fixed or instrumented (pinned
-releases, collection monitor, coverage reports, backfill). The data asset is
-still small: 5 usable recorded sessions plus whatever QMT history the backfill
-recovers.
-
-**Quantitative.** The work so far concentrates on the horizon where a retail
-taker has the least chance of an edge (60–120 s). The evidence is consistent:
-
-| Evidence (recorded data, Aug–Oct 2026) | Result |
+| Study (all research only) | Result |
 |---|---|
-| Typical 60 s mid move vs. cost | median 6.6–6.9 bp; round trip costs ≈10.2 bp fees + ≈3.4 bp spread |
-| Best single L1 feature IC (5 days, minute-thinned) | ≤ 0.04, sign unstable by day; top-bottom decile ≤ 3 bp |
-| Phone model mobile-v10, offline replay (10 days, 5,084 non-overlapping calls) | UP hit 33.9% vs base 34.5%; mean forward mid move −0.6 bp after UP, +0.8 bp after DOWN; −15 bp per call after costs; stronger scores no better |
-| ML champion V4R on its only full out-of-sample day | 35% (3-class) accuracy, ≈0 bp gross |
-| Perfect foresight at 11 bp cost | only 32% of minutes worth trading, 3.5 bp average |
+| 60–120 s direction models (V4R/V5/V6, phone v10) | No edge: 60 s moves (~7 bp) are smaller than costs (~14 bp); phone v10 offline −15 bp per call after costs |
+| MACD, daily, 5–20 days (12.4 m stock-days, delisted included, holdout 2022–26) | No robust incremental value; classic bullish setups were negative in 2022–26; one replicated warning: golden cross on a volume surge (−1.1 to −1.2% over 20 days). See `research/results/MACD_FINDINGS.md` |
+| MACD, 5-minute, execution timing (381 stocks, 1 year) | No improvement over same-time or VWAP fills |
+| Full-market single factors 2023–26 (5,537 stocks) | 20-day momentum IC −0.072 (t −4.0); reversal, low volatility, low max-return, low trading amount positive (IC 0.04–0.10 at 20 days) |
+| Current market-alpha baseline (70% momentum weights) | **Anti-predictive over the last year:** rank IC −0.045 (5 d) and −0.063 (20 d), positive on only 36–40% of days. Research-only; nothing trades on it |
 
-The daily horizon looks very different. Preliminary single-factor results on
-1,518 cached stocks (biased subset; full universe pending) show the classic
-A-share effects with large, persistent t-statistics. The current market-alpha
-baseline puts 70% of its weight on momentum, which **has the wrong sign** here:
+### Which indicators are complementary and which are duplicates
 
-| Factor (preliminary, 5-day horizon) | Mean rank IC | Newey-West t | Stable in both halves |
+Joint Fama-MacBeth regression of 5-day excess returns on 13 ranked indicators,
+development 2015–21 and holdout 2022–26 (t-statistics; 20-day results agree):
+
+| Indicator | Alone (dev / holdout) | Jointly (dev / holdout) | Reading |
 |---|---|---|---|
-| Low max daily return (lottery) | +0.071 | 7.1 | yes |
-| Low trading amount (small/illiquid) | +0.072 | 6.0 | yes |
-| 1-month reversal | +0.058 | 5.6 | yes |
-| Low 20-day volatility | +0.067 | 5.0 | yes |
-| 20-day momentum (baseline weight +35%) | −0.058 | −5.6 | yes (negative) |
-| 60-day momentum ex last week (baseline weight +35%) | −0.041 | −3.7 | yes (negative) |
+| Abnormal volume (5 d / 20 d) | −4.5 / −5.4 | **−6.6 / −7.4** | Strongest independent effect: attention spikes reverse |
+| Log 20-day amount (size/liquidity) | −7.4 / −6.3 | **−5.2 / −3.2** | Smaller, less traded names do better (capacity and survivorship caveats) |
+| 20-day volatility | −5.5 / −4.6 | **−3.1 / −4.2** | Low volatility does better |
+| Distance to 60-day high | −2.5 / −1.4 | **+4.5 / +2.8** | Given the others, nearer the high is better |
+| 5-day return, 20-day return, 60-day return, max return, VWAP distance, DIF, histogram | −3 to −9 alone | mostly insignificant jointly | **One cluster:** "recent strength → weakness". One member is enough |
 
-These are before costs. They carry survivorship bias (delisted names missing,
-which flatters small/illiquid factors), and they are well-known, crowded effects
-that crashed hard in episodes like early 2024. They are hypotheses with
-a sound prior, not a strategy.
+So MACD, reversal, momentum and VWAP distance largely duplicate one another.
+Volatility, size/liquidity, abnormal volume and position-in-range carry separate
+information. The next model should take one variable from the recent-strength
+cluster, not five.
 
-**Events, sentiment, capital flow.** There is no verified data feed yet, and
-the event framework correctly scores everything 0. "Capital flow" from L1
-3-second snapshots is weak: estimated aggressive-buy share had a slightly
-negative IC at 60 s.
+## 2. Your preferred direction, made testable
 
-## 2. Research directions — verdicts
+| Component | What exists | What to build | How it is judged |
+|---|---|---|---|
+| **Fundamental quality** | Nothing point-in-time | ROE, gross profitability, accruals, cash conversion, leverage, with **announcement dates** (Tushare Pro `fina_indicator`/`income` by period, about 200–500 CNY/year; BaoStock is free but too slow for the full market) | Single-factor IC and decile spreads, size/industry neutralised; walk-forward |
+| **Genuine catalysts** | Event framework scores all events 0 (no verified feed) | Earnings pre-announcements and express reports, buybacks, major-shareholder reductions, lock-up expiries, index inclusions, all dated (Tushare/AKShare) | Event studies with the MACD harness (clustered t, holdout); a catalyst must beat its own pre-event drift |
+| **Market sentiment** | Abnormal volume (strong, contrarian) | Market breadth, limit-up/limit-down counts, turnover percentile, new highs minus lows (computable from the daily store) | As regime variables: does factor performance differ by sentiment state? |
+| **Capital-flow confirmation** | L1 "aggressive buy" share had no value at 60 s | Margin-financing balance changes (daily, by stock); northbound only quarterly since 2024; vendor "main-force" flows only with a published method | Incremental IC over the price/volume model |
+| **Entry/exit timing** | 5-minute MACD tested: no value | Open vs VWAP slices vs limit orders at the prior close; avoid gap-up chases; exits by rank decay and time | Implementation shortfall vs VWAP, holdout |
+| **Risk control** | Cost model, T+1 | 20–40 names, 5% name cap, 25% industry cap, volatility-scaled sizing; test drawdown de-risking against always-invested | Max drawdown, recovery time, turnover, net return after costs |
 
-### A. Short-term (60/120 s) models — deprioritise as forecasts, repurpose the data
+Price/volume is the base model (section 1). Quality and catalysts are the next
+data purchases, because they are the most likely to be *different* information.
+Sentiment and flow are tested as conditioning variables, not stand-alone signals.
 
-- **Stop** developing standalone 60/120 s direction models and stop daily
-  retraining on unchanged data. The arithmetic (move size vs. cost, T+1, no
-  shorting) makes a profitable retail round trip at this horizon implausible,
-  and the evidence agrees.
-- **Keep** the raw L1 archive and the recorder. They are the base for two uses
-  that do not require a round trip:
-  1. *Execution timing* for trades the daily model wants anyway. The value is
-     bp saved against a naive "buy at open / buy now", measured as
-     implementation shortfall. Even 3–5 bp per trade matters and costs nothing extra.
-  2. *Risk monitoring* for held positions (liquidity collapse, spread blow-out,
-     approach to limit-down) as alerts, not predictions.
-- Keep the V6 shadow runner passive until it has 60 prospective sessions, then
-  close the experiment with a written verdict. Label phone direction cards
-  experimental (done) or remove them.
-- Do **not** buy Level-2 until execution-timing value is shown with L1.
+## 3. Retain, simplify, freeze
 
-### B. 5–20 day cross-sectional alpha — the main research line
-
-1. **Data first (point-in-time).** Full-universe daily bars (QMT, running),
-   listing/delisting dates and **delisted stocks** (survivorship), ST and
-   suspension history, industry history, financial statements with
-   **announcement dates** (BaoStock provides publication dates; Tushare Pro is a
-   low-cost alternative), corporate events (earnings pre-announcements,
-   buybacks, shareholder reductions, lock-up expiries).
-2. **Evaluate every factor alone** with `research/tools/factor_ic_study.py`:
-   rank IC, ICIR, Newey-West t, positive-month share, decile spreads and
-   monotonicity, turnover, decay over horizons 1/5/10/20, and **size- and
-   industry-neutralised** IC (cross-sectional regression on log market cap and
-   industry dummies). A factor that only proxies size is reported as such.
-3. **Factor families to test, in this order** (prior evidence for A-shares):
-   reversal (5/20 d), idiosyncratic volatility, max-return/lottery, turnover and
-   Amihud illiquidity, size; profitability/quality (ROE, gross profitability,
-   accruals); growth and earnings surprise with post-announcement drift;
-   industry (not stock) relative strength; margin-financing changes; event
-   flags (reductions, unlocks negative; buybacks, pre-announced growth positive).
-   Northbound-flow data availability was cut back in 2024: verify before use.
-4. **Combine simply**: equal-weight z-scores of factors that pass (Newey-West
-   t > 3, sign stable in ≥ 70% of years, survives neutralisation), then rolling
-   IC weights, then a ridge/elastic-net on ranks. Gradient boosting only as a
-   challenger that must beat the linear model out of sample after costs.
-5. **Themes you care about** (power grid, energy infrastructure, optical
-   communications, semiconductors, AI infrastructure): define the theme
-   universe mechanically (industry/concept membership, point-in-time) and test
-   the same factor model *inside* the theme against the whole market. Industry
-   momentum and earnings revisions are the natural theme signals. Do not hand-pick.
-
-### C. Trading decisions — a rule-based, testable framework
-
-| Element | Proposal to test (not assume) |
-|---|---|
-| Universe | All A-shares minus ST, < 120 trading days listed, 20-day amount < CNY 20–50m, suspended; optional theme sleeve |
-| Entry | Top-decile composite rank after close; skip names limit-up at the open or with spread above a cap; enter at open or a simple VWAP window; later the execution-timing overlay |
-| Risk/reward | Expected excess return per decile from walk-forward history vs. 20-day volatility; no trade below a minimum expected-edge-after-cost |
-| Exit | Rank-based (drops out of top 30%), time-based (max holding = horizon x 2), catastrophic stop only. Test whether price stops help: in reversal-dominated markets they often hurt |
-| Re-entry | Allowed after a 5-day cool-off when rank criteria hold again (prevents churn) |
-| Sizing | Equal weight or inverse volatility, 20–40 names, single-name cap 5%, industry cap 25% |
-| Exposure / drawdown | Long-only; test a simple regime filter (index trend and breadth) and a strategy-drawdown de-risking rule against "always invested". Index-futures hedging only if the account qualifies |
-| Process | Pre-registered rules, decision journal, weekly review against the paper ledger |
-
-### D. Statistics — transparent first, complexity only if it earns it
-
-- Rank IC/ICIR with Newey-West errors; Fama-MacBeth regressions for premia.
-- **Count every trial** in an experiment registry; use deflated Sharpe ratio or
-  White/Hansen reality checks. A new factor needs t > 3, not 2.
-- Shrink estimated premia (James-Stein / ridge); prefer ranks over raw values.
-- Calibrate anything displayed as a probability (isotonic/Platt, reliability
-  plots, Brier score). Show uncalibrated scores as scores.
-- Regimes: observable splits (market trend, volatility, breadth, size spread)
-  before hidden-Markov or deep models.
-- Deep learning: not recommended at this data size and signal-to-noise ratio.
-  Gains reported for Chinese equities rarely survive point-in-time data, costs
-  and trial counting.
-- Remove factors that fail. A smaller model that survives is worth more.
-
-## 3. Retain, simplify, abandon
-
-| Retain | Simplify | Freeze / abandon |
+| Retain | Simplify | Freeze / retire |
 |---|---|---|
-| Raw L1 recorder and archive; collection monitor and coverage reports; pinned deployment; cost model; market-alpha data pipeline; event-evidence verification rules; the V6 shadow runner's prospective design (as a template) | Flatten the training-recorder chain (v2->v6->l1_v1) into one module behind an equivalence test; reduce the research recorder to raw archiving once the V5B experiment closes; one phone/desktop dashboard | Daily retraining of 60 s ML (V4R/V5R/V6) after a final evaluation on backfilled days; Level-2 work until permission and value exist; MACD calibration as a signal; hand-set desktop grades and position ranges as decision rules (keep as context only); the market-alpha baseline's momentum weights |
+| Raw L1 recorder and archive (execution research), collection monitor, pinned deployment, cost model, research daily store (QMT + BaoStock delisted), event-study harness, backfill | One phone/desktop dashboard; MACD shown as a description, not a forecast; one recent-strength variable instead of five | Daily retraining of 60 s ML; MACD as a buy trigger or confidence input; the momentum-weighted market-alpha baseline (replace in research, then walk-forward); Level-2 purchase |
 
-## 4. Architecture for the next major version
+## 4. Architecture (unchanged in shape, partly built)
 
 ```
-data/        daily bars, PIT metadata (listing, ST, suspension, industry), fundamentals with
-             announcement dates, events, intraday raw L1 (execution research only)
-             -> Parquet partitioned by date, queried with DuckDB; quality gates (coverage, PIT)
-research/    factor library (pure, versioned functions) -> evaluation harness (IC, deciles,
-             neutralisation, regimes) -> walk-forward backtester with A-share rules (T+1,
-             limits, lots, suspensions, fees, impact) -> experiment registry (config hash, data
-             snapshot, results; trial counts for deflated Sharpe)
-decision/    after close: composite ranks -> target portfolio -> next-day order list for HUMAN
-             approval -> paper ledger; optional execution-timing overlay
-monitoring/  collection health (done), factor IC drift, portfolio risk, performance attribution
-interface/   one phone-friendly dashboard: health, today's targets, paper P&L, alerts
-broker/      LAST: xttrader in a separate process and account, hard limits (per-order value,
-             daily turnover, symbol whitelist), manual confirmation, kill switch, audit log
+data/        research_daily (built: QMT 2014-, BaoStock delisted, epoch-dated), PIT fundamentals
+             and events (next), raw L1 (execution research)
+research/    factor library -> evaluation harness (IC, deciles, clustered event studies, joint
+             regressions; built) -> walk-forward portfolio backtester with A-share rules (next)
+             -> pre-registration + experiment registry (started: research/preregistration)
+decision/    after close: ranks -> target portfolio -> order list for HUMAN approval -> paper ledger
+monitoring/  collection health (deployed), factor IC drift, portfolio risk, attribution
+interface/   one phone-friendly dashboard
+broker/      LAST and only with your approval: separate process, hard limits, manual confirmation
 ```
-
-Everything fits on one PC: 5,600 stocks x 10 years of daily data is about 14
-million rows, and factor runs take minutes.
 
 ## 5. Validation strategy
 
-| Stage | Gate to pass before the next stage |
+| Stage | Gate |
 |---|---|
-| 0 Data | ≥ 99% of trading days complete; PIT checks (no announcement used before its date); delisted names present |
-| 1 Single factors | Pre-registered list; NW t > 3; sign stable in ≥ 70% of years; survives size/industry neutralisation; monotone deciles |
-| 2 Combination | Walk-forward on development years (e.g. 2016–2023) with 20-day embargo; **holdout 2024–2026 touched once**; deflated Sharpe > 0 at 95% |
-| 3 Portfolio | After realistic costs and capacity; drawdown and recovery reported; beats simple benchmarks (CSI 500/1000, equal-weight universe, best single factor) |
-| 4 Paper trading | ≥ 60 trading days with the frozen model; realised vs. expected within error bands |
-| 5 Small capital | Hard limits, weekly review; scale only on evidence |
+| 0 Data | ≥ 99% of trading days complete; epoch-dated bars; delisted names present; point-in-time announcement dates |
+| 1 Single factor | Pre-registered; NW t > 3; sign stable in ≥ 70% of years; survives size/industry neutralisation |
+| 2 Combination | Walk-forward on 2015–2021; holdout 2022+ evaluated once; deflated Sharpe > 0 |
+| 3 Portfolio | Net of costs and capacity; beats CSI 500/1000, the equal-weight universe and the best single factor |
+| 4 Paper trading | ≥ 60 trading days with the frozen model, realised within expected bands |
+| 5 Small capital | Only with your explicit decision; hard limits |
 
-Accuracy is never a gate. Net, risk-adjusted excess return after costs is.
+Lessons from this cycle, now part of the protocol: date every bar from an epoch
+timestamp, never from a formatted index; cross-check a sample against a second
+source; check that a partition of the universe nets to zero; write the
+pre-registration first and log every change after the first run.
 
-## 6. Priorities for the next 4–8 weeks
+## 6. Priorities (next 4–8 weeks)
 
-1. Collection: 10 consecutive sessions at ≥ 95% coverage; complete the backfill.
-2. Full-universe daily data plus point-in-time metadata (delisted, ST, suspension, listing dates).
-3. Factor study v1 on the full universe with neutralisation. Fix or replace the momentum-weighted baseline.
-4. Walk-forward portfolio backtester with A-share execution rules and the cost model.
-5. Paper-trading ledger and a daily target-portfolio report on the phone.
-6. Execution-timing study on the raw L1 archive (Direction A repurposed).
-7. Then fundamentals/events, the theme sleeve, and only much later broker connectivity.
+1. **Collection** (needs you): AC power settings script, phone alerts, BACKFILL_TICKS every two weeks; 10 consecutive sessions ≥ 95% coverage. An always-on mini PC is the structural fix.
+2. **Replace the baseline in research**: pre-register a composite of low volatility, low abnormal volume, small/illiquid, one recent-strength variable and distance-to-high; walk-forward 2015–21, holdout 2022–26; costs and capacity (20–40 names, ≥ 50m CNY daily amount).
+3. **Portfolio backtester** with T+1, limits, suspensions, lot sizes, the cost model and risk caps; paper ledger and daily target list on the phone.
+4. **Point-in-time fundamentals and catalysts** (the Tushare Pro purchase is your decision); quality and event studies with the same harness.
+5. **Sentiment/flow as regimes**; execution study (open vs VWAP vs limit) on the 5-minute store.
+6. Only then: theme sleeves (power grid, optics, semiconductors, AI infrastructure), tested inside the same model against the whole market.
 
 ## 7. If I built it from scratch with your resources
 
-I would start from the horizon where a retail investor can plausibly win:
-**days to weeks, cross-sectional, long-only**. Round-trip costs of 0.2–0.3% are
-small there relative to multi-percent moves, and well-documented A-share
-anomalies exist. I would not start at seconds, where costs exceed typical moves
-and professional market makers set the price.
+Start where a retail investor can plausibly win, **days to weeks, cross-sectional,
+long-only**, and build the point-in-time data first (done for prices; fundamentals
+and events next). Use one evaluation harness with pre-registration and a single
+holdout. Prefer a few independent, simple factors over many correlated
+indicators. Treat portfolio construction and risk as part of the model. Run
+operations on an always-on machine monitored from the cloud. Test your themes and
+favourite indicators as hypotheses, as MACD was here, and keep what survives. No
+live trading until a frozen model has 60+ days of paper results that match its
+backtest.
 
-- **Data before models.** First build a point-in-time daily database of the whole
-  market, including delisted stocks, ST and suspension history, financials with
-  announcement dates, and events. Paying a few hundred CNY a year for clean data
-  (e.g. Tushare Pro) beats paying for Level-2.
-- **One research harness and one protocol.** Pre-register hypotheses, count
-  trials, use purged walk-forward, and touch the holdout once. No model versions
-  without a written result.
-- **Simple, robust models.** Ranked factors combined linearly with shrinkage;
-  complexity only when it wins out of sample after costs.
-- **Portfolio and risk as first-class parts.** 20–40 names, turnover-aware
-  rebalancing, industry caps, explicit drawdown rules tested against doing nothing.
-- **Operations sized to reality.** An always-on mini PC or cloud Windows VM for
-  QMT, monitored by the cloud; research runs offline on any machine.
-- **Your themes as testable hypotheses** (industry momentum, earnings revisions
-  inside power grid / optics / semiconductors / AI infrastructure), measured
-  against the whole market rather than chosen by hand.
-- **No live trading** until a frozen model has 60+ days of paper results that
-  match its backtest.
-
-Realistic expectation: a carefully built long-only model may add a modest
-excess return over a small-cap benchmark, with drawdowns dominated by the market
-and by crowded-factor crashes. Nothing here is a guarantee. The point of the
-process is to find out cheaply, on paper, whether the edge is real before any
-money depends on it.
+Realistic expectation: a carefully built long-only model may add a modest excess
+return over a small-cap benchmark, with drawdowns dominated by the market and by
+crowded-factor crashes (for example early 2024). The process exists to find that
+out cheaply, on paper, before money depends on it.

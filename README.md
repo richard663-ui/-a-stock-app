@@ -12,6 +12,8 @@ and offline research tools evaluate models. **No automated trading.**
 | [docs/SECURITY.md](docs/SECURITY.md) | Security model and the credential migration runbook |
 | [docs/DATA_COLLECTION_DIAGNOSIS_2026-10.md](docs/DATA_COLLECTION_DIAGNOSIS_2026-10.md) | Why Sep–Oct 2026 sessions were lost and what was fixed |
 | [docs/NEXT_GENERATION_ROADMAP.md](docs/NEXT_GENERATION_ROADMAP.md) | Research assessment and next-version design |
+| [research/results/MACD_FINDINGS.md](research/results/MACD_FINDINGS.md) | Pre-registered MACD study (daily 5–20 days and intraday execution) |
+| [research/preregistration/](research/preregistration/) | Study protocols written before results, with change logs |
 | [deprecated/README.md](deprecated/README.md) | Retired installers and apps, and how to restore them |
 
 Install a reviewed commit on the PC (outside 09:05–15:05 Shanghai):
