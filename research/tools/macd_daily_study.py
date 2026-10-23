@@ -373,21 +373,24 @@ def regimes() -> pd.DataFrame:
 
 
 def event_stats(ev: pd.DataFrame, h: int) -> dict:
-    """Primary estimator (pre-registered): mean of daily event means, NW t on that series.
+    """Primary: event-weighted mean excess return, standard errors clustered by date.
 
-    Secondary: event-weighted (pooled) mean, with its own NW t on the n-weighted daily
-    series so that estimate and t-statistic always refer to the same number.
+    The date-level series n_d * m_d / mean(n) has the pooled mean as its average, so
+    its Newey-West t is the time-clustered t of the pooled estimate. Secondary
+    (calendar-time) estimate: equal weight per date; it over-weights days on which an
+    event is rare (the four histogram states, which partition the universe, all come
+    out negative under it), so it is reported but not used for verdicts.
     """
     ev = ev.sort_values("date")
     m, n = ev["ex_mean"].to_numpy(), ev["n"].to_numpy(float)
     pooled_series = m * n / n.mean()
     return {"events": int(n.sum()), "dates": int(len(ev)),
-            "mean_excess_bp": round(float(m.mean()) * 1e4, 1),
-            "nw_t": round(nw_t(m, h), 2),
-            "pooled_excess_bp": round(float(pooled_series.mean()) * 1e4, 1),
-            "pooled_nw_t": round(nw_t(pooled_series, h), 2),
+            "mean_excess_bp": round(float(pooled_series.mean()) * 1e4, 1),
+            "nw_t": round(nw_t(pooled_series, h), 2),
+            "calendar_time_excess_bp": round(float(m.mean()) * 1e4, 1),
+            "calendar_time_nw_t": round(nw_t(m, h), 2),
             "hit_rate": round(float(np.average(ev["hit"], weights=n)), 4),
-            "mean_raw_bp": round(float(ev["raw_mean"].mean()) * 1e4, 1)}
+            "mean_raw_bp": round(float(np.average(ev["raw_mean"], weights=n)) * 1e4, 1)}
 
 
 def run_report(period: str) -> dict:
@@ -413,7 +416,7 @@ def run_report(period: str) -> dict:
             s = event_stats(part, h)
             base = ev[(ev["event"] == "ALL") & (ev["h"] == h)]
             s["hit_rate_all_stocks"] = round(float(np.average(base["hit"], weights=base["n"])), 4)
-            s["by_year_bp"] = {int(y): round(float(g["ex_mean"].mean()) * 1e4, 1)
+            s["by_year_bp"] = {int(y): round(float(np.average(g["ex_mean"], weights=g["n"])) * 1e4, 1)
                                for y, g in part.groupby("year")}
             for reg_col in ("trend", "vol"):
                 s[f"by_{reg_col}"] = {k: event_stats(g, h) for k, g in part.groupby(reg_col) if len(g) >= 20}
@@ -430,6 +433,13 @@ def run_report(period: str) -> dict:
                           and abs(s["nw_t"]) >= 2.0 and (e not in LONG_EVENTS or net > 0))
             s["net_of_cost_bp"] = round(net, 1) if e in LONG_EVENTS else None
             s["pass"] = bool(passed) and e != "ALL"     # ALL is the zero-excess reference row
+            if period == "holdout":
+                # Neutral replication of every development estimate, positive or negative.
+                prior = json.loads(dev_file.read_text(encoding="utf-8"))["events"].get(f"{e}|{h}", {})
+                if prior:
+                    s["dev_mean_excess_bp"], s["dev_nw_t"] = prior["mean_excess_bp"], prior["nw_t"]
+                    s["replicated"] = bool(np.sign(prior["mean_excess_bp"]) == sign and abs(s["nw_t"]) >= 2.0
+                                           and abs(prior["nw_t"]) >= 3.0)
             out["events"][f"{e}|{h}"] = s
     for (feat, h), g in ic.groupby(["feature", "h"]):
         g = g.sort_values("date")
@@ -447,16 +457,31 @@ def run_report(period: str) -> dict:
             col, t = ("coef_alone", alone_t) if kind == "ALONE" else ("coef_controls", ctrl_t)
             slot[kind.lower()] = {"coef": round(float(g[col].mean()), 5), "t": round(t, 2)}
             continue
+        coef = float(g["coef_controls"].mean())
+        passed = abs(ctrl_t) >= 3.0
+        if period == "holdout":
+            prior = json.loads(dev_file.read_text(encoding="utf-8"))["fama_macbeth"].get(f"{feat}|{h}", {})
+            passed = bool(prior.get("pass")) and np.sign(prior.get("coef_with_controls", 0)) == np.sign(coef) \
+                and abs(ctrl_t) >= 2.0
         out["fama_macbeth"][f"{feat}|{h}"] = {
             "coef_alone": round(float(g["coef_alone"].mean()), 5), "t_alone": round(alone_t, 2),
-            "coef_with_controls": round(float(g["coef_controls"].mean()), 5), "t_with_controls": round(ctrl_t, 2),
-            "dates": int(len(g)), "pass": bool(abs(ctrl_t) >= (3.0 if period == "dev" else 2.0))}
+            "coef_with_controls": round(coef, 5), "t_with_controls": round(ctrl_t, 2),
+            "dates": int(len(g)), "pass": bool(passed)}
     if not corr.empty:
         mean_corr = corr.groupby(["feature", "other"])["rho"].mean().unstack()
         out["redundancy"] = {f: {k: round(float(v), 3) for k, v in row.items()} for f, row in mean_corr.iterrows()}
+    # Internal consistency: the four histogram states partition the universe, so their
+    # event-weighted excess returns must net to about zero.
+    out["partition_check_bp"] = {}
+    for h in HORIZONS:
+        states = [out["events"].get(f"{s}|{h}") for s in ("H_red_exp", "H_red_con", "H_green_exp", "H_green_con")]
+        if all(states):
+            total = sum(s["events"] for s in states)
+            out["partition_check_bp"][h] = round(sum(s["events"] * s["mean_excess_bp"] for s in states) / total, 2)
     out["verdicts"] = {
         "events_passed": sorted(k for k, v in out["events"].items() if v["pass"]),
         "features_passed_with_controls": sorted(k for k, v in out["fama_macbeth"].items() if v["pass"]),
+        "events_replicated": sorted(k for k, v in out["events"].items() if v.get("replicated")),
         "tests_run": len(out["events"]) + len(out["fama_macbeth"]),
     }
     RESULTS.mkdir(parents=True, exist_ok=True)

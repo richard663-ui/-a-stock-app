@@ -109,3 +109,14 @@ no production weights change as part of this study.
      1-day return added. This can only weaken, never strengthen, the MACD result.
   3. Hit rates are shown next to the hit rate of all eligible stocks (about 43%
      because returns are right-skewed), not next to 50%.
+  4. **Second estimator correction (before any holdout result).** Under the
+     date-mean estimator of item 1, the four histogram states, which partition the
+     universe and must net to zero, all came out negative (−11 to −28 bp at 5 days).
+     That estimator gives a day with three events the same weight as a day with
+     3,000 and so over-weights days on which a state is rare. The primary estimator
+     is therefore the event-weighted mean with standard errors clustered by date
+     (Newey-West on the date-level series), the standard clustered event-study
+     estimator and the reading of "mean excess return with standard errors
+     clustered in time". The calendar-time (date-mean) figures stay in the results
+     file as a secondary view. The reason for the switch is the consistency check,
+     not the direction of any MACD result.
