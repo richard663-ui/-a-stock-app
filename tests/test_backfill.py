@@ -29,6 +29,18 @@ class BackfillTests(unittest.TestCase):
             self.assertEqual(len(back), 5)
             self.assertEqual(back["bidPrice"].iloc[0][0], 9.99)
 
+    def test_session_grid_accepts_millisecond_timestamps(self):
+        from services import qmt_l1_60s_walkforward_v1 as wf
+        ts = pd.Series(pd.date_range("2026-10-21 10:00:00", periods=40, freq="3s")).astype("datetime64[ms]")
+        cols = ["lastPrice", "lastClose", "volume", "amount", "bid1", "ask1", "mid_price", "spread_pct",
+                "depth5_imbalance_pct", "microprice_vs_mid_pct", "tick_buy_pct", "book_buy_pressure_pct",
+                "pressure_change_pct", "cum_high", "cum_low"]
+        raw = pd.DataFrame({c: 10.0 for c in cols}, index=range(40))
+        raw["_ts"], raw["valid_book"] = ts, True
+        grid = wf._session_grid(raw, "2026-10-21", "AM", "10:00:00", "10:01:00")
+        self.assertEqual(len(grid), 13)
+        self.assertTrue((grid["age_s"].dropna() >= 0).all())
+
     def test_refuses_market_hours(self):
         self.assertTrue(bf.in_market_hours(datetime(2026, 10, 21, 10, 0, tzinfo=SHANGHAI)))
         self.assertFalse(bf.in_market_hours(datetime(2026, 10, 21, 16, 0, tzinfo=SHANGHAI)))

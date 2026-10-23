@@ -212,6 +212,9 @@ def _session_grid(day_raw: pd.DataFrame, day_text: str, session: str, start_hms:
         "tick_buy_pct", "book_buy_pressure_pct", "pressure_change_pct", "cum_high", "cum_low", "valid_book",
     ]
     right = raw[selected].rename(columns={"_ts": "_event_ts"}).sort_values("_event_ts")
+    # pandas 3 keeps the source resolution (ms from QMT epochs, us from date_range); merge_asof needs one.
+    right["_event_ts"] = right["_event_ts"].astype("datetime64[ns]")
+    grid["_ts"] = grid["_ts"].astype("datetime64[ns]")
     g = pd.merge_asof(grid.sort_values("_ts"), right, left_on="_ts", right_on="_event_ts", direction="backward")
     g["age_s"] = (g["_ts"] - g["_event_ts"]).dt.total_seconds()
     g["fresh"] = g["age_s"].between(0.0, STALE_SECONDS, inclusive="both")

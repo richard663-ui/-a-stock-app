@@ -193,6 +193,8 @@ def main(argv: List[str] | None = None) -> int:
     parser.add_argument("--symbols", nargs="*", default=None)
     parser.add_argument("--build-samples", action="store_true")
     parser.add_argument("--timeout", type=float, default=180.0)
+    parser.add_argument("--skip-download", action="store_true",
+                        help="rebuild samples from days already in the backfill store")
     args = parser.parse_args(argv)
     if in_market_hours():
         print("Refusing to download history during market hours; it competes with live collection.")
@@ -200,11 +202,16 @@ def main(argv: List[str] | None = None) -> int:
     cfg = json.loads((PROJECT_ROOT / "configs" / "collection.json").read_text(encoding="utf-8"))
     stocks = [s.upper() for s in (args.symbols or cfg["basket"])]
     results = []
-    for symbol in stocks + BENCHMARKS:
-        result = download_symbol(args.data_root, symbol, args.start, args.end, args.timeout)
-        results.append(result)
-        print(f"{symbol}: rows={result.get('rows')} days={len(result.get('stored', {}))} error={result.get('error') or '-'}")
-    days = sorted({d for r in results for d in r.get("stored", {})})
+    if args.skip_download:
+        store = args.data_root / "backfill" / "qmt_history"
+        days = sorted(p.name for p in store.glob("????-??-??")
+                      if args.start.isoformat() <= p.name <= args.end.isoformat())
+    else:
+        for symbol in stocks + BENCHMARKS:
+            result = download_symbol(args.data_root, symbol, args.start, args.end, args.timeout)
+            results.append(result)
+            print(f"{symbol}: rows={result.get('rows')} days={len(result.get('stored', {}))} error={result.get('error') or '-'}")
+        days = sorted({d for r in results for d in r.get("stored", {})})
     report: Dict[str, Any] = {"version": BACKFILL_VERSION, "generated_at": market_now().isoformat(timespec="seconds"),
                               "requested": [args.start.isoformat(), args.end.isoformat()], "source": SOURCE,
                               "days_returned": days, "symbols": results}
