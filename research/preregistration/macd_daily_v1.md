@@ -97,3 +97,15 @@ no production weights change as part of this study.
 - Before the first run (no results seen): added a joint Fama-MacBeth regression
   of all indicators together, and each control alone. Descriptive only, for the
   redundancy question; it is not a pass/fail test.
+- After the first development run (2026-10-23):
+  1. **Bug fix.** The event verdict paired the event-weighted (pooled) mean with
+     the t-statistic of the date-mean series; the two can differ in sign when
+     events cluster on certain days. Verdicts now use the pre-registered estimator
+     (mean of daily event means, NW t on that series). The pooled mean is reported
+     with its own consistent t. Year signs use date means.
+  2. **Post-hoc robustness (labelled as such).** The 1-day histogram change passed
+     with controls. By construction it is mostly the last 1–2 daily returns, which
+     are not among the controls, so its coefficient is also reported with the
+     1-day return added. This can only weaken, never strengthen, the MACD result.
+  3. Hit rates are shown next to the hit rate of all eligible stocks (about 43%
+     because returns are right-skewed), not next to 50%.

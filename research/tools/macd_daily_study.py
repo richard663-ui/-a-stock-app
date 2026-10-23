@@ -180,15 +180,20 @@ def load_calendar() -> pd.DatetimeIndex:
     return pd.DatetimeIndex(sorted(idx["date"].unique()))
 
 
-def run_features() -> dict:
+def run_features(which: str = "all") -> dict:
     calendar = load_calendar()
     FEAT.mkdir(parents=True, exist_ok=True)
-    sources = sorted((DATA / "bars_qmt").glob("part-*.parquet"))
-    if (DATA / "bars_delisted.parquet").exists():
+    sources = sorted((DATA / "bars_qmt").glob("part-*.parquet")) if which in ("all", "qmt") else []
+    if which in ("all", "delisted") and (DATA / "bars_delisted.parquet").exists():
         sources.append(DATA / "bars_delisted.parquet")
     qmt_symbols = set()
+    if which == "delisted":
+        qmt_symbols = set(ds.dataset(str(DATA / "bars_qmt"), format="parquet")
+                          .to_table(columns=["symbol"]).to_pandas()["symbol"].unique())
     stats = {"stocks": 0, "rows": 0, "delisted_stocks": 0}
     for n, src in enumerate(sources):
+        if (FEAT / f"{src.stem}.parquet").exists() and src.name != "bars_delisted.parquet":
+            continue   # resumable: finished parts are kept
         bars = pd.read_parquet(src)
         if src.name == "bars_delisted.parquet":
             bars = bars[~bars["symbol"].isin(qmt_symbols)]   # never double count a code
@@ -254,10 +259,16 @@ def cross_block(frame: pd.DataFrame, sample_dates: set) -> dict:
                     Xr = X_all[good].apply(_rank).to_numpy()
                     y = rex[good].to_numpy()
                     ctrl = Xr[:, len(MACD_FEATURES):]
+                    r1 = gg["ret1"][good]
+                    r1_rank = _rank(r1).fillna(0).to_numpy()
                     for j, feat in enumerate(MACD_FEATURES):
                         alone = _ols_coef(y, Xr[:, [j]])[0]
                         with_c = _ols_coef(y, np.column_stack([Xr[:, j], ctrl]))[0]
                         fm_rows.append((date, h, feat, float(alone), float(with_c)))
+                        # Post-hoc (added after the first dev run): also control for the 1-day return,
+                        # because the 1-day histogram change is mostly today's return.
+                        plus = _ols_coef(y, np.column_stack([Xr[:, j], ctrl, r1_rank]))[0]
+                        fm_rows.append((date, h, f"POSTHOC_RET1:{feat}", float("nan"), float(plus)))
                     # Every indicator together: each coefficient is its marginal (non-duplicated) value.
                     joint = _ols_coef(y, Xr)
                     for j, feat in enumerate(MACD_FEATURES + CONTROLS):
@@ -345,6 +356,7 @@ def _read(kind: str, lo: str, hi: str) -> pd.DataFrame:
     df = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
     if df.empty:
         return df
+    df["date"] = pd.to_datetime(df["date"]).astype("datetime64[ns]")
     return df[(df["date"] >= pd.Timestamp(lo)) & (df["date"] <= pd.Timestamp(hi))]
 
 
@@ -356,18 +368,26 @@ def regimes() -> pd.DataFrame:
     out["trend"] = np.where(idx > idx.rolling(120).mean(), "up", "down")
     out["vol"] = np.where(vol > vol.rolling(250, min_periods=120).median(), "high", "low")
     out["year"] = out.index.year
+    out.index = pd.DatetimeIndex(out.index).astype("datetime64[ns]")
     return out
 
 
 def event_stats(ev: pd.DataFrame, h: int) -> dict:
+    """Primary estimator (pre-registered): mean of daily event means, NW t on that series.
+
+    Secondary: event-weighted (pooled) mean, with its own NW t on the n-weighted daily
+    series so that estimate and t-statistic always refer to the same number.
+    """
     ev = ev.sort_values("date")
-    pooled = float(np.average(ev["ex_mean"], weights=ev["n"]))
-    return {"events": int(ev["n"].sum()), "dates": int(len(ev)),
-            "mean_excess_bp": round(pooled * 1e4, 1),
-            "date_mean_excess_bp": round(float(ev["ex_mean"].mean()) * 1e4, 1),
-            "nw_t": round(nw_t(ev["ex_mean"].to_numpy(), h), 2),
-            "hit_rate": round(float(np.average(ev["hit"], weights=ev["n"])), 4),
-            "mean_raw_bp": round(float(np.average(ev["raw_mean"], weights=ev["n"])) * 1e4, 1)}
+    m, n = ev["ex_mean"].to_numpy(), ev["n"].to_numpy(float)
+    pooled_series = m * n / n.mean()
+    return {"events": int(n.sum()), "dates": int(len(ev)),
+            "mean_excess_bp": round(float(m.mean()) * 1e4, 1),
+            "nw_t": round(nw_t(m, h), 2),
+            "pooled_excess_bp": round(float(pooled_series.mean()) * 1e4, 1),
+            "pooled_nw_t": round(nw_t(pooled_series, h), 2),
+            "hit_rate": round(float(np.average(ev["hit"], weights=n)), 4),
+            "mean_raw_bp": round(float(ev["raw_mean"].mean()) * 1e4, 1)}
 
 
 def run_report(period: str) -> dict:
@@ -391,7 +411,9 @@ def run_report(period: str) -> dict:
             if part.empty:
                 continue
             s = event_stats(part, h)
-            s["by_year_bp"] = {int(y): round(float(np.average(g["ex_mean"], weights=g["n"])) * 1e4, 1)
+            base = ev[(ev["event"] == "ALL") & (ev["h"] == h)]
+            s["hit_rate_all_stocks"] = round(float(np.average(base["hit"], weights=base["n"])), 4)
+            s["by_year_bp"] = {int(y): round(float(g["ex_mean"].mean()) * 1e4, 1)
                                for y, g in part.groupby("year")}
             for reg_col in ("trend", "vol"):
                 s[f"by_{reg_col}"] = {k: event_stats(g, h) for k, g in part.groupby(reg_col) if len(g) >= 20}
@@ -407,7 +429,7 @@ def run_report(period: str) -> dict:
                 passed = (bool(prior) and np.sign(prior.get("mean_excess_bp", 0)) == sign
                           and abs(s["nw_t"]) >= 2.0 and (e not in LONG_EVENTS or net > 0))
             s["net_of_cost_bp"] = round(net, 1) if e in LONG_EVENTS else None
-            s["pass"] = bool(passed)
+            s["pass"] = bool(passed) and e != "ALL"     # ALL is the zero-excess reference row
             out["events"][f"{e}|{h}"] = s
     for (feat, h), g in ic.groupby(["feature", "h"]):
         g = g.sort_values("date")
@@ -447,9 +469,10 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("stage", choices=["features", "cross", "report"])
     ap.add_argument("--period", choices=["dev", "holdout"], default="dev")
+    ap.add_argument("--sources", choices=["all", "qmt", "delisted"], default="all")
     args = ap.parse_args()
     if args.stage == "features":
-        print(json.dumps(run_features()))
+        print(json.dumps(run_features(args.sources)))
     elif args.stage == "cross":
         print(json.dumps(run_cross()))
     else:

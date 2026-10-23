@@ -25,6 +25,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import pyarrow.dataset as ds
 
 OUT = Path.home() / "AStockData" / "research_daily"
 INDICES = ["000300.SH", "000905.SH", "000852.SH", "000001.SH", "399006.SZ"]
@@ -37,6 +38,8 @@ def _frame(data: dict, adjusted: dict) -> pd.DataFrame:
         adj = adjusted.get(symbol)
         if raw is None or raw.empty or adj is None or adj.empty:
             continue
+        # QMT can return a different date set for adjusted and raw series; align on raw dates.
+        adj = adj[~adj.index.duplicated()].reindex(raw.index)
         df = pd.DataFrame({
             "date": pd.to_datetime(raw.index.astype(str), format="%Y%m%d"),
             "symbol": symbol,
@@ -52,7 +55,7 @@ def _frame(data: dict, adjusted: dict) -> pd.DataFrame:
     return pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
 
 
-def build_qmt(start: str, batch: int) -> dict:
+def build_qmt(start: str, batch: int, resume: bool = False) -> dict:
     from xtquant import xtdata
     xtdata.enable_hello = False
     stocks = sorted(set(xtdata.get_stock_list_in_sector("沪深A股") or []))
@@ -67,6 +70,8 @@ def build_qmt(start: str, batch: int) -> dict:
     # One parquet part per batch keeps memory flat (the PC also runs QMT and recorders).
     for i in range(0, len(stocks), batch):
         chunk = stocks[i:i + batch]
+        if resume and (parts_dir / f"part-{i // batch:04d}.parquet").exists():
+            continue
         try:
             xtdata.download_history_data2(chunk, "1d", start_time=start, end_time=end)
             raw = xtdata.get_market_data_ex(FIELDS, chunk, period="1d", start_time=start, end_time=end,
@@ -94,16 +99,18 @@ def build_qmt(start: str, batch: int) -> dict:
                                     dividend_type="none", fill_data=False) or {}
     _frame(raw, raw).to_parquet(OUT / "index.parquet", index=False)
 
-    rows = []
+    details = []
     for s in stocks:
         d = xtdata.get_instrument_detail(s) or {}
-        rows.append({"symbol": s, "name": d.get("InstrumentName"), "open_date": d.get("OpenDate"),
-                     "float_shares": d.get("FloatVolume"), "total_shares": d.get("TotalVolume")})
-    pd.DataFrame(rows).to_csv(OUT / "instruments.csv", index=False, encoding="utf-8-sig")
-    return {"source": "QMT xtdata 1d (front_ratio + none)", "stocks": len(stocks), "rows": int(rows),
-            "failed": failed, "first": str(first.date()) if first is not None else None,
-            "last": str(last.date()) if last is not None else None, "calendar_days": len(calendar),
-            "seconds": round(time.time() - t0)}
+        details.append({"symbol": s, "name": d.get("InstrumentName"), "open_date": d.get("OpenDate"),
+                        "float_shares": d.get("FloatVolume"), "total_shares": d.get("TotalVolume")})
+    pd.DataFrame(details).to_csv(OUT / "instruments.csv", index=False, encoding="utf-8-sig")
+    stored = ds.dataset(str(parts_dir), format="parquet").to_table(columns=["date", "symbol"]).to_pandas()
+    return {"source": "QMT xtdata 1d (front_ratio + none)", "stocks_listed": len(stocks),
+            "stocks_stored": int(stored["symbol"].nunique()), "rows": int(len(stored)),
+            "not_stored": sorted(set(stocks) - set(stored["symbol"])), "download_failed": failed,
+            "first": str(stored["date"].min().date()), "last": str(stored["date"].max().date()),
+            "calendar_days": len(calendar), "seconds": round(time.time() - t0)}
 
 
 def build_delisted(start: str) -> dict:
@@ -158,11 +165,12 @@ def main() -> int:
     ap.add_argument("part", choices=["qmt", "delisted"])
     ap.add_argument("--start", default="20140101")
     ap.add_argument("--batch", type=int, default=200)
+    ap.add_argument("--resume", action="store_true", help="only download batches without a stored part")
     args = ap.parse_args()
     report_path = OUT / "build_report.json"
     report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
     if args.part == "qmt":
-        report["qmt"] = build_qmt(args.start.replace("-", ""), args.batch)
+        report["qmt"] = build_qmt(args.start.replace("-", ""), args.batch, args.resume)
     else:
         start = args.start if "-" in args.start else f"{args.start[:4]}-{args.start[4:6]}-{args.start[6:]}"
         report["delisted"] = build_delisted(start)
