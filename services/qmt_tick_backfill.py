@@ -187,8 +187,10 @@ def build_replay_samples(root: Path, stocks: List[str], days: List[str]) -> Dict
 
 def main(argv: List[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="QMT historical tick backfill (after close only)")
-    parser.add_argument("--start", type=date.fromisoformat, required=True)
-    parser.add_argument("--end", type=date.fromisoformat, required=True)
+    today = market_now().date()
+    # Defaults cover QMT's tick retention (about 21 trading days).
+    parser.add_argument("--start", type=date.fromisoformat, default=today - timedelta(days=35))
+    parser.add_argument("--end", type=date.fromisoformat, default=today)
     parser.add_argument("--data-root", type=Path, default=default_data_root())
     parser.add_argument("--symbols", nargs="*", default=None)
     parser.add_argument("--build-samples", action="store_true")

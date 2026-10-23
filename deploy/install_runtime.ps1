@@ -259,6 +259,11 @@ function Write-Launchers([string]$py, $registry) {
         """$py"" ""$Current\services\market_alpha_data.py"" --download --max-seconds 600",
         'if errorlevel 1 (', '  echo Daily data coverage is incomplete. Caches are preserved. Re-run to resume.', '  pause', '  exit /b 2', ')',
         """$py"" ""$Current\services\market_alpha_research.py""", 'pause')
+    # QMT keeps only about 21 trading days of tick history: recover lost sessions within 3 weeks.
+    Set-Content -LiteralPath (Join-Path $InstallRoot 'BACKFILL_TICKS.cmd') -Encoding ASCII -Value @(
+        '@echo off', 'setlocal',
+        "set ""PYTHONPATH=$Current;$InstallRoot\vendor""",
+        """$py"" ""$Current\services\qmt_tick_backfill.py"" --build-samples %*", 'pause')
 }
 
 function Update-Shortcuts {

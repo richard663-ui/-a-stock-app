@@ -101,11 +101,18 @@ standby (with its reason), shutdown/power loss, or "PC awake but not recording".
 
 ## 6. After-close jobs (never during market hours)
 
+**QMT keeps only about 21 trading days of tick history.** A lost session can be
+recovered for about 3 weeks, then it is gone. Double-click
+`%LOCALAPPDATA%\AStockQMT\BACKFILL_TICKS.cmd` at least every two weeks (any
+weekend or evening; it refuses during market hours). It downloads the last 35
+calendar days into `AStockData\backfill\` (never into the live archive) and rebuilds
+the replay samples. 5-minute bars are kept for one year, daily bars for many years.
+
 ```bat
 cd /d %LOCALAPPDATA%\AStockQMT\current
 set PY=%LOCALAPPDATA%\Programs\Python\Python312\python.exe
-:: recover missed sessions from QMT history into a separate archive
-%PY% services\qmt_tick_backfill.py --start 2026-09-08 --end 2026-10-22 --build-samples
+:: same as BACKFILL_TICKS.cmd; --skip-download rebuilds samples from the stored days only
+%PY% services\qmt_tick_backfill.py --build-samples
 :: complete the full-market daily cache, then the research ranking
 %LOCALAPPDATA%\AStockQMT\PREPARE_MARKET_ALPHA.cmd
 :: single-factor evidence (IC, ICIR, Newey-West t, deciles)
