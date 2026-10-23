@@ -197,7 +197,7 @@ try {
         Write-Host ('采集健康监控：' + $live.overall + '（' + $live.checked_at + '）') -ForegroundColor $color
         foreach ($f in @($live.findings)) { if ($f.title) { Write-Host ('  - ' + $f.title + '：' + $f.message) -ForegroundColor $color } }
         if (@($live.power_setting_risks).Count) {
-            Write-Host ('电源风险：' + (@($live.power_setting_risks) -join '; ') + '。按电源键或合盖会让电脑待机、停止采集；请用 Win+L 锁屏。') -ForegroundColor Yellow
+            Write-Host ('电源风险：' + (@($live.power_setting_risks) -join '; ') + '。闲置睡眠、按电源键或合盖都会让电脑待机、停止采集；请运行 tools\set_collection_power_settings.ps1 -Apply，并用 Win+L 锁屏。') -ForegroundColor Yellow
         }
     }
     $result = [PSCustomObject]@{

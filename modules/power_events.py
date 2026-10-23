@@ -35,6 +35,13 @@ SETTINGS = {
 ACTIONS = {0: "do_nothing", 1: "sleep", 2: "hibernate", 3: "shut_down", 4: "turn_off_display"}
 STOPS_COLLECTION = {"sleep", "hibernate", "shut_down"}
 
+# Idle sleep ("Sleep after"). On 2026-10-23 an idle-timeout standby reached deep
+# sleep within 3 minutes although the recorder held ES_SYSTEM_REQUIRED, so a
+# non-zero AC timeout is a collection risk on this Modern Standby laptop.
+SUB_SLEEP = "238c9fa8-0aad-41ed-83f4-97be242c8f20"
+STANDBYIDLE = "29f6c1db-86da-48c5-9fdb-f2b67b1f44da"
+HIBERNATEIDLE = "9d7815a6-7ee4-497e-8888-515a05f02364"
+
 
 def reason_name(code: Optional[int]) -> str:
     if code is None:
@@ -205,15 +212,36 @@ def parse_powercfg_buttons(text: str) -> Dict[str, Dict[str, Optional[str]]]:
     return result
 
 
+def parse_powercfg_seconds(text: str) -> Dict[str, Optional[int]]:
+    """Parse one ``powercfg /qh <scheme> <subgroup> <setting>`` value (AC first, then DC)."""
+    values = [int(v, 16) for v in re.findall(r"0x([0-9a-f]{8})\s*$", text, flags=re.I | re.M)]
+    # A value-range block (min/max/increment) precedes the two current indexes.
+    return {"ac": values[-2], "dc": values[-1]} if len(values) >= 2 else {"ac": None, "dc": None}
+
+
+def parse_active_scheme(text: str) -> Dict[str, Optional[str]]:
+    match = re.search(r"([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*(?:\((.*)\))?", text)
+    if not match:
+        return {"guid": None, "name": None}
+    return {"guid": match.group(1), "name": (match.group(2) or "").strip() or None}
+
+
 def power_settings() -> Dict:
-    """Current-scheme power button / lid / sleep button actions on AC and battery."""
+    """Current-scheme button/lid actions and idle sleep timeouts on AC and battery."""
     if sys.platform != "win32":
         return {"available": False}
     try:
         buttons = parse_powercfg_buttons(_run(["powercfg", "/qh", "SCHEME_CURRENT", SUB_BUTTONS]))
+        idle_sleep = parse_powercfg_seconds(_run(["powercfg", "/qh", "SCHEME_CURRENT", SUB_SLEEP, STANDBYIDLE]))
+        idle_hibernate = parse_powercfg_seconds(_run(["powercfg", "/qh", "SCHEME_CURRENT", SUB_SLEEP, HIBERNATEIDLE]))
+        scheme = parse_active_scheme(_run(["powercfg", "/getactivescheme"]))
     except (subprocess.TimeoutExpired, OSError):
         return {"available": False}
     risks = [f"{name} on AC = {values.get('ac')}" for name, values in buttons.items()
              if values.get("ac") in STOPS_COLLECTION]
-    return {"available": True, "buttons": buttons, "ac_risks": risks,
+    for name, values in (("idle_sleep", idle_sleep), ("idle_hibernate", idle_hibernate)):
+        if values.get("ac"):
+            risks.append(f"{name} on AC after {values['ac'] // 60} min")
+    return {"available": True, "scheme": scheme, "buttons": buttons,
+            "idle_sleep_seconds": idle_sleep, "idle_hibernate_seconds": idle_hibernate, "ac_risks": risks,
             "note": "On Modern Standby laptops, any of these actions suspends all recorders."}

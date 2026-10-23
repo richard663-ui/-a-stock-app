@@ -16,24 +16,32 @@ Shanghai) is 02:15–08:00 in UTC+1 and 01:15–07:00 in UTC+0, so the PC record
 
 After a reboot nothing records until you **log in to Windows and to QMT**.
 
-## 2. Make the power button and lid safe (one-time, you run these)
+## 2. Stop the laptop from sleeping on AC power (one-time, you run this)
 
-Your active plan is the OEM "Silent" scheme, where these settings are hidden.
-In a normal (non-admin) Command Prompt:
+On 2026-10-23 the session was lost to an **idle-timeout** standby: the PC
+entered deep sleep within 3 minutes although the recorder held its keep-awake
+request. On this Modern Standby laptop the keep-awake request is not enough.
+The AC sleep timeout must be "never".
+
+There are five power plans (Performance, Balanced, Silent, Turbo and **Razer
+Cortex Power Plan**, which is active and sleeps after 10 min on AC). Razer Cortex
+and Armoury Crate switch plans by themselves, so the script changes every plan.
+In a normal (non-admin) PowerShell window:
 
 ```bat
-powercfg /setacvalueindex SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 5ca83367-6e45-459f-a27b-476b1d01c936 0
-powercfg /setacvalueindex SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 7648efa3-dd9c-4e3e-b566-50f929386280 0
-powercfg /setacvalueindex SCHEME_CURRENT 4f971e89-eebd-4455-a8de-9e59040e7347 96996bc0-ad50-47ec-923b-6f41874dd9eb 0
-powercfg /setactive SCHEME_CURRENT
+powershell -NoProfile -ExecutionPolicy Bypass -File %LOCALAPPDATA%\AStockQMT\current\tools\set_collection_power_settings.ps1 -Apply
 ```
 
-These set lid close, power button and sleep button to **Do nothing on AC power**
-(battery behaviour is unchanged). OEM tools (e.g. Armoury Crate) switch between
-schemes (Silent/Performance/Turbo) that each keep their own values: re-run the
-commands after switching modes. The collection monitor checks every 30 minutes
-and warns in its readiness alert if any of them is back to Sleep.
-To undo: run the same commands with `1` instead of `0`.
+It saves the current values to `%USERPROFILE%\.a_stock_qmt\power_backup_<time>.json`
+and sets **on AC power only**: sleep after = never, hibernate after = never, lid,
+power button and sleep button = do nothing. Battery behaviour is unchanged, the
+screen can still turn off, and Win+L still locks. Without `-Apply` the script only
+lists the values. To undo, run it with `-Restore <backup file>` (it prints the exact
+command). Also consider disabling Razer Cortex's power-plan switching ("Boost"
+settings) or uninstalling it if you don't use it.
+
+The collection monitor checks the active plan every 30 minutes and warns in its
+readiness alert (04:00, 08:40, 12:40) if any of these is back to sleep.
 
 ## 3. Alerts on your phone
 

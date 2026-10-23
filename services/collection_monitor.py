@@ -486,9 +486,9 @@ def main() -> int:
             done[f"ready{slot}"] = today.isoformat()
             issues = [f for f in findings if f.severity != "INFO"]
             if power_risks:
-                issues.append(Finding("POWER_SETTINGS", "WARN", "Power button / lid will stop recording",
-                                      "; ".join(power_risks) + ". Lock with Win+L instead, or set these to "
-                                      "'Do nothing' on AC (docs/OPERATIONS.md)."))
+                issues.append(Finding("POWER_SETTINGS", "WARN", "Power settings will stop recording",
+                                      "; ".join(power_risks) + ". Run tools\\set_collection_power_settings.ps1 "
+                                      "-Apply (docs/OPERATIONS.md section 2) and lock with Win+L."))
             text = "; ".join(f"{f.title}" for f in issues) or "All collectors, QMT, AC power and integrity OK."
             pending.append(Finding(f"READINESS_{slot}", "WARN" if issues else "INFO",
                                    f"Pre-session readiness {slot}", text, immediate=True))

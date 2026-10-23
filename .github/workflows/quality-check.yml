@@ -87,7 +87,7 @@ jobs:
       - name: Parse PowerShell scripts with Windows PowerShell 5.1
         shell: powershell
         run: |
-          foreach ($f in @('services/start_monitor.ps1', 'deploy/install_runtime.ps1', 'deploy/restore_pre_pinning_runtime.ps1')) {
+          foreach ($f in @('services/start_monitor.ps1', 'deploy/install_runtime.ps1', 'deploy/restore_pre_pinning_runtime.ps1', 'tools/set_collection_power_settings.ps1')) {
             $tokens = $null; $errors = $null
             [void][System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $f), [ref]$tokens, [ref]$errors)
             if ($errors.Count) { throw ($f + ': ' + ($errors | Out-String)) }

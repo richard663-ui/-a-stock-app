@@ -18,13 +18,27 @@ crash on any of them; the computer was not running it.
 | Standby with other reason codes (e.g. 55) | 4 | Sep 21–22, Oct 12–13 |
 | No standby or shutdown logged: PC awake but recorder/QMT not running (e.g. reboot without login, QMT logged out) | 7 | Sep 1, 14, 18, 23, 24, Oct 8–9 |
 
+### Update: 2026-10-23 (first session after the monitor was added)
+
+The session was lost again, this time to **idle sleep**, not the power button.
+The PC entered Modern Standby at 08:06 Shanghai with reason "Idle Timeout"
+(the active Razer Cortex plan sleeps after 10 min on AC). It reached deep sleep
+(DRIPS) after 154 s and woke for the day at 04:59 the next morning. The
+training recorder reported its keep-awake request as active the whole time.
+The earlier conclusion that the request "works against idle timeout" therefore
+held only on some nights. The monitor detected and logged both interruptions
+(`alerts.jsonl`), but no phone channel was configured, so nobody was told.
+Fix: `tools/set_collection_power_settings.ps1 -Apply` (all plans, AC only) and an
+`alerts.toml` webhook. The monitor now also flags a non-zero AC sleep timeout.
+
 ## Mechanism
 
 - The laptop uses **Modern Standby** (S0 low-power idle). In the OEM "Silent"
   power plan, **lid close, power button and sleep button are set to Sleep on AC**.
-- The recorder's `SetThreadExecutionState(ES_SYSTEM_REQUIRED)` request works
-  against idle timeout: on Oct 21 the screen went off ("Idle Timeout") and the
-  session was still fully recorded. Windows does not let applications veto
+- The recorder's `SetThreadExecutionState(ES_SYSTEM_REQUIRED)` request is not
+  reliable against idle timeout here: on Oct 21 the PC stayed active through an
+  "Idle Timeout" standby, on Oct 23 it reached deep sleep within 3 minutes.
+  Only an AC sleep timeout of "never" is dependable. Windows does not let applications veto
   **user-initiated** standby (power button, lid), so those stop every process.
 - Services start from the Startup folder, i.e. only after a Windows logon, and
   QMT needs an interactive login, so a reboot stops collection until someone logs in.

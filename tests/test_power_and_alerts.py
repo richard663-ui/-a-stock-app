@@ -55,6 +55,16 @@ class PowerEventTests(unittest.TestCase):
         en = pe.parse_powercfg_buttons(POWERCFG_EN)
         self.assertEqual(en["power_button"]["ac"], "turn_off_display")
 
+    def test_idle_sleep_and_scheme_parsing(self):
+        text = ("电源方案 GUID: 825585a6-6528-44a3-8084-5183791a29bf  (Razer Cortex Power Plan)\n"
+                "      最小可能的设置: 0x00000000\n      最大可能的设置: 0xffffffff\n"
+                "      可能的设置增量: 0x00000001\n      可能的设置单位: 秒\n"
+                "    当前交流电源设置索引: 0x00000258\n    当前直流电源设置索引: 0x00000000\n")
+        self.assertEqual(pe.parse_powercfg_seconds(text), {"ac": 600, "dc": 0})
+        self.assertEqual(pe.parse_powercfg_seconds("no values"), {"ac": None, "dc": None})
+        scheme = pe.parse_active_scheme("Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)")
+        self.assertEqual(scheme, {"guid": "381b4222-f694-41f0-9685-ff5bb260df2e", "name": "Balanced"})
+
     def test_boot_events(self):
         xml = (f"<Event {NS}><System><Provider Name='Microsoft-Windows-Kernel-Power'/><EventID>41</EventID>"
                "<TimeCreated SystemTime='2026-09-12T00:41:00.0Z'/></System></Event>")
