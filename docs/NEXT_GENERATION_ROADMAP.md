@@ -87,7 +87,7 @@ pre-registration first and log every change after the first run.
 ## 6. Priorities (next 4–8 weeks)
 
 1. **Collection** (needs you): AC power settings script, phone alerts, BACKFILL_TICKS every two weeks; 10 consecutive sessions ≥ 95% coverage. An always-on mini PC is the structural fix.
-2. **Replace the baseline in research**: pre-register a composite of low volatility, low abnormal volume, small/illiquid, one recent-strength variable and distance-to-high; walk-forward 2015–21, holdout 2022–26; costs and capacity (20–40 names, ≥ 50m CNY daily amount).
+2. ~~Replace the baseline in research~~ **Done 2026-10-25, failed as a top-30 ranking** (`research/results/RANKING_FINDINGS.md`): the composite ranks the market well (IC +0.10) but its information is in the bottom fifth; usable long-only only as an "avoid list", now forward-tested (`exclusion_screen_v1.md`). The momentum baseline lost 25–39% a year against the market and should not be used.
 3. **Portfolio backtester** with T+1, limits, suspensions, lot sizes, the cost model and risk caps; paper ledger and daily target list on the phone.
 4. **Point-in-time fundamentals and catalysts** (the Tushare Pro purchase is your decision); quality and event studies with the same harness.
 5. **Sentiment/flow as regimes**; execution study (open vs VWAP vs limit) on the 5-minute store.

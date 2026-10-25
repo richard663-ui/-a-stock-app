@@ -252,7 +252,10 @@ def run_report(period: str) -> dict:
 
 
 def run_forward() -> dict:
-    """Dated top-30 C1 list (and B0 for comparison) from the latest complete session; no orders."""
+    """Dated C1 quintiles (avoid list = bottom fifth) from the latest complete session; no orders.
+
+    Pre-registered forward test: research/preregistration/exclusion_screen_v1.md.
+    """
     dataset = ds.dataset(str(mds.FEAT), format="parquet")
     latest = dataset.to_table(columns=["date"]).to_pandas()["date"].max()
     start = pd.Timestamp(latest) - pd.Timedelta(days=10)
@@ -265,17 +268,15 @@ def run_forward() -> dict:
     names = pd.read_csv(DATA / "instruments.csv", encoding="utf-8-sig")[["symbol", "name"]]
     PAPER.mkdir(parents=True, exist_ok=True)
     as_of = f["date"].max().date().isoformat()
-    lists = {}
-    for strat in ("C1", "B0"):
-        top = f.nlargest(TOP_N, strat)[["symbol", strat, "amt20", "vol_ratio", "vol20", "dist_high60", "mom20"]]
-        top = top.merge(names, on="symbol", how="left").rename(columns={strat: "score"})
-        top.insert(0, "strategy", strat)
-        top.insert(0, "signal_date", as_of)
-        path = PAPER / f"ranking_{strat}_{as_of}.csv"
-        top.to_csv(path, index=False, encoding="utf-8-sig")
-        lists[strat] = str(path)
-    return {"signal_date": as_of, "entry": "next session open", "eligible": int(len(f)), "lists": lists,
-            "note": "Paper track only; outcomes are evaluated later from the same data store. No orders."}
+    f["C1_quintile"] = pd.qcut(f["C1"].rank(method="first"), 5, labels=False) + 1
+    cols = ["symbol", "C1", "C1_quintile", "B0", "amt20", "vol_ratio", "vol20", "dist_high60", "mom20"]
+    book = f[cols].merge(names, on="symbol", how="left").sort_values("C1")
+    book.insert(0, "signal_date", as_of)
+    path = PAPER / f"ranking_forward_{as_of}.csv"
+    book.to_csv(path, index=False, encoding="utf-8-sig")
+    return {"signal_date": as_of, "entry": "next session open", "eligible": int(len(f)),
+            "avoid_list_size": int((f["C1_quintile"] == 1).sum()), "file": str(path),
+            "note": "Paper track only; outcomes evaluated after 60 sessions. No orders."}
 
 
 def main() -> int:

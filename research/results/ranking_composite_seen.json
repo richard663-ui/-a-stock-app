@@ -1,0 +1,2384 @@
+{
+ "version": "ranking-composite-v1",
+ "period": "seen",
+ "range": [
+  "2022-01-01",
+  "2099-12-31"
+ ],
+ "cost_bp_round_trip": 30.0,
+ "generated_at": "2026-10-25T10:51:43+00:00",
+ "portfolios": {
+  "C1|top30|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -12.42,
+   "ann_gross_excess_pct": -0.1,
+   "nw_t": -2.08,
+   "information_ratio": -0.96,
+   "ann_net_return_pct": -3.77,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -47.0,
+   "max_excess_drawdown_pct": -55.3,
+   "avg_turnover": 0.821,
+   "median_holding_amount_m": 60.1,
+   "by_year_excess_pct": {
+    "2022": -3.2,
+    "2023": -12.1,
+    "2024": -16.4,
+    "2025": -23.2,
+    "2026": -5.9
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -15.85,
+    "up": -9.62
+   },
+   "by_vol_excess_pct": {
+    "high": -15.16,
+    "low": -9.32
+   },
+   "ann_net_minus_csi1000_pct": -6.23
+  },
+  "C1|decile|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -4.34,
+   "ann_gross_excess_pct": 3.79,
+   "nw_t": -0.9,
+   "information_ratio": -0.43,
+   "ann_net_return_pct": 4.31,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -40.5,
+   "max_excess_drawdown_pct": -36.1,
+   "avg_turnover": 0.542,
+   "median_holding_amount_m": 71.0,
+   "by_year_excess_pct": {
+    "2022": -2.2,
+    "2023": -1.3,
+    "2024": -8.0,
+    "2025": -10.8,
+    "2026": 1.9
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -5.72,
+    "up": -3.22
+   },
+   "by_vol_excess_pct": {
+    "high": -6.4,
+    "low": -2.03
+   },
+   "ann_net_minus_csi1000_pct": 1.84
+  },
+  "C2|top30|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -11.62,
+   "ann_gross_excess_pct": 1.3,
+   "nw_t": -2.09,
+   "information_ratio": -0.98,
+   "ann_net_return_pct": -2.97,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -46.4,
+   "max_excess_drawdown_pct": -55.3,
+   "avg_turnover": 0.861,
+   "median_holding_amount_m": 57.3,
+   "by_year_excess_pct": {
+    "2022": -6.8,
+    "2023": -7.4,
+    "2024": -14.9,
+    "2025": -26.1,
+    "2026": -0.7
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -10.1,
+    "up": -12.85
+   },
+   "by_vol_excess_pct": {
+    "high": -12.07,
+    "low": -11.1
+   },
+   "ann_net_minus_csi1000_pct": -5.44
+  },
+  "C2|decile|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -2.32,
+   "ann_gross_excess_pct": 6.5,
+   "nw_t": -0.51,
+   "information_ratio": -0.25,
+   "ann_net_return_pct": 6.33,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -38.8,
+   "max_excess_drawdown_pct": -31.1,
+   "avg_turnover": 0.588,
+   "median_holding_amount_m": 66.6,
+   "by_year_excess_pct": {
+    "2022": 0.4,
+    "2023": -1.4,
+    "2024": -6.9,
+    "2025": -8.5,
+    "2026": 6.6
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -1.99,
+    "up": -2.6
+   },
+   "by_vol_excess_pct": {
+    "high": -3.29,
+    "low": -1.23
+   },
+   "ann_net_minus_csi1000_pct": 3.86
+  },
+  "C1_nosize|top30|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -21.45,
+   "ann_gross_excess_pct": -9.07,
+   "nw_t": -3.13,
+   "information_ratio": -1.47,
+   "ann_net_return_pct": -12.8,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -55.1,
+   "max_excess_drawdown_pct": -70.8,
+   "avg_turnover": 0.825,
+   "median_holding_amount_m": 119.1,
+   "by_year_excess_pct": {
+    "2022": -22.7,
+    "2023": -17.9,
+    "2024": -21.0,
+    "2025": -30.8,
+    "2026": -13.0
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -20.53,
+    "up": -22.2
+   },
+   "by_vol_excess_pct": {
+    "high": -23.92,
+    "low": -18.66
+   },
+   "ann_net_minus_csi1000_pct": -15.27
+  },
+  "C1_nosize|decile|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -9.77,
+   "ann_gross_excess_pct": -1.16,
+   "nw_t": -1.77,
+   "information_ratio": -0.84,
+   "ann_net_return_pct": -1.12,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -41.9,
+   "max_excess_drawdown_pct": -49.6,
+   "avg_turnover": 0.574,
+   "median_holding_amount_m": 116.7,
+   "by_year_excess_pct": {
+    "2022": -7.5,
+    "2023": -8.5,
+    "2024": -8.4,
+    "2025": -19.8,
+    "2026": -3.4
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -8.31,
+    "up": -10.95
+   },
+   "by_vol_excess_pct": {
+    "high": -10.07,
+    "low": -9.43
+   },
+   "ann_net_minus_csi1000_pct": -3.59
+  },
+  "B0|top30|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -25.27,
+   "ann_gross_excess_pct": -16.97,
+   "nw_t": -1.92,
+   "information_ratio": -0.85,
+   "ann_net_return_pct": -16.62,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -67.6,
+   "max_excess_drawdown_pct": -75.5,
+   "avg_turnover": 0.553,
+   "median_holding_amount_m": 963.4,
+   "by_year_excess_pct": {
+    "2022": -67.7,
+    "2023": -9.4,
+    "2024": -5.0,
+    "2025": -11.6,
+    "2026": -34.0
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -26.6,
+    "up": -24.19
+   },
+   "by_vol_excess_pct": {
+    "high": -35.59,
+    "low": -13.62
+   },
+   "ann_net_minus_csi1000_pct": -19.09
+  },
+  "B0|decile|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -26.41,
+   "ann_gross_excess_pct": -20.52,
+   "nw_t": -3.34,
+   "information_ratio": -1.62,
+   "ann_net_return_pct": -17.76,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -73.0,
+   "max_excess_drawdown_pct": -71.8,
+   "avg_turnover": 0.393,
+   "median_holding_amount_m": 371.6,
+   "by_year_excess_pct": {
+    "2022": -44.0,
+    "2023": -32.8,
+    "2024": -26.2,
+    "2025": -21.0,
+    "2026": -2.7
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -37.15,
+    "up": -17.69
+   },
+   "by_vol_excess_pct": {
+    "high": -31.56,
+    "low": -20.6
+   },
+   "ann_net_minus_csi1000_pct": -20.23
+  },
+  "S_lowabvol|top30|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -8.68,
+   "ann_gross_excess_pct": 4.3,
+   "nw_t": -1.43,
+   "information_ratio": -0.61,
+   "ann_net_return_pct": -0.03,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -54.1,
+   "max_excess_drawdown_pct": -46.2,
+   "avg_turnover": 0.866,
+   "median_holding_amount_m": 181.2,
+   "by_year_excess_pct": {
+    "2022": -20.1,
+    "2023": 14.6,
+    "2024": -17.8,
+    "2025": -9.8,
+    "2026": -10.1
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -8.45,
+    "up": -8.87
+   },
+   "by_vol_excess_pct": {
+    "high": -9.07,
+    "low": -8.24
+   },
+   "ann_net_minus_csi1000_pct": -2.5
+  },
+  "S_lowabvol|decile|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -3.3,
+   "ann_gross_excess_pct": 6.55,
+   "nw_t": -0.81,
+   "information_ratio": -0.35,
+   "ann_net_return_pct": 5.35,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -48.2,
+   "max_excess_drawdown_pct": -25.7,
+   "avg_turnover": 0.656,
+   "median_holding_amount_m": 163.5,
+   "by_year_excess_pct": {
+    "2022": -8.4,
+    "2023": 8.8,
+    "2024": -2.0,
+    "2025": -10.5,
+    "2026": -4.5
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -2.26,
+    "up": -4.14
+   },
+   "by_vol_excess_pct": {
+    "high": -1.62,
+    "low": -5.19
+   },
+   "ann_net_minus_csi1000_pct": 2.88
+  },
+  "S_small|top30|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -0.99,
+   "ann_gross_excess_pct": 13.06,
+   "nw_t": -0.2,
+   "information_ratio": -0.09,
+   "ann_net_return_pct": 7.66,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -42.3,
+   "max_excess_drawdown_pct": -23.6,
+   "avg_turnover": 0.937,
+   "median_holding_amount_m": 50.5,
+   "by_year_excess_pct": {
+    "2022": -9.8,
+    "2023": 10.1,
+    "2024": -0.8,
+    "2025": -3.1,
+    "2026": -1.0
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -3.38,
+    "up": 0.95
+   },
+   "by_vol_excess_pct": {
+    "high": -1.1,
+    "low": -0.86
+   },
+   "ann_net_minus_csi1000_pct": 5.19
+  },
+  "S_small|decile|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": 3.74,
+   "ann_gross_excess_pct": 11.08,
+   "nw_t": 1.0,
+   "information_ratio": 0.45,
+   "ann_net_return_pct": 12.39,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -39.1,
+   "max_excess_drawdown_pct": -14.0,
+   "avg_turnover": 0.49,
+   "median_holding_amount_m": 56.2,
+   "by_year_excess_pct": {
+    "2022": 4.8,
+    "2023": 3.5,
+    "2024": -3.1,
+    "2025": 6.1,
+    "2026": 8.4
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": 5.72,
+    "up": 2.12
+   },
+   "by_vol_excess_pct": {
+    "high": 2.73,
+    "low": 4.87
+   },
+   "ann_net_minus_csi1000_pct": 9.92
+  },
+  "S_lowvol|top30|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -5.15,
+   "ann_gross_excess_pct": 0.4,
+   "nw_t": -0.52,
+   "information_ratio": -0.25,
+   "ann_net_return_pct": 3.5,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -20.7,
+   "max_excess_drawdown_pct": -54.0,
+   "avg_turnover": 0.37,
+   "median_holding_amount_m": 141.1,
+   "by_year_excess_pct": {
+    "2022": 4.9,
+    "2023": -3.2,
+    "2024": 11.8,
+    "2025": -40.7,
+    "2026": 2.5
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": 0.73,
+    "up": -9.93
+   },
+   "by_vol_excess_pct": {
+    "high": -2.21,
+    "low": -8.46
+   },
+   "ann_net_minus_csi1000_pct": 1.03
+  },
+  "S_lowvol|decile|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -5.61,
+   "ann_gross_excess_pct": -1.69,
+   "nw_t": -0.73,
+   "information_ratio": -0.34,
+   "ann_net_return_pct": 3.04,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -30.5,
+   "max_excess_drawdown_pct": -46.9,
+   "avg_turnover": 0.262,
+   "median_holding_amount_m": 114.5,
+   "by_year_excess_pct": {
+    "2022": -3.6,
+    "2023": -5.3,
+    "2024": 2.7,
+    "2025": -24.2,
+    "2026": 4.1
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -1.82,
+    "up": -8.7
+   },
+   "by_vol_excess_pct": {
+    "high": -6.86,
+    "low": -4.21
+   },
+   "ann_net_minus_csi1000_pct": 0.57
+  },
+  "S_nearhigh|top30|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -62.18,
+   "ann_gross_excess_pct": -48.9,
+   "nw_t": -6.66,
+   "information_ratio": -2.88,
+   "ann_net_return_pct": -53.53,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -93.2,
+   "max_excess_drawdown_pct": -95.2,
+   "avg_turnover": 0.885,
+   "median_holding_amount_m": 192.8,
+   "by_year_excess_pct": {
+    "2022": -75.0,
+    "2023": -64.6,
+    "2024": -68.4,
+    "2025": -56.2,
+    "2026": -42.2
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -78.47,
+    "up": -48.94
+   },
+   "by_vol_excess_pct": {
+    "high": -61.73,
+    "low": -62.69
+   },
+   "ann_net_minus_csi1000_pct": -56.0
+  },
+  "S_nearhigh|decile|U50|h5": {
+   "periods": 231,
+   "ann_net_excess_pct": -21.87,
+   "ann_gross_excess_pct": -12.74,
+   "nw_t": -3.6,
+   "information_ratio": -1.57,
+   "ann_net_return_pct": -11.33,
+   "ann_bench_return_pct": 10.54,
+   "max_drawdown_pct": -64.0,
+   "max_excess_drawdown_pct": -65.6,
+   "avg_turnover": 0.609,
+   "median_holding_amount_m": 171.7,
+   "by_year_excess_pct": {
+    "2022": -32.7,
+    "2023": -20.2,
+    "2024": -18.7,
+    "2025": -30.3,
+    "2026": -3.4
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -24.7,
+    "up": -19.56
+   },
+   "by_vol_excess_pct": {
+    "high": -21.48,
+    "low": -22.31
+   },
+   "ann_net_minus_csi1000_pct": -15.76
+  },
+  "S_weak20|top30|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -1.86,
+   "ann_gross_excess_pct": 8.7,
+   "nw_t": -0.22,
+   "information_ratio": -0.08,
+   "ann_net_return_pct": 6.79,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -49.6,
+   "max_excess_drawdown_pct": -30.6,
+   "avg_turnover": 0.704,
+   "median_holding_amount_m": 272.5,
+   "by_year_excess_pct": {
+    "2022": -1.5,
+    "2023": 5.7,
+    "2024": 0.7,
+    "2025": 5.1,
+    "2026": -24.0
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": -11.24,
+    "up": 5.76
+   },
+   "by_vol_excess_pct": {
+    "high": -1.25,
+    "low": -2.55
+   },
+   "ann_net_minus_csi1000_pct": 4.32
+  },
+  "S_weak20|decile|U50|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -1.37,
+   "ann_gross_excess_pct": 6.79,
+   "nw_t": -0.26,
+   "information_ratio": -0.09,
+   "ann_net_return_pct": 7.28,
+   "ann_bench_return_pct": 8.65,
+   "max_drawdown_pct": -47.7,
+   "max_excess_drawdown_pct": -24.1,
+   "avg_turnover": 0.544,
+   "median_holding_amount_m": 183.8,
+   "by_year_excess_pct": {
+    "2022": -6.1,
+    "2023": 3.3,
+    "2024": 11.8,
+    "2025": 1.9,
+    "2026": -22.2
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": 4.45,
+    "up": -6.11
+   },
+   "by_vol_excess_pct": {
+    "high": 2.05,
+    "low": -5.24
+   },
+   "ann_net_minus_csi1000_pct": 4.81
+  },
+  "C1|top30|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -4.86,
+   "ann_gross_excess_pct": 7.11,
+   "nw_t": -0.84,
+   "information_ratio": -0.37,
+   "ann_net_return_pct": 6.92,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -28.4,
+   "max_excess_drawdown_pct": -43.4,
+   "avg_turnover": 0.798,
+   "median_holding_amount_m": 31.8,
+   "by_year_excess_pct": {
+    "2022": 11.1,
+    "2023": 1.9,
+    "2024": -13.4,
+    "2025": -16.6,
+    "2026": -8.1
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -4.79,
+    "up": -4.91
+   },
+   "by_vol_excess_pct": {
+    "high": -11.02,
+    "low": 2.1
+   },
+   "ann_net_minus_csi1000_pct": 4.45
+  },
+  "C1|decile|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -2.15,
+   "ann_gross_excess_pct": 5.35,
+   "nw_t": -0.47,
+   "information_ratio": -0.22,
+   "ann_net_return_pct": 9.63,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -30.9,
+   "max_excess_drawdown_pct": -32.4,
+   "avg_turnover": 0.5,
+   "median_holding_amount_m": 40.7,
+   "by_year_excess_pct": {
+    "2022": 6.7,
+    "2023": 2.9,
+    "2024": -9.2,
+    "2025": -10.8,
+    "2026": 0.2
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": -3.51,
+    "up": -1.04
+   },
+   "by_vol_excess_pct": {
+    "high": -5.8,
+    "low": 1.98
+   },
+   "ann_net_minus_csi1000_pct": 7.16
+  },
+  "C2|top30|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -3.46,
+   "ann_gross_excess_pct": 8.78,
+   "nw_t": -0.64,
+   "information_ratio": -0.28,
+   "ann_net_return_pct": 8.31,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -26.7,
+   "max_excess_drawdown_pct": -40.5,
+   "avg_turnover": 0.816,
+   "median_holding_amount_m": 28.1,
+   "by_year_excess_pct": {
+    "2022": 11.3,
+    "2023": 1.7,
+    "2024": -7.0,
+    "2025": -19.4,
+    "2026": -4.4
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -2.36,
+    "up": -4.35
+   },
+   "by_vol_excess_pct": {
+    "high": -4.57,
+    "low": -2.2
+   },
+   "ann_net_minus_csi1000_pct": 5.84
+  },
+  "C2|decile|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -0.38,
+   "ann_gross_excess_pct": 7.73,
+   "nw_t": -0.09,
+   "information_ratio": -0.04,
+   "ann_net_return_pct": 11.4,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -30.1,
+   "max_excess_drawdown_pct": -28.9,
+   "avg_turnover": 0.54,
+   "median_holding_amount_m": 36.5,
+   "by_year_excess_pct": {
+    "2022": 9.2,
+    "2023": 2.8,
+    "2024": -8.6,
+    "2025": -8.1,
+    "2026": 3.7
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": -1.15,
+    "up": 0.25
+   },
+   "by_vol_excess_pct": {
+    "high": -3.76,
+    "low": 3.45
+   },
+   "ann_net_minus_csi1000_pct": 8.93
+  },
+  "C1_nosize|top30|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -17.7,
+   "ann_gross_excess_pct": -5.26,
+   "nw_t": -2.53,
+   "information_ratio": -1.17,
+   "ann_net_return_pct": -5.93,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -44.5,
+   "max_excess_drawdown_pct": -65.5,
+   "avg_turnover": 0.83,
+   "median_holding_amount_m": 90.9,
+   "by_year_excess_pct": {
+    "2022": -16.1,
+    "2023": -17.5,
+    "2024": -9.0,
+    "2025": -28.7,
+    "2026": -17.5
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -16.51,
+    "up": -18.67
+   },
+   "by_vol_excess_pct": {
+    "high": -19.19,
+    "low": -16.02
+   },
+   "ann_net_minus_csi1000_pct": -8.4
+  },
+  "C1_nosize|decile|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -9.5,
+   "ann_gross_excess_pct": -1.03,
+   "nw_t": -1.87,
+   "information_ratio": -0.82,
+   "ann_net_return_pct": 2.27,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -34.1,
+   "max_excess_drawdown_pct": -47.7,
+   "avg_turnover": 0.565,
+   "median_holding_amount_m": 80.2,
+   "by_year_excess_pct": {
+    "2022": -5.1,
+    "2023": -6.4,
+    "2024": -10.2,
+    "2025": -19.8,
+    "2026": -5.3
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -9.12,
+    "up": -9.81
+   },
+   "by_vol_excess_pct": {
+    "high": -11.04,
+    "low": -7.77
+   },
+   "ann_net_minus_csi1000_pct": -0.2
+  },
+  "B0|top30|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -25.98,
+   "ann_gross_excess_pct": -17.55,
+   "nw_t": -1.96,
+   "information_ratio": -0.86,
+   "ann_net_return_pct": -14.2,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -62.7,
+   "max_excess_drawdown_pct": -76.4,
+   "avg_turnover": 0.562,
+   "median_holding_amount_m": 867.8,
+   "by_year_excess_pct": {
+    "2022": -72.0,
+    "2023": -8.9,
+    "2024": 2.2,
+    "2025": -18.0,
+    "2026": -34.5
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -25.68,
+    "up": -26.22
+   },
+   "by_vol_excess_pct": {
+    "high": -33.67,
+    "low": -17.3
+   },
+   "ann_net_minus_csi1000_pct": -16.67
+  },
+  "B0|decile|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -26.19,
+   "ann_gross_excess_pct": -20.37,
+   "nw_t": -3.3,
+   "information_ratio": -1.53,
+   "ann_net_return_pct": -14.42,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -68.5,
+   "max_excess_drawdown_pct": -71.7,
+   "avg_turnover": 0.388,
+   "median_holding_amount_m": 312.0,
+   "by_year_excess_pct": {
+    "2022": -41.8,
+    "2023": -31.0,
+    "2024": -27.2,
+    "2025": -21.9,
+    "2026": -4.3
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -36.24,
+    "up": -18.03
+   },
+   "by_vol_excess_pct": {
+    "high": -31.3,
+    "low": -20.43
+   },
+   "ann_net_minus_csi1000_pct": -16.89
+  },
+  "S_lowabvol|top30|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -10.91,
+   "ann_gross_excess_pct": 2.12,
+   "nw_t": -1.89,
+   "information_ratio": -0.85,
+   "ann_net_return_pct": 0.87,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -54.0,
+   "max_excess_drawdown_pct": -50.1,
+   "avg_turnover": 0.868,
+   "median_holding_amount_m": 166.1,
+   "by_year_excess_pct": {
+    "2022": -20.7,
+    "2023": 10.0,
+    "2024": -21.7,
+    "2025": -8.4,
+    "2026": -13.9
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -14.56,
+    "up": -7.93
+   },
+   "by_vol_excess_pct": {
+    "high": -12.78,
+    "low": -8.79
+   },
+   "ann_net_minus_csi1000_pct": -1.6
+  },
+  "S_lowabvol|decile|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -4.91,
+   "ann_gross_excess_pct": 4.76,
+   "nw_t": -1.4,
+   "information_ratio": -0.67,
+   "ann_net_return_pct": 6.86,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -44.6,
+   "max_excess_drawdown_pct": -28.7,
+   "avg_turnover": 0.644,
+   "median_holding_amount_m": 140.5,
+   "by_year_excess_pct": {
+    "2022": -9.2,
+    "2023": 4.5,
+    "2024": -1.5,
+    "2025": -11.3,
+    "2026": -7.7
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -4.13,
+    "up": -5.54
+   },
+   "by_vol_excess_pct": {
+    "high": -2.92,
+    "low": -7.16
+   },
+   "ann_net_minus_csi1000_pct": 4.4
+  },
+  "S_small|top30|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": 1.74,
+   "ann_gross_excess_pct": 12.98,
+   "nw_t": 0.36,
+   "information_ratio": 0.15,
+   "ann_net_return_pct": 13.51,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -40.6,
+   "max_excess_drawdown_pct": -23.3,
+   "avg_turnover": 0.75,
+   "median_holding_amount_m": 20.5,
+   "by_year_excess_pct": {
+    "2022": 8.7,
+    "2023": -0.9,
+    "2024": -16.0,
+    "2025": 5.9,
+    "2026": 13.7
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": -1.67,
+    "up": 4.5
+   },
+   "by_vol_excess_pct": {
+    "high": -2.66,
+    "low": 6.7
+   },
+   "ann_net_minus_csi1000_pct": 11.04
+  },
+  "S_small|decile|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": 8.52,
+   "ann_gross_excess_pct": 12.18,
+   "nw_t": 1.98,
+   "information_ratio": 0.84,
+   "ann_net_return_pct": 20.3,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -37.1,
+   "max_excess_drawdown_pct": -14.2,
+   "avg_turnover": 0.243,
+   "median_holding_amount_m": 26.7,
+   "by_year_excess_pct": {
+    "2022": 19.5,
+    "2023": 10.7,
+    "2024": -2.3,
+    "2025": 7.8,
+    "2026": 6.5
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": 9.26,
+    "up": 7.92
+   },
+   "by_vol_excess_pct": {
+    "high": 5.09,
+    "low": 12.4
+   },
+   "ann_net_minus_csi1000_pct": 17.83
+  },
+  "S_lowvol|top30|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -9.23,
+   "ann_gross_excess_pct": -3.39,
+   "nw_t": -0.94,
+   "information_ratio": -0.44,
+   "ann_net_return_pct": 2.55,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -17.1,
+   "max_excess_drawdown_pct": -58.9,
+   "avg_turnover": 0.389,
+   "median_holding_amount_m": 100.8,
+   "by_year_excess_pct": {
+    "2022": 1.9,
+    "2023": -6.0,
+    "2024": 4.4,
+    "2025": -43.7,
+    "2026": -1.8
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -6.06,
+    "up": -11.8
+   },
+   "by_vol_excess_pct": {
+    "high": -8.09,
+    "low": -10.51
+   },
+   "ann_net_minus_csi1000_pct": 0.08
+  },
+  "S_lowvol|decile|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -6.95,
+   "ann_gross_excess_pct": -2.98,
+   "nw_t": -1.0,
+   "information_ratio": -0.44,
+   "ann_net_return_pct": 4.83,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -24.2,
+   "max_excess_drawdown_pct": -49.1,
+   "avg_turnover": 0.264,
+   "median_holding_amount_m": 75.9,
+   "by_year_excess_pct": {
+    "2022": -1.8,
+    "2023": -4.1,
+    "2024": -3.5,
+    "2025": -24.5,
+    "2026": 0.7
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -5.56,
+    "up": -8.07
+   },
+   "by_vol_excess_pct": {
+    "high": -9.41,
+    "low": -4.17
+   },
+   "ann_net_minus_csi1000_pct": 2.36
+  },
+  "S_nearhigh|top30|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -59.35,
+   "ann_gross_excess_pct": -46.13,
+   "nw_t": -6.15,
+   "information_ratio": -2.64,
+   "ann_net_return_pct": -47.57,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -90.9,
+   "max_excess_drawdown_pct": -94.5,
+   "avg_turnover": 0.881,
+   "median_holding_amount_m": 171.9,
+   "by_year_excess_pct": {
+    "2022": -76.0,
+    "2023": -54.0,
+    "2024": -71.9,
+    "2025": -52.5,
+    "2026": -36.9
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -81.36,
+    "up": -41.46
+   },
+   "by_vol_excess_pct": {
+    "high": -64.78,
+    "low": -53.21
+   },
+   "ann_net_minus_csi1000_pct": -50.04
+  },
+  "S_nearhigh|decile|U20|h5": {
+   "periods": 231,
+   "ann_net_excess_pct": -21.69,
+   "ann_gross_excess_pct": -12.96,
+   "nw_t": -3.54,
+   "information_ratio": -1.5,
+   "ann_net_return_pct": -8.02,
+   "ann_bench_return_pct": 13.67,
+   "max_drawdown_pct": -58.8,
+   "max_excess_drawdown_pct": -66.1,
+   "avg_turnover": 0.582,
+   "median_holding_amount_m": 133.7,
+   "by_year_excess_pct": {
+    "2022": -29.0,
+    "2023": -19.6,
+    "2024": -23.2,
+    "2025": -29.5,
+    "2026": -3.1
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -26.54,
+    "up": -17.72
+   },
+   "by_vol_excess_pct": {
+    "high": -22.85,
+    "low": -20.39
+   },
+   "ann_net_minus_csi1000_pct": -12.44
+  },
+  "S_weak20|top30|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -5.79,
+   "ann_gross_excess_pct": 4.71,
+   "nw_t": -0.63,
+   "information_ratio": -0.25,
+   "ann_net_return_pct": 5.99,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -52.2,
+   "max_excess_drawdown_pct": -34.1,
+   "avg_turnover": 0.7,
+   "median_holding_amount_m": 265.4,
+   "by_year_excess_pct": {
+    "2022": -8.5,
+    "2023": -4.0,
+    "2024": 5.1,
+    "2025": 4.9,
+    "2026": -32.0
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -17.22,
+    "up": 3.51
+   },
+   "by_vol_excess_pct": {
+    "high": -1.08,
+    "low": -11.1
+   },
+   "ann_net_minus_csi1000_pct": 3.52
+  },
+  "S_weak20|decile|U20|h5": {
+   "periods": 232,
+   "ann_net_excess_pct": -3.09,
+   "ann_gross_excess_pct": 4.84,
+   "nw_t": -0.6,
+   "information_ratio": -0.22,
+   "ann_net_return_pct": 8.68,
+   "ann_bench_return_pct": 11.77,
+   "max_drawdown_pct": -47.2,
+   "max_excess_drawdown_pct": -23.9,
+   "avg_turnover": 0.529,
+   "median_holding_amount_m": 157.6,
+   "by_year_excess_pct": {
+    "2022": -10.4,
+    "2023": -0.1,
+    "2024": 12.7,
+    "2025": 1.1,
+    "2026": -23.2
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": 2.49,
+    "up": -7.63
+   },
+   "by_vol_excess_pct": {
+    "high": 1.06,
+    "low": -7.77
+   },
+   "ann_net_minus_csi1000_pct": 6.22
+  },
+  "C1|top30|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 2.93,
+   "ann_gross_excess_pct": 6.57,
+   "nw_t": 0.54,
+   "information_ratio": 0.24,
+   "ann_net_return_pct": 11.68,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -30.1,
+   "max_excess_drawdown_pct": -17.2,
+   "avg_turnover": 0.971,
+   "median_holding_amount_m": 60.2,
+   "by_year_excess_pct": {
+    "2022": 7.6,
+    "2023": 1.8,
+    "2024": 3.9,
+    "2025": -7.3,
+    "2026": 10.4
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": 9.17,
+    "up": -1.29
+   },
+   "by_vol_excess_pct": {
+    "high": 6.84,
+    "low": -1.43
+   },
+   "ann_net_minus_csi1000_pct": 8.25
+  },
+  "C1|decile|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 0.83,
+   "ann_gross_excess_pct": 3.83,
+   "nw_t": 0.22,
+   "information_ratio": 0.09,
+   "ann_net_return_pct": 9.59,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -27.5,
+   "max_excess_drawdown_pct": -18.5,
+   "avg_turnover": 0.799,
+   "median_holding_amount_m": 71.4,
+   "by_year_excess_pct": {
+    "2022": 5.2,
+    "2023": 5.3,
+    "2024": -2.2,
+    "2025": -4.5,
+    "2026": 0.3
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": 1.56,
+    "up": 0.34
+   },
+   "by_vol_excess_pct": {
+    "high": 1.07,
+    "low": 0.57
+   },
+   "ann_net_minus_csi1000_pct": 6.15
+  },
+  "C2|top30|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 1.96,
+   "ann_gross_excess_pct": 5.63,
+   "nw_t": 0.32,
+   "information_ratio": 0.15,
+   "ann_net_return_pct": 10.72,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -31.4,
+   "max_excess_drawdown_pct": -25.5,
+   "avg_turnover": 0.978,
+   "median_holding_amount_m": 57.3,
+   "by_year_excess_pct": {
+    "2022": 9.0,
+    "2023": 0.9,
+    "2024": -0.1,
+    "2025": -8.0,
+    "2026": 10.0
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": 8.77,
+    "up": -2.65
+   },
+   "by_vol_excess_pct": {
+    "high": 4.76,
+    "low": -1.16
+   },
+   "ann_net_minus_csi1000_pct": 7.28
+  },
+  "C2|decile|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 3.29,
+   "ann_gross_excess_pct": 6.35,
+   "nw_t": 0.9,
+   "information_ratio": 0.35,
+   "ann_net_return_pct": 12.04,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -29.5,
+   "max_excess_drawdown_pct": -14.2,
+   "avg_turnover": 0.817,
+   "median_holding_amount_m": 66.9,
+   "by_year_excess_pct": {
+    "2022": 4.9,
+    "2023": 5.0,
+    "2024": 1.2,
+    "2025": -0.6,
+    "2026": 6.7
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": 3.21,
+    "up": 3.34
+   },
+   "by_vol_excess_pct": {
+    "high": 3.36,
+    "low": 3.21
+   },
+   "ann_net_minus_csi1000_pct": 8.61
+  },
+  "C1_nosize|top30|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -7.27,
+   "ann_gross_excess_pct": -3.58,
+   "nw_t": -1.1,
+   "information_ratio": -0.47,
+   "ann_net_return_pct": 1.49,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -33.6,
+   "max_excess_drawdown_pct": -41.9,
+   "avg_turnover": 0.984,
+   "median_holding_amount_m": 122.8,
+   "by_year_excess_pct": {
+    "2022": -11.0,
+    "2023": 1.8,
+    "2024": -8.4,
+    "2025": -18.4,
+    "2026": 2.0
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -2.54,
+    "up": -10.47
+   },
+   "by_vol_excess_pct": {
+    "high": -6.91,
+    "low": -7.67
+   },
+   "ann_net_minus_csi1000_pct": -1.95
+  },
+  "C1_nosize|decile|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -5.52,
+   "ann_gross_excess_pct": -2.42,
+   "nw_t": -1.38,
+   "information_ratio": -0.49,
+   "ann_net_return_pct": 3.23,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -33.1,
+   "max_excess_drawdown_pct": -32.7,
+   "avg_turnover": 0.827,
+   "median_holding_amount_m": 116.0,
+   "by_year_excess_pct": {
+    "2022": -2.9,
+    "2023": -0.7,
+    "2024": -7.3,
+    "2025": -11.8,
+    "2026": -4.8
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -4.22,
+    "up": -6.4
+   },
+   "by_vol_excess_pct": {
+    "high": -5.79,
+    "low": -5.23
+   },
+   "ann_net_minus_csi1000_pct": -0.2
+  },
+  "B0|top30|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -36.18,
+   "ann_gross_excess_pct": -32.72,
+   "nw_t": -3.64,
+   "information_ratio": -1.39,
+   "ann_net_return_pct": -27.42,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -75.2,
+   "max_excess_drawdown_pct": -82.1,
+   "avg_turnover": 0.922,
+   "median_holding_amount_m": 964.1,
+   "by_year_excess_pct": {
+    "2022": -66.6,
+    "2023": -26.1,
+    "2024": -37.8,
+    "2025": -21.6,
+    "2026": -26.5
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -46.09,
+    "up": -29.47
+   },
+   "by_vol_excess_pct": {
+    "high": -39.51,
+    "low": -32.47
+   },
+   "ann_net_minus_csi1000_pct": -30.86
+  },
+  "B0|decile|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -24.01,
+   "ann_gross_excess_pct": -21.08,
+   "nw_t": -3.18,
+   "information_ratio": -1.4,
+   "ann_net_return_pct": -15.26,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -67.5,
+   "max_excess_drawdown_pct": -67.9,
+   "avg_turnover": 0.782,
+   "median_holding_amount_m": 388.1,
+   "by_year_excess_pct": {
+    "2022": -33.3,
+    "2023": -22.4,
+    "2024": -37.9,
+    "2025": -20.8,
+    "2026": 0.4
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -38.78,
+    "up": -14.03
+   },
+   "by_vol_excess_pct": {
+    "high": -30.5,
+    "low": -16.81
+   },
+   "ann_net_minus_csi1000_pct": -18.69
+  },
+  "S_lowabvol|top30|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 0.39,
+   "ann_gross_excess_pct": 4.12,
+   "nw_t": 0.09,
+   "information_ratio": 0.03,
+   "ann_net_return_pct": 9.15,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -43.1,
+   "max_excess_drawdown_pct": -18.5,
+   "avg_turnover": 0.995,
+   "median_holding_amount_m": 176.2,
+   "by_year_excess_pct": {
+    "2022": 5.3,
+    "2023": 6.2,
+    "2024": -8.2,
+    "2025": 10.6,
+    "2026": -16.2
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": 2.66,
+    "up": -1.14
+   },
+   "by_vol_excess_pct": {
+    "high": 2.95,
+    "low": -2.45
+   },
+   "ann_net_minus_csi1000_pct": 5.71
+  },
+  "S_lowabvol|decile|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -0.18,
+   "ann_gross_excess_pct": 3.33,
+   "nw_t": -0.05,
+   "information_ratio": -0.02,
+   "ann_net_return_pct": 8.57,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -40.4,
+   "max_excess_drawdown_pct": -14.6,
+   "avg_turnover": 0.937,
+   "median_holding_amount_m": 161.4,
+   "by_year_excess_pct": {
+    "2022": 0.9,
+    "2023": 1.6,
+    "2024": 1.9,
+    "2025": 5.3,
+    "2026": -14.1
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": 1.07,
+    "up": -1.03
+   },
+   "by_vol_excess_pct": {
+    "high": 2.16,
+    "low": -2.78
+   },
+   "ann_net_minus_csi1000_pct": 5.14
+  },
+  "S_small|top30|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 12.75,
+   "ann_gross_excess_pct": 16.45,
+   "nw_t": 3.39,
+   "information_ratio": 1.19,
+   "ann_net_return_pct": 21.51,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -30.8,
+   "max_excess_drawdown_pct": -5.9,
+   "avg_turnover": 0.988,
+   "median_holding_amount_m": 50.5,
+   "by_year_excess_pct": {
+    "2022": 7.9,
+    "2023": 16.7,
+    "2024": 12.0,
+    "2025": 9.2,
+    "2026": 19.7
+   },
+   "years_positive": "5/5",
+   "by_trend_excess_pct": {
+    "down": 14.75,
+    "up": 11.4
+   },
+   "by_vol_excess_pct": {
+    "high": 10.04,
+    "low": 15.76
+   },
+   "ann_net_minus_csi1000_pct": 18.07
+  },
+  "S_small|decile|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 8.62,
+   "ann_gross_excess_pct": 11.66,
+   "nw_t": 2.94,
+   "information_ratio": 1.11,
+   "ann_net_return_pct": 17.38,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -31.1,
+   "max_excess_drawdown_pct": -6.2,
+   "avg_turnover": 0.811,
+   "median_holding_amount_m": 56.3,
+   "by_year_excess_pct": {
+    "2022": 11.4,
+    "2023": 10.1,
+    "2024": 3.2,
+    "2025": 9.6,
+    "2026": 8.9
+   },
+   "years_positive": "5/5",
+   "by_trend_excess_pct": {
+    "down": 11.26,
+    "up": 6.84
+   },
+   "by_vol_excess_pct": {
+    "high": 7.6,
+    "low": 9.75
+   },
+   "ann_net_minus_csi1000_pct": 13.94
+  },
+  "S_lowvol|top30|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -2.59,
+   "ann_gross_excess_pct": 0.03,
+   "nw_t": -0.32,
+   "information_ratio": -0.11,
+   "ann_net_return_pct": 6.16,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -13.4,
+   "max_excess_drawdown_pct": -49.6,
+   "avg_turnover": 0.701,
+   "median_holding_amount_m": 141.9,
+   "by_year_excess_pct": {
+    "2022": 1.8,
+    "2023": 12.1,
+    "2024": 8.1,
+    "2025": -34.9,
+    "2026": 0.8
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": -2.32,
+    "up": -2.78
+   },
+   "by_vol_excess_pct": {
+    "high": 1.17,
+    "low": -6.77
+   },
+   "ann_net_minus_csi1000_pct": 2.73
+  },
+  "S_lowvol|decile|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -4.96,
+   "ann_gross_excess_pct": -2.96,
+   "nw_t": -0.84,
+   "information_ratio": -0.27,
+   "ann_net_return_pct": 3.8,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -18.9,
+   "max_excess_drawdown_pct": -44.0,
+   "avg_turnover": 0.533,
+   "median_holding_amount_m": 115.1,
+   "by_year_excess_pct": {
+    "2022": -2.6,
+    "2023": 2.4,
+    "2024": -3.4,
+    "2025": -24.3,
+    "2026": 5.9
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -2.94,
+    "up": -6.33
+   },
+   "by_vol_excess_pct": {
+    "high": -4.77,
+    "low": -5.18
+   },
+   "ann_net_minus_csi1000_pct": 0.36
+  },
+  "S_nearhigh|top30|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -21.75,
+   "ann_gross_excess_pct": -18.2,
+   "nw_t": -2.55,
+   "information_ratio": -1.01,
+   "ann_net_return_pct": -12.99,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -54.6,
+   "max_excess_drawdown_pct": -66.9,
+   "avg_turnover": 0.947,
+   "median_holding_amount_m": 197.4,
+   "by_year_excess_pct": {
+    "2022": -7.2,
+    "2023": 2.9,
+    "2024": -55.1,
+    "2025": -39.7,
+    "2026": -5.7
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -32.63,
+    "up": -14.39
+   },
+   "by_vol_excess_pct": {
+    "high": -18.24,
+    "low": -25.66
+   },
+   "ann_net_minus_csi1000_pct": -16.43
+  },
+  "S_nearhigh|decile|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -13.26,
+   "ann_gross_excess_pct": -10.19,
+   "nw_t": -2.2,
+   "information_ratio": -0.9,
+   "ann_net_return_pct": -4.5,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -48.8,
+   "max_excess_drawdown_pct": -54.3,
+   "avg_turnover": 0.818,
+   "median_holding_amount_m": 179.7,
+   "by_year_excess_pct": {
+    "2022": -12.1,
+    "2023": -8.6,
+    "2024": -27.7,
+    "2025": -23.2,
+    "2026": 11.5
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -18.19,
+    "up": -9.93
+   },
+   "by_vol_excess_pct": {
+    "high": -16.16,
+    "low": -10.04
+   },
+   "ann_net_minus_csi1000_pct": -7.94
+  },
+  "S_weak20|top30|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 6.29,
+   "ann_gross_excess_pct": 9.97,
+   "nw_t": 0.75,
+   "information_ratio": 0.27,
+   "ann_net_return_pct": 15.05,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -39.3,
+   "max_excess_drawdown_pct": -31.1,
+   "avg_turnover": 0.982,
+   "median_holding_amount_m": 271.5,
+   "by_year_excess_pct": {
+    "2022": 13.1,
+    "2023": 4.4,
+    "2024": 27.2,
+    "2025": -5.5,
+    "2026": -12.5
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": 19.75,
+    "up": -2.81
+   },
+   "by_vol_excess_pct": {
+    "high": 16.22,
+    "low": -4.74
+   },
+   "ann_net_minus_csi1000_pct": 11.61
+  },
+  "S_weak20|decile|U50|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 7.39,
+   "ann_gross_excess_pct": 10.86,
+   "nw_t": 1.14,
+   "information_ratio": 0.44,
+   "ann_net_return_pct": 16.15,
+   "ann_bench_return_pct": 8.76,
+   "max_drawdown_pct": -37.5,
+   "max_excess_drawdown_pct": -14.9,
+   "avg_turnover": 0.925,
+   "median_holding_amount_m": 190.2,
+   "by_year_excess_pct": {
+    "2022": 10.1,
+    "2023": 0.4,
+    "2024": 23.1,
+    "2025": 6.4,
+    "2026": -6.4
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": 23.35,
+    "up": -3.41
+   },
+   "by_vol_excess_pct": {
+    "high": 16.37,
+    "low": -2.59
+   },
+   "ann_net_minus_csi1000_pct": 12.71
+  },
+  "C1|top30|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 6.5,
+   "ann_gross_excess_pct": 10.1,
+   "nw_t": 1.38,
+   "information_ratio": 0.51,
+   "ann_net_return_pct": 18.94,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -26.8,
+   "max_excess_drawdown_pct": -17.6,
+   "avg_turnover": 0.961,
+   "median_holding_amount_m": 30.0,
+   "by_year_excess_pct": {
+    "2022": 16.8,
+    "2023": 14.8,
+    "2024": -2.6,
+    "2025": -3.6,
+    "2026": 7.2
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": 0.88,
+    "up": 10.3
+   },
+   "by_vol_excess_pct": {
+    "high": 3.94,
+    "low": 9.35
+   },
+   "ann_net_minus_csi1000_pct": 15.51
+  },
+  "C1|decile|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 2.51,
+   "ann_gross_excess_pct": 5.29,
+   "nw_t": 0.65,
+   "information_ratio": 0.26,
+   "ann_net_return_pct": 14.95,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -28.4,
+   "max_excess_drawdown_pct": -18.9,
+   "avg_turnover": 0.74,
+   "median_holding_amount_m": 42.3,
+   "by_year_excess_pct": {
+    "2022": 11.2,
+    "2023": 12.0,
+    "2024": -9.1,
+    "2025": -4.0,
+    "2026": 2.6
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": 0.77,
+    "up": 3.69
+   },
+   "by_vol_excess_pct": {
+    "high": -0.73,
+    "low": 6.11
+   },
+   "ann_net_minus_csi1000_pct": 11.52
+  },
+  "C2|top30|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 3.89,
+   "ann_gross_excess_pct": 7.45,
+   "nw_t": 0.8,
+   "information_ratio": 0.31,
+   "ann_net_return_pct": 16.33,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -29.0,
+   "max_excess_drawdown_pct": -15.4,
+   "avg_turnover": 0.95,
+   "median_holding_amount_m": 28.2,
+   "by_year_excess_pct": {
+    "2022": 10.1,
+    "2023": 4.6,
+    "2024": -4.4,
+    "2025": 3.3,
+    "2026": 6.6
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": -0.58,
+    "up": 6.91
+   },
+   "by_vol_excess_pct": {
+    "high": 0.57,
+    "low": 7.58
+   },
+   "ann_net_minus_csi1000_pct": 12.89
+  },
+  "C2|decile|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 3.97,
+   "ann_gross_excess_pct": 6.74,
+   "nw_t": 1.0,
+   "information_ratio": 0.42,
+   "ann_net_return_pct": 16.41,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -30.5,
+   "max_excess_drawdown_pct": -15.3,
+   "avg_turnover": 0.739,
+   "median_holding_amount_m": 36.7,
+   "by_year_excess_pct": {
+    "2022": 13.1,
+    "2023": 9.0,
+    "2024": -9.7,
+    "2025": 0.6,
+    "2026": 7.8
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": 1.14,
+    "up": 5.88
+   },
+   "by_vol_excess_pct": {
+    "high": 0.21,
+    "low": 8.14
+   },
+   "ann_net_minus_csi1000_pct": 12.97
+  },
+  "C1_nosize|top30|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -5.46,
+   "ann_gross_excess_pct": -1.78,
+   "nw_t": -1.04,
+   "information_ratio": -0.39,
+   "ann_net_return_pct": 6.98,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -23.9,
+   "max_excess_drawdown_pct": -35.9,
+   "avg_turnover": 0.983,
+   "median_holding_amount_m": 95.4,
+   "by_year_excess_pct": {
+    "2022": -6.2,
+    "2023": 2.6,
+    "2024": -4.0,
+    "2025": -17.2,
+    "2026": -1.5
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -2.66,
+    "up": -7.36
+   },
+   "by_vol_excess_pct": {
+    "high": -3.6,
+    "low": -7.53
+   },
+   "ann_net_minus_csi1000_pct": 3.54
+  },
+  "C1_nosize|decile|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -5.34,
+   "ann_gross_excess_pct": -2.3,
+   "nw_t": -1.37,
+   "information_ratio": -0.47,
+   "ann_net_return_pct": 7.1,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -25.3,
+   "max_excess_drawdown_pct": -33.4,
+   "avg_turnover": 0.811,
+   "median_holding_amount_m": 84.0,
+   "by_year_excess_pct": {
+    "2022": 1.3,
+    "2023": 1.7,
+    "2024": -12.4,
+    "2025": -13.4,
+    "2026": -3.5
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -6.04,
+    "up": -4.87
+   },
+   "by_vol_excess_pct": {
+    "high": -6.61,
+    "low": -3.93
+   },
+   "ann_net_minus_csi1000_pct": 3.66
+  },
+  "B0|top30|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -38.68,
+   "ann_gross_excess_pct": -35.19,
+   "nw_t": -3.71,
+   "information_ratio": -1.37,
+   "ann_net_return_pct": -26.23,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -72.5,
+   "max_excess_drawdown_pct": -84.4,
+   "avg_turnover": 0.928,
+   "median_holding_amount_m": 888.8,
+   "by_year_excess_pct": {
+    "2022": -71.9,
+    "2023": -28.8,
+    "2024": -33.5,
+    "2025": -21.6,
+    "2026": -37.3
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -47.61,
+    "up": -32.63
+   },
+   "by_vol_excess_pct": {
+    "high": -45.59,
+    "low": -30.99
+   },
+   "ann_net_minus_csi1000_pct": -29.67
+  },
+  "B0|decile|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -25.05,
+   "ann_gross_excess_pct": -22.16,
+   "nw_t": -3.21,
+   "information_ratio": -1.42,
+   "ann_net_return_pct": -12.61,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -64.4,
+   "max_excess_drawdown_pct": -69.4,
+   "avg_turnover": 0.772,
+   "median_holding_amount_m": 326.2,
+   "by_year_excess_pct": {
+    "2022": -32.0,
+    "2023": -23.9,
+    "2024": -41.6,
+    "2025": -19.7,
+    "2026": -2.3
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -39.87,
+    "up": -15.02
+   },
+   "by_vol_excess_pct": {
+    "high": -32.13,
+    "low": -17.18
+   },
+   "ann_net_minus_csi1000_pct": -16.04
+  },
+  "S_lowabvol|top30|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -1.45,
+   "ann_gross_excess_pct": 2.28,
+   "nw_t": -0.32,
+   "information_ratio": -0.1,
+   "ann_net_return_pct": 10.99,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -43.7,
+   "max_excess_drawdown_pct": -24.5,
+   "avg_turnover": 0.995,
+   "median_holding_amount_m": 152.9,
+   "by_year_excess_pct": {
+    "2022": 4.6,
+    "2023": 6.9,
+    "2024": -11.7,
+    "2025": 5.7,
+    "2026": -16.4
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": -2.49,
+    "up": -0.74
+   },
+   "by_vol_excess_pct": {
+    "high": 0.05,
+    "low": -3.11
+   },
+   "ann_net_minus_csi1000_pct": 7.56
+  },
+  "S_lowabvol|decile|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -2.81,
+   "ann_gross_excess_pct": 0.66,
+   "nw_t": -0.97,
+   "information_ratio": -0.39,
+   "ann_net_return_pct": 9.64,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -38.9,
+   "max_excess_drawdown_pct": -15.0,
+   "avg_turnover": 0.923,
+   "median_holding_amount_m": 134.7,
+   "by_year_excess_pct": {
+    "2022": -2.2,
+    "2023": -3.4,
+    "2024": 0.3,
+    "2025": 3.0,
+    "2026": -14.7
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -1.56,
+    "up": -3.65
+   },
+   "by_vol_excess_pct": {
+    "high": -0.5,
+    "low": -5.36
+   },
+   "ann_net_minus_csi1000_pct": 6.2
+  },
+  "S_small|top30|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 15.35,
+   "ann_gross_excess_pct": 18.78,
+   "nw_t": 3.62,
+   "information_ratio": 1.38,
+   "ann_net_return_pct": 27.79,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -34.9,
+   "max_excess_drawdown_pct": -9.9,
+   "avg_turnover": 0.915,
+   "median_holding_amount_m": 20.5,
+   "by_year_excess_pct": {
+    "2022": 33.2,
+    "2023": 15.3,
+    "2024": -0.7,
+    "2025": 13.6,
+    "2026": 15.4
+   },
+   "years_positive": "4/5",
+   "by_trend_excess_pct": {
+    "down": 10.56,
+    "up": 18.59
+   },
+   "by_vol_excess_pct": {
+    "high": 11.67,
+    "low": 19.44
+   },
+   "ann_net_minus_csi1000_pct": 24.36
+  },
+  "S_small|decile|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 13.31,
+   "ann_gross_excess_pct": 15.45,
+   "nw_t": 3.6,
+   "information_ratio": 1.36,
+   "ann_net_return_pct": 25.75,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -34.3,
+   "max_excess_drawdown_pct": -9.8,
+   "avg_turnover": 0.569,
+   "median_holding_amount_m": 26.9,
+   "by_year_excess_pct": {
+    "2022": 21.4,
+    "2023": 18.1,
+    "2024": 4.7,
+    "2025": 11.3,
+    "2026": 10.3
+   },
+   "years_positive": "5/5",
+   "by_trend_excess_pct": {
+    "down": 13.28,
+    "up": 13.34
+   },
+   "by_vol_excess_pct": {
+    "high": 10.65,
+    "low": 16.27
+   },
+   "ann_net_minus_csi1000_pct": 22.32
+  },
+  "S_lowvol|top30|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -5.27,
+   "ann_gross_excess_pct": -2.6,
+   "nw_t": -0.71,
+   "information_ratio": -0.22,
+   "ann_net_return_pct": 7.17,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -13.2,
+   "max_excess_drawdown_pct": -51.4,
+   "avg_turnover": 0.712,
+   "median_holding_amount_m": 106.4,
+   "by_year_excess_pct": {
+    "2022": -1.9,
+    "2023": 10.6,
+    "2024": 7.6,
+    "2025": -37.7,
+    "2026": -4.9
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -8.11,
+    "up": -3.35
+   },
+   "by_vol_excess_pct": {
+    "high": -4.0,
+    "low": -6.68
+   },
+   "ann_net_minus_csi1000_pct": 3.74
+  },
+  "S_lowvol|decile|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -6.59,
+   "ann_gross_excess_pct": -4.55,
+   "nw_t": -1.29,
+   "information_ratio": -0.39,
+   "ann_net_return_pct": 5.85,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -15.2,
+   "max_excess_drawdown_pct": -44.7,
+   "avg_turnover": 0.545,
+   "median_holding_amount_m": 78.1,
+   "by_year_excess_pct": {
+    "2022": -1.2,
+    "2023": 1.6,
+    "2024": -8.8,
+    "2025": -24.9,
+    "2026": 2.7
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": -6.43,
+    "up": -6.7
+   },
+   "by_vol_excess_pct": {
+    "high": -7.01,
+    "low": -6.12
+   },
+   "ann_net_minus_csi1000_pct": 2.42
+  },
+  "S_nearhigh|top30|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -25.16,
+   "ann_gross_excess_pct": -21.61,
+   "nw_t": -3.26,
+   "information_ratio": -1.25,
+   "ann_net_return_pct": -12.71,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -54.1,
+   "max_excess_drawdown_pct": -71.6,
+   "avg_turnover": 0.944,
+   "median_holding_amount_m": 172.6,
+   "by_year_excess_pct": {
+    "2022": -10.8,
+    "2023": -11.1,
+    "2024": -51.3,
+    "2025": -43.5,
+    "2026": -3.6
+   },
+   "years_positive": "0/5",
+   "by_trend_excess_pct": {
+    "down": -41.24,
+    "up": -14.28
+   },
+   "by_vol_excess_pct": {
+    "high": -22.6,
+    "low": -28.0
+   },
+   "ann_net_minus_csi1000_pct": -16.15
+  },
+  "S_nearhigh|decile|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": -14.72,
+   "ann_gross_excess_pct": -11.72,
+   "nw_t": -2.33,
+   "information_ratio": -1.01,
+   "ann_net_return_pct": -2.28,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -46.2,
+   "max_excess_drawdown_pct": -57.2,
+   "avg_turnover": 0.801,
+   "median_holding_amount_m": 140.2,
+   "by_year_excess_pct": {
+    "2022": -11.4,
+    "2023": -6.8,
+    "2024": -37.6,
+    "2025": -22.7,
+    "2026": 11.5
+   },
+   "years_positive": "1/5",
+   "by_trend_excess_pct": {
+    "down": -24.14,
+    "up": -8.35
+   },
+   "by_vol_excess_pct": {
+    "high": -19.97,
+    "low": -8.89
+   },
+   "ann_net_minus_csi1000_pct": -5.71
+  },
+  "S_weak20|top30|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 1.31,
+   "ann_gross_excess_pct": 4.99,
+   "nw_t": 0.15,
+   "information_ratio": 0.06,
+   "ann_net_return_pct": 13.75,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -40.3,
+   "max_excess_drawdown_pct": -38.4,
+   "avg_turnover": 0.982,
+   "median_holding_amount_m": 262.2,
+   "by_year_excess_pct": {
+    "2022": 8.2,
+    "2023": -4.0,
+    "2024": 21.6,
+    "2025": -7.3,
+    "2026": -16.4
+   },
+   "years_positive": "2/5",
+   "by_trend_excess_pct": {
+    "down": 13.91,
+    "up": -7.21
+   },
+   "by_vol_excess_pct": {
+    "high": 12.85,
+    "low": -11.51
+   },
+   "ann_net_minus_csi1000_pct": 10.32
+  },
+  "S_weak20|decile|U20|h20": {
+   "periods": 57,
+   "ann_net_excess_pct": 5.79,
+   "ann_gross_excess_pct": 9.24,
+   "nw_t": 0.94,
+   "information_ratio": 0.38,
+   "ann_net_return_pct": 18.23,
+   "ann_bench_return_pct": 12.44,
+   "max_drawdown_pct": -35.6,
+   "max_excess_drawdown_pct": -14.7,
+   "avg_turnover": 0.92,
+   "median_holding_amount_m": 165.4,
+   "by_year_excess_pct": {
+    "2022": 4.9,
+    "2023": -1.7,
+    "2024": 25.5,
+    "2025": 5.1,
+    "2026": -8.4
+   },
+   "years_positive": "3/5",
+   "by_trend_excess_pct": {
+    "down": 20.68,
+    "up": -4.29
+   },
+   "by_vol_excess_pct": {
+    "high": 14.35,
+    "low": -3.72
+   },
+   "ann_net_minus_csi1000_pct": 14.79
+  }
+ },
+ "ic": {
+  "B0|U20|h5": {
+   "mean_ic": -0.0557,
+   "nw_t": -5.86,
+   "positive_share": 0.373
+  },
+  "B0|U20|h20": {
+   "mean_ic": -0.0882,
+   "nw_t": -5.39,
+   "positive_share": 0.293
+  },
+  "B0|U50|h5": {
+   "mean_ic": -0.0574,
+   "nw_t": -6.09,
+   "positive_share": 0.368
+  },
+  "B0|U50|h20": {
+   "mean_ic": -0.0899,
+   "nw_t": -5.44,
+   "positive_share": 0.285
+  },
+  "C1|U20|h5": {
+   "mean_ic": 0.0772,
+   "nw_t": 8.13,
+   "positive_share": 0.685
+  },
+  "C1|U20|h20": {
+   "mean_ic": 0.1129,
+   "nw_t": 6.44,
+   "positive_share": 0.746
+  },
+  "C1|U50|h5": {
+   "mean_ic": 0.0743,
+   "nw_t": 8.02,
+   "positive_share": 0.672
+  },
+  "C1|U50|h20": {
+   "mean_ic": 0.1096,
+   "nw_t": 6.54,
+   "positive_share": 0.743
+  },
+  "C1_nosize|U20|h5": {
+   "mean_ic": 0.0643,
+   "nw_t": 7.02,
+   "positive_share": 0.67
+  },
+  "C1_nosize|U20|h20": {
+   "mean_ic": 0.0851,
+   "nw_t": 5.32,
+   "positive_share": 0.701
+  },
+  "C1_nosize|U50|h5": {
+   "mean_ic": 0.0651,
+   "nw_t": 7.08,
+   "positive_share": 0.666
+  },
+  "C1_nosize|U50|h20": {
+   "mean_ic": 0.0886,
+   "nw_t": 5.43,
+   "positive_share": 0.704
+  },
+  "C2|U20|h5": {
+   "mean_ic": 0.0801,
+   "nw_t": 8.76,
+   "positive_share": 0.691
+  },
+  "C2|U20|h20": {
+   "mean_ic": 0.1181,
+   "nw_t": 6.83,
+   "positive_share": 0.77
+  },
+  "C2|U50|h5": {
+   "mean_ic": 0.0763,
+   "nw_t": 8.67,
+   "positive_share": 0.684
+  },
+  "C2|U50|h20": {
+   "mean_ic": 0.1132,
+   "nw_t": 6.94,
+   "positive_share": 0.769
+  },
+  "S_lowabvol|U20|h5": {
+   "mean_ic": 0.0308,
+   "nw_t": 6.1,
+   "positive_share": 0.626
+  },
+  "S_lowabvol|U20|h20": {
+   "mean_ic": 0.0405,
+   "nw_t": 6.22,
+   "positive_share": 0.701
+  },
+  "S_lowabvol|U50|h5": {
+   "mean_ic": 0.0344,
+   "nw_t": 6.5,
+   "positive_share": 0.645
+  },
+  "S_lowabvol|U50|h20": {
+   "mean_ic": 0.0479,
+   "nw_t": 6.67,
+   "positive_share": 0.722
+  },
+  "S_lowvol|U20|h5": {
+   "mean_ic": 0.0633,
+   "nw_t": 5.44,
+   "positive_share": 0.633
+  },
+  "S_lowvol|U20|h20": {
+   "mean_ic": 0.0863,
+   "nw_t": 4.16,
+   "positive_share": 0.669
+  },
+  "S_lowvol|U50|h5": {
+   "mean_ic": 0.062,
+   "nw_t": 5.22,
+   "positive_share": 0.631
+  },
+  "S_lowvol|U50|h20": {
+   "mean_ic": 0.0851,
+   "nw_t": 4.0,
+   "positive_share": 0.661
+  },
+  "S_nearhigh|U20|h5": {
+   "mean_ic": -0.0196,
+   "nw_t": -1.94,
+   "positive_share": 0.486
+  },
+  "S_nearhigh|U20|h20": {
+   "mean_ic": -0.0303,
+   "nw_t": -1.93,
+   "positive_share": 0.466
+  },
+  "S_nearhigh|U50|h5": {
+   "mean_ic": -0.024,
+   "nw_t": -2.36,
+   "positive_share": 0.475
+  },
+  "S_nearhigh|U50|h20": {
+   "mean_ic": -0.0359,
+   "nw_t": -2.27,
+   "positive_share": 0.43
+  },
+  "S_small|U20|h5": {
+   "mean_ic": 0.0636,
+   "nw_t": 7.21,
+   "positive_share": 0.675
+  },
+  "S_small|U20|h20": {
+   "mean_ic": 0.1101,
+   "nw_t": 6.67,
+   "positive_share": 0.776
+  },
+  "S_small|U50|h5": {
+   "mean_ic": 0.0512,
+   "nw_t": 6.69,
+   "positive_share": 0.641
+  },
+  "S_small|U50|h20": {
+   "mean_ic": 0.0902,
+   "nw_t": 6.47,
+   "positive_share": 0.755
+  },
+  "S_weak20|U20|h5": {
+   "mean_ic": 0.052,
+   "nw_t": 6.21,
+   "positive_share": 0.639
+  },
+  "S_weak20|U20|h20": {
+   "mean_ic": 0.0768,
+   "nw_t": 5.28,
+   "positive_share": 0.676
+  },
+  "S_weak20|U50|h5": {
+   "mean_ic": 0.0567,
+   "nw_t": 6.7,
+   "positive_share": 0.647
+  },
+  "S_weak20|U50|h20": {
+   "mean_ic": 0.0837,
+   "nw_t": 5.63,
+   "positive_share": 0.694
+  }
+ },
+ "csi1000": {
+  "U50|h5": {
+   "ann_ew_minus_csi1000_pct": 6.18
+  },
+  "U20|h5": {
+   "ann_ew_minus_csi1000_pct": 9.31
+  },
+  "U50|h20": {
+   "ann_ew_minus_csi1000_pct": 5.32
+  },
+  "U20|h20": {
+   "ann_ew_minus_csi1000_pct": 9.01
+  }
+ },
+ "verdict": {
+  "primary": "C1|top30|U50|h5",
+  "criteria_met": false,
+  "primary_summary": {
+   "ann_net_excess_pct": -12.42,
+   "nw_t": -2.08,
+   "information_ratio": -0.96,
+   "years_positive": "0/5",
+   "avg_turnover": 0.821
+  },
+  "baseline_summary": {
+   "ann_net_excess_pct": -25.27,
+   "nw_t": -1.92,
+   "information_ratio": -0.85
+  }
+ }
+}

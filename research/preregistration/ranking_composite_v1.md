@@ -79,4 +79,9 @@ compounded (same for all rankings); equal-weight benchmarks tilt small.
 
 ## Changes after the first run
 
-(none yet)
+- The verdict (fail) was recorded in commit 15b7c2f before the seen-period run.
+- Added afterwards and labelled exploratory: a quintile breakdown of C1
+  (`research/tools/ranking_quintiles_exploratory.py`). It only motivates the new
+  forward-tested hypothesis in `exclusion_screen_v1.md`; it is not a result of this
+  study.
+- No forward track for C1 itself was started, since C1 was not "promising".
