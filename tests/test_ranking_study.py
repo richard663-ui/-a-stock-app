@@ -48,6 +48,16 @@ class RankingStudyTests(unittest.TestCase):
         self.assertGreaterEqual(f.set_index("symbol").loc[top["symbol"], "C1"].min(),
                                 f.set_index("symbol").drop(top["symbol"])["C1"].max())
 
+    def test_per_date_spearman_matches_pandas(self):
+        rng = np.random.default_rng(3)
+        dates = pd.Series(np.repeat(pd.to_datetime(["2016-01-04", "2016-01-05"]), 50))
+        x, y = pd.Series(rng.normal(size=100)), pd.Series(rng.normal(size=100))
+        y.iloc[3] = np.nan
+        got = rs.per_date_spearman(dates, x, y)
+        for d in dates.unique():
+            m = (dates == d).to_numpy()
+            self.assertAlmostEqual(got.loc[d], x[m].corr(y[m], method="spearman"), places=10)
+
     def test_turnover_costs_and_excess(self):
         d1, d2 = pd.Timestamp("2016-01-04"), pd.Timestamp("2016-01-11")
         sel = pd.DataFrame({"date": [d1, d1, d2, d2], "symbol": ["A", "B", "B", "C"],

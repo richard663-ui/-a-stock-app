@@ -66,6 +66,17 @@ def score_block(frame: pd.DataFrame, min_amount: float) -> pd.DataFrame:
     return f
 
 
+def per_date_spearman(dates: pd.Series, x: pd.Series, y: pd.Series) -> pd.Series:
+    """Spearman correlation of x and y within each date (Pearson on within-date ranks)."""
+    df = pd.DataFrame({"d": dates.to_numpy(), "x": x.to_numpy(), "y": y.to_numpy()}).dropna()
+    df["x"] = df.groupby("d")["x"].rank()
+    df["y"] = df.groupby("d")["y"].rank()
+    g = df.groupby("d")
+    dx, dy = df["x"] - g["x"].transform("mean"), df["y"] - g["y"].transform("mean")
+    sums = pd.DataFrame({"d": df["d"], "xy": dx * dy, "xx": dx * dx, "yy": dy * dy}).groupby("d").sum()
+    return sums["xy"] / np.sqrt(sums["xx"] * sums["yy"])
+
+
 def select(f: pd.DataFrame, strategy: str) -> pd.DataFrame:
     """Top-N and top-decile memberships for one strategy on every date in f."""
     pos = f.groupby("date")[strategy].rank(ascending=False, method="first")
@@ -96,11 +107,8 @@ def run_cross() -> dict:
                 f = score_block(frame, min_amount)
                 for h in (5, 20):
                     ex = f[f"R{h}"] - f.groupby("date")[f"R{h}"].transform("mean")
-                    rex = ex.groupby(f["date"]).rank(pct=True)
                     for s in STRATEGIES:
-                        ok = ex.notna()
-                        tmp = pd.DataFrame({"date": f.loc[ok, "date"], "s": f.loc[ok, s], "r": rex[ok]})
-                        per_date = tmp.groupby("date")[["s", "r"]].corr(method="spearman").xs("s", level=1)["r"]
+                        per_date = per_date_spearman(f["date"], f[s], ex)
                         ic_rows.append(pd.DataFrame({"date": per_date.index, "universe": uni, "h": h,
                                                      "strategy": s, "ic": per_date.to_numpy()}))
                 reb = f[f["date"].isin(rebalance_dates)]
