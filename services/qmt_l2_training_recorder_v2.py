@@ -39,6 +39,7 @@ from modules.market_clock import market_now, market_from_timestamp
 from modules.feed_health import tick_is_fresh, tick_timestamp
 from modules.collection_health import collection_health
 from modules.collection_runtime import RecorderPowerGuard, CollectionContinuity
+from modules.atomic_file import write_heartbeat
 
 RECORDER_VERSION = "l2-training-recorder-v2-20260901"
 DATA_ROOT = Path(os.environ.get("ASTOCK_RESEARCH_DATA_DIR", str(Path.home() / "AStockData"))).expanduser()
@@ -454,10 +455,8 @@ def _persist_events(store: DailyStore, symbol: str, snap: Dict[str, Any]) -> int
 
 
 def _write_status(payload: Dict[str, Any]) -> None:
-    STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = STATUS_PATH.with_suffix(".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    tmp.replace(STATUS_PATH)
+    # A reader holding the file must never stop the recorder (93 stops, 2026-10-25..11-13).
+    write_heartbeat(STATUS_PATH, payload)
 
 
 def main() -> None:

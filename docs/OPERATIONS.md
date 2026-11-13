@@ -135,6 +135,8 @@ set PY=%LOCALAPPDATA%\Programs\Python\Python312\python.exe
 | `exited ... (fast failures 3) - restart in 300s` in a log | Crash-loop brake: the service failed three times within two minutes each, so the watchdog now waits 5 minutes between tries. Read the lines above it for the cause. |
 | `[RESOURCE_GUARD]` in a log | A service passed its memory or handle limit and restarted itself cleanly. Repeated hits mean a leak: check that QMT is logged in. |
 | `QMT_MEMORY` alert | QMT's quote process is above 6 GB. Restart the QMT terminal outside market hours. |
+| `status file busy, written after N retry(ies)` in a log | Normal. Another program had the status file open for a moment; the write was repeated. Before 2026-11-13 this stopped the training recorder (`PermissionError ... training_status.json`, 93 times since 2026-10-25). |
+| `status file busy, update skipped` in a log | The status file stayed locked for half a second, so one heartbeat was skipped; recording continues. If it repeats every 10 seconds, find the program that keeps the file open. |
 
 ## 8. Switching a service off or on
 

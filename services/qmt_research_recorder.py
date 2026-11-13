@@ -32,6 +32,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from xtquant import xtdata
 
+from modules.atomic_file import write_heartbeat
 from modules.cloud_bridge import CloudBridge, load_bridge_config
 from modules.qmt_live import normalize_tick
 from modules.research_forward_model import MODEL_VERSION, high_confidence, score_label, score_rows
@@ -400,7 +401,7 @@ def _write_status(symbols: Iterable[str], counts: Dict[str, int], eval_counts: D
         "rows_written_today": counts, "forward_eval_scored_today": eval_counts,
         "research_model": MODEL_VERSION, "last_error": last_error,
     }
-    tmp = STATUS_PATH.with_suffix(".tmp"); tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"); tmp.replace(STATUS_PATH)
+    write_heartbeat(STATUS_PATH, payload)
 
 
 def main() -> None:

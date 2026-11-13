@@ -37,6 +37,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from modules.alerts import Alert, AlertDispatcher, SEVERITY_RANK, load_alert_config
+from modules.atomic_file import write_heartbeat
 from modules.market_clock import SHANGHAI, market_now
 from modules.paths import config_dir, data_root, install_root, runtime_dir
 from modules.trading_calendar import CONTINUOUS_PHASES, PHASES, load_calendar, phase_bounds, phase_of, refresh_from_qmt
@@ -393,10 +394,7 @@ def _hhmm(text: str) -> int:
 
 
 def write_status(path: Path, payload: Dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=1, default=str), encoding="utf-8")
-    os.replace(tmp, path)
+    write_heartbeat(path, payload, indent=1, default=str)
 
 
 class CloudPublisher:
