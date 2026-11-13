@@ -217,6 +217,13 @@ function Write-Launchers([string]$py, $registry) {
     $nowPy = Join-Path $BinDir 'now.py'
     Set-Content -LiteralPath $nowPy -Encoding ASCII -Value @('import time', 'print(int(time.time()))')
     foreach ($svc in $registry.services) {
+        if ($svc.enabled -eq $false) {
+            # Switched off in the registry: leave no launcher that logon or START_MONITOR could run.
+            foreach ($stale in @((Join-Path $RuntimeDir $svc.watchdog), (Join-Path $StartupDir $svc.startup))) {
+                if (Test-Path -LiteralPath $stale) { Remove-Item -LiteralPath $stale -Force }
+            }
+            continue
+        }
         $log = Join-Path $RuntimeDir $svc.log
         $script = Join-Path $Current ($svc.script -replace '/', '\')
         $stopLine = ''
@@ -296,11 +303,28 @@ function Update-Shortcuts {
     }
 }
 
+function Start-Detached([string]$commandLine) {
+    # Create the process through WMI so it is NOT a child of this console. A service must
+    # outlive whatever ran the installer: on 2026-11-13 an app update closed its own process
+    # tree and took every recorder started from it down for two hours.
+    try {
+        $hidden = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
+        $result = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+            CommandLine = $commandLine; CurrentDirectory = $InstallRoot; ProcessStartupInformation = $hidden }
+        return ($result.ReturnValue -eq 0)
+    } catch {
+        return $false
+    }
+}
+
 function Start-AStockServices {
     # Start every AStock launcher that exists, so a failed install can restart
     # whatever (old or new) layout is currently in place.
     foreach ($vbs in @(Get-ChildItem -LiteralPath $StartupDir -Filter 'AStock*.vbs' -ErrorAction SilentlyContinue)) {
-        Start-Process -FilePath 'wscript.exe' -ArgumentList ('"' + $vbs.FullName + '"')
+        if (-not (Start-Detached ('wscript.exe "' + $vbs.FullName + '"'))) {
+            Say "Detached start failed for $($vbs.Name); starting it as a child process instead." 'Yellow'
+            Start-Process -FilePath 'wscript.exe' -ArgumentList ('"' + $vbs.FullName + '"')
+        }
     }
 }
 
@@ -371,6 +395,11 @@ function Install-Release([string]$commit, [bool]$isRollback) {
     $procs = Get-AStockProcesses
     foreach ($svc in $registry.services) {
         $n = @($procs | Where-Object { $_.Name -like 'python*' -and $_.CommandLine -like "*$($svc.script -replace '/', '\')*" }).Count
+        if ($svc.enabled -eq $false) {
+            $color = 'Gray'; if ($n -ne 0) { $color = 'Red' }
+            Say ("  {0,-20} disabled in registry (workers={1})" -f $svc.id, $n) $color
+            continue
+        }
         $color = 'Green'; if ($n -ne 1) { $color = 'Red' }
         Say ("  {0,-20} workers={1}" -f $svc.id, $n) $color
     }

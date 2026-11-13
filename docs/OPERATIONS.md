@@ -131,3 +131,15 @@ set PY=%LOCALAPPDATA%\Programs\Python\Python312\python.exe
 | `PC off or died (unclean restart)` in coverage | Battery drained or forced off while asleep; keep on AC power. |
 | `TRAINER_FILES_MISSING` | Incomplete release; reinstall. Nothing is downloaded at runtime. |
 | Phone login "尝试次数过多" | Rate limit after repeated wrong codes; wait the stated minutes. |
+| All services vanished at the same second, no "exited" line in any log | Their parent was closed. On 2026-11-13 a desktop-app update closed everything started from inside it. The installer and 启动盯盘 now start services through WMI, detached from whatever ran them. Restart with 启动盯盘. |
+| `exited ... (fast failures 3) - restart in 300s` in a log | Crash-loop brake: the service failed three times within two minutes each, so the watchdog now waits 5 minutes between tries. Read the lines above it for the cause. |
+| `[RESOURCE_GUARD]` in a log | A service passed its memory or handle limit and restarted itself cleanly. Repeated hits mean a leak: check that QMT is logged in. |
+| `QMT_MEMORY` alert | QMT's quote process is above 6 GB. Restart the QMT terminal outside market hours. |
+
+## 8. Switching a service off or on
+
+Each service in `deploy/services.json` may carry `"enabled": false`. The installer then
+removes its launchers, 启动盯盘 neither starts nor lists it, and the monitor does not expect
+it. To switch it back on, set `"enabled": true` (or delete the line), commit, and install that
+commit. Since 2026-11-13 the 60-second auto-trainer (`autotrain`) and the V6 shadow model
+(`v6_shadow`) are switched off by the owner's decision; their code, models and records are kept.

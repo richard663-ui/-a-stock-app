@@ -27,8 +27,8 @@ ML 60-second models show **no edge after realistic costs** on the recorded data
 | bridge | `qmt_cloud_bridge` | PRODUCTION | QMT -> Supabase live cache for the watched symbol; computes the V18 1-minute direction (always WATCH without real Level-2). |
 | training_recorder | `qmt_l1_training_recorder_v1` | PRODUCTION | 8-stock basket, 5 s samples + 60 s labels. Wraps the LEGACY-CHAIN `qmt_l2_training_recorder_v6` -> `qmt_l2_training_recorder_v5` -> `qmt_l2_training_recorder_v4` -> `qmt_l2_training_recorder_v3` -> `qmt_l2_training_recorder_v2`. |
 | research_recorder | `qmt_research_recorder_v7` | PRODUCTION (data) / RESEARCH (model) | Raw L1 snapshot archive (`AStockData/raw`) is the system's primary data asset; also forward-tests the V5B rule model. Chain: `v7` -> `qmt_research_recorder_v6` -> `qmt_research_recorder_v5` -> `qmt_research_recorder_v4b` -> `qmt_research_recorder_v4` -> `qmt_research_recorder_v3`. |
-| autotrain | `l1_ml_autotrain_daemon_v2` (+ `l1_ml_autotrain_daemon_v1`) | RESEARCH | Lunch/after-close retraining of V4R (champion), V5R, V6 in subprocesses. No deployment. |
-| v6_shadow | `l1_v6_shadow_runner_v1` | RESEARCH | Prospective, frozen-per-day V6 scoring settled on observed bids. |
+| autotrain | `l1_ml_autotrain_daemon_v2` (+ `l1_ml_autotrain_daemon_v1`) | FROZEN (disabled 2026-11-13) | Lunch/after-close retraining of V4R (champion), V5R, V6 in subprocesses. Stopped by owner decision: no edge after costs. Code kept; `"enabled": false` in `deploy/services.json`. |
+| v6_shadow | `l1_v6_shadow_runner_v1` | FROZEN (disabled 2026-11-13) | Prospective, frozen-per-day V6 scoring settled on observed bids. Stopped after 8 sessions and 18 calls; records kept in `ml_shadow_samples_v1`. |
 | collection_monitor | `collection_monitor` | PRODUCTION-OPS | Ingestion/process/power/integrity monitoring and alerts. |
 
 ## modules/

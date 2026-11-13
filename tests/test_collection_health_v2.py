@@ -127,7 +127,7 @@ def context(**kw):
                 phase=phase_of(now_dt), basket=["A.SH", "B.SZ"], training={}, raw={},
                 status={"updated_at": now_dt.isoformat()},
                 processes={"available": True, "workers": {"bridge": 1, "training_recorder": 1,
-                           "research_recorder": 1, "autotrain": 1, "v6_shadow": 1}, "miniqmt": True},
+                           "research_recorder": 1, "autotrain": 0, "v6_shadow": 0}, "miniqmt": True},
                 registry=json.loads((ROOT / "deploy" / "services.json").read_text(encoding="utf-8")),
                 integrity={"ok": True}, ac=True, power_risks=[], free_gb=100.0, cfg=CFG)
     base.update(kw)

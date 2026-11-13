@@ -1,6 +1,6 @@
 {
   "schema": "astock-runtime-services-v1",
-  "notes": "Single source of truth for the Windows background services. Read by deploy/install_runtime.ps1, services/start_monitor.ps1 and services/collection_monitor.py.",
+  "notes": "Single source of truth for the Windows background services. Read by deploy/install_runtime.ps1, services/start_monitor.ps1 and services/collection_monitor.py. A service with \"enabled\": false gets no launcher, is never started and is not expected by the monitor.",
   "services": [
     {
       "id": "bridge",
@@ -44,7 +44,9 @@
       "log": "l2_ml_autotrain_daemon.log",
       "restart_seconds": 10,
       "stop_exit_code": null,
-      "collects_market_data": false
+      "collects_market_data": false,
+      "enabled": false,
+      "disabled_reason": "Owner decision 2026-11-13: daily 60-second retraining stopped (no edge after costs). Set enabled to true and reinstall to resume."
     },
     {
       "id": "v6_shadow",
@@ -55,7 +57,9 @@
       "log": "v6_shadow_runner.log",
       "restart_seconds": 10,
       "stop_exit_code": null,
-      "collects_market_data": false
+      "collects_market_data": false,
+      "enabled": false,
+      "disabled_reason": "Owner decision 2026-11-13: V6 shadow model stopped (18 calls in 8 sessions, no edge after costs). Set enabled to true and reinstall to resume."
     },
     {
       "id": "collection_monitor",

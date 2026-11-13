@@ -257,6 +257,12 @@ def evaluate(ctx: Context) -> List[Finding]:
             if svc["id"] == "collection_monitor":
                 continue
             n = procs["workers"].get(svc["id"], 0)
+            if svc.get("enabled") is False:
+                # Switched off in deploy/services.json: absence is expected, a running copy is not.
+                if n:
+                    findings.append(Finding(f"PROCESS_DISABLED_{svc['id']}", "WARN", f"{svc['id']} is disabled but running",
+                                            f"{n} worker(s) for {svc['script']} although the registry disables it."))
+                continue
             collector = svc.get("collects_market_data")
             if n == 0 and (collector or in_session):
                 sev = "CRITICAL" if (collector and in_session) else "WARN"

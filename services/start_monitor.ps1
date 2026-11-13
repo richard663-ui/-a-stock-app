@@ -11,7 +11,8 @@ $runtimeDir = Join-Path $installRoot 'runtime'
 $releaseRoot = Split-Path -Parent $PSScriptRoot
 $registryPath = Join-Path $releaseRoot 'deploy\services.json'
 if (Test-Path -LiteralPath $registryPath) {
-    $serviceSpecs = @((Get-Content -LiteralPath $registryPath -Raw -Encoding UTF8 | ConvertFrom-Json).services | ForEach-Object {
+    # Services with "enabled": false in the registry are neither started nor listed.
+    $serviceSpecs = @((Get-Content -LiteralPath $registryPath -Raw -Encoding UTF8 | ConvertFrom-Json).services | Where-Object { $_.enabled -ne $false } | ForEach-Object {
         @{ Name = $_.name; Script = ($_.script -replace '/', '\'); Watchdog = $_.watchdog }
     })
 } else {
@@ -119,8 +120,19 @@ try {
                 Write-Host ($spec.Name + '：缺少启动文件') -ForegroundColor Red
                 continue
             }
-            Start-Process -FilePath $env:ComSpec -ArgumentList ('/d /c ""{0}""' -f $watchdogPath) `
-                -WorkingDirectory $installRoot -WindowStyle Hidden
+            # Start through WMI so the service is not a child of this window (or of an app that
+            # ran this script): closing or updating the parent must never stop a recorder.
+            $detached = $false
+            try {
+                $hidden = New-CimInstance -ClassName Win32_ProcessStartup -ClientOnly -Property @{ ShowWindow = [uint16]0 }
+                $created = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{
+                    CommandLine = ('cmd.exe /d /c ""{0}""' -f $watchdogPath); CurrentDirectory = $installRoot; ProcessStartupInformation = $hidden }
+                $detached = ($created.ReturnValue -eq 0)
+            } catch { }
+            if (-not $detached) {
+                Start-Process -FilePath $env:ComSpec -ArgumentList ('/d /c ""{0}""' -f $watchdogPath) `
+                    -WorkingDirectory $installRoot -WindowStyle Hidden
+            }
             $started = $true
         }
     }
