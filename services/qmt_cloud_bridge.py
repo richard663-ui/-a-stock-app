@@ -202,7 +202,9 @@ def _subscribe_tick(symbol: str, old_sub: Optional[int] = None) -> Optional[int]
         except Exception:
             pass
     try:
-        sub = xtdata.subscribe_quote(symbol, period="tick", count=-1)
+        # count=0: live ticks only. count=-1 made QMT load the whole tick history on every
+        # (re)subscription; with crash-loop restarts its quote process grew past 40 GB.
+        sub = xtdata.subscribe_quote(symbol, period="tick", count=0)
         if sub is None:
             raise RuntimeError("subscribe_quote returned None")
         try:
@@ -424,4 +426,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    from modules.resource_guard import start_guard
+    start_guard("bridge")
     main()

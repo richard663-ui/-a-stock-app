@@ -214,6 +214,8 @@ function Write-Launchers([string]$py, $registry) {
     New-Item -ItemType Directory -Force -Path $RuntimeDir, $BinDir, $StartupDir | Out-Null
     Copy-Item -LiteralPath (Join-Path $Current 'deploy\verify_install.py') -Destination (Join-Path $BinDir 'verify_install.py') -Force
     $verify = Join-Path $BinDir 'verify_install.py'
+    $nowPy = Join-Path $BinDir 'now.py'
+    Set-Content -LiteralPath $nowPy -Encoding ASCII -Value @('import time', 'print(int(time.time()))')
     foreach ($svc in $registry.services) {
         $log = Join-Path $RuntimeDir $svc.log
         $script = Join-Path $Current ($svc.script -replace '/', '\')
@@ -228,18 +230,30 @@ function Write-Launchers([string]$py, $registry) {
             'set "PYTHONDONTWRITEBYTECODE=1"',
             'set "NO_PROXY=.supabase.co,supabase.co"',
             'set "no_proxy=.supabase.co,supabase.co"',
+            'set "FAILS=0"',
             ':astock_loop',
             "cd /d ""$Current""",
             """$py"" -I -u ""$verify"" verify --install-root ""$InstallRoot"" --service $($svc.id) --quiet >> ""$log"" 2>&1",
             'if errorlevel 1 (',
-            '  timeout /t 60 /nobreak >nul',
+            '  ping -n 61 127.0.0.1 >nul',
             '  goto astock_loop',
             ')',
+            'set "T0=0"',
+            "for /f %%t in ('""""$py"" -I ""$nowPy""""') do set ""T0=%%t""",
             """$py"" -u ""$script"" >> ""$log"" 2>&1",
             'set "RC=%ERRORLEVEL%"',
-            "echo [%DATE% %TIME%] $($svc.id) exited %RC% - restart in $($svc.restart_seconds)s >> ""$log""",
+            'set "T1=0"',
+            "for /f %%t in ('""""$py"" -I ""$nowPy""""') do set ""T1=%%t""",
+            'set /a RAN=T1-T0',
+            # Crash-loop brake: a run shorter than 2 minutes counts as a failure; from the
+            # third in a row wait 5 minutes instead of hammering QMT every few seconds.
+            'if %RAN% LSS 120 (set /a FAILS+=1) else (set "FAILS=0")',
+            "set ""WAIT=$($svc.restart_seconds)""",
+            'if %FAILS% GEQ 3 set "WAIT=300"',
+            "echo [%DATE% %TIME%] $($svc.id) exited %RC% after %RAN%s (fast failures %FAILS%) - restart in %WAIT%s >> ""$log""",
             $stopLine,
-            "timeout /t $($svc.restart_seconds) /nobreak >nul",
+            'set /a PINGS=WAIT+1',
+            'ping -n %PINGS% 127.0.0.1 >nul',
             'goto astock_loop'
         ) | Where-Object { $_ -ne '' }
         Set-Content -LiteralPath (Join-Path $RuntimeDir $svc.watchdog) -Value $lines -Encoding ASCII

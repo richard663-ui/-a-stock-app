@@ -171,7 +171,8 @@ def process_snapshot(registry: Dict[str, Any]) -> Dict[str, Any]:
     if sys.platform != "win32":
         return {"available": False}
     cmd = ("Get-CimInstance Win32_Process -Filter \"Name='python.exe' or Name='pythonw.exe' or "
-           "Name='XtMiniQmt.exe' or Name='XtItClient.exe'\" | Select-Object Name,CommandLine | ConvertTo-Json -Compress")
+           "Name='XtMiniQmt.exe' or Name='XtItClient.exe' or Name='miniquote.exe'\" | "
+           "Select-Object Name,CommandLine,PrivatePageCount | ConvertTo-Json -Compress")
     try:
         proc = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", cmd],
                               capture_output=True, timeout=30,
@@ -186,8 +187,20 @@ def process_snapshot(registry: Dict[str, Any]) -> Dict[str, Any]:
         counts[svc["id"]] = sum(1 for i in items if needle in str(i.get("CommandLine") or "").lower()
                                 and str(i.get("Name", "")).lower().startswith("python"))
     names = {str(i.get("Name", "")).lower() for i in items}
+
+    def _gb(item) -> float:
+        try:
+            return float(item.get("PrivatePageCount") or 0) / 1e9
+        except (TypeError, ValueError):
+            return 0.0
+
+    # QMT's quote process grew past 40 GB in the Oct/Nov incidents; report it and our workers.
+    quote_gb = max([_gb(i) for i in items if str(i.get("Name", "")).lower() == "miniquote.exe"], default=0.0)
+    worker_gb = max([_gb(i) for i in items if str(i.get("Name", "")).lower().startswith("python")
+                     and "\\services\\" in str(i.get("CommandLine") or "").lower()], default=0.0)
     return {"available": True, "workers": counts, "miniqmt": "xtminiqmt.exe" in names,
-            "qmt_client": "xtitclient.exe" in names}
+            "qmt_client": "xtitclient.exe" in names,
+            "qmt_quote_gb": round(quote_gb, 2), "largest_worker_gb": round(worker_gb, 2)}
 
 
 def ac_connected() -> Optional[bool]:
@@ -255,6 +268,18 @@ def evaluate(ctx: Context) -> List[Finding]:
         if not procs.get("miniqmt") and ctx.trading_day:
             findings.append(Finding("MINIQMT", "CRITICAL" if in_session else "WARN", "MiniQMT not running",
                                     "Log in to the QMT terminal and enable the market-data connection."))
+        quote_gb = float(procs.get("qmt_quote_gb") or 0.0)
+        limit = float(m.get("max_qmt_quote_gb", 6.0))
+        if quote_gb > limit:
+            findings.append(Finding("QMT_MEMORY", "CRITICAL" if quote_gb > 2 * limit else "WARN",
+                                    "QMT quote process memory is growing",
+                                    f"miniquote.exe uses {quote_gb:.1f} GB (limit {limit:.0f} GB). Restart the QMT "
+                                    "terminal before it exhausts memory and stops all quotes."))
+        worker_gb = float(procs.get("largest_worker_gb") or 0.0)
+        if worker_gb > float(m.get("max_worker_gb", 3.0)):
+            findings.append(Finding("WORKER_MEMORY", "WARN", "A service is using too much memory",
+                                    f"Largest service process uses {worker_gb:.1f} GB; the resource guard restarts "
+                                    "it automatically above its limit."))
 
     if ctx.trading_day and ctx.ac is False:
         findings.append(Finding("AC_POWER", "WARN", "Laptop on battery",

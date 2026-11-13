@@ -79,4 +79,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    from modules.resource_guard import start_guard
+    start_guard("research_recorder")
     main()

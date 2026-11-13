@@ -175,7 +175,7 @@ class QMTLiveManager:
             except Exception:
                 pass
         try:
-            self._subscription_id = xtdata.subscribe_quote(symbol, period="tick", count=-1)
+            self._subscription_id = xtdata.subscribe_quote(symbol, period="tick", count=0)
         except Exception:
             self._subscription_id = None
         time.sleep(0.6)

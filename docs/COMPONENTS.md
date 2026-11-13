@@ -56,6 +56,7 @@ ML 60-second models show **no edge after realistic costs** on the recorded data
 | `mobile_model_v10` | RESEARCH | Parity-tested Python port of the phone model for offline evaluation. |
 | `paths` | PRODUCTION | Stable runtime/data/config locations outside versioned code. |
 | `power_events` | PRODUCTION-OPS | Windows standby/shutdown history and power-button/lid settings. |
+| `resource_guard` | PRODUCTION-OPS | Exits a service (code 75) before a memory or handle leak can exhaust the PC; the watchdog restarts it. |
 | `prediction_journal` | EXPERIMENTAL | V18 1-minute journal (empty in L1 mode). |
 | `qishi` | EXPERIMENTAL | Hand-weighted daily "起势" trend score for the desktop UI. |
 | `qmt_level2` | DORMANT (runs, returns empty) | QMT Level-2 subscription manager. |
