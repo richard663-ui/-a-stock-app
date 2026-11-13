@@ -534,7 +534,7 @@ class DurableUploader:
 
 def _subscribe(symbol: str) -> Optional[int]:
     try:
-        return xtdata.subscribe_quote(symbol, period="tick", count=-1)
+        return xtdata.subscribe_quote(symbol, period="tick", count=0)
     except Exception as exc:
         print(f"[WARN] subscribe {symbol}: {exc}")
         return None
