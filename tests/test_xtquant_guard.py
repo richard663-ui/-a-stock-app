@@ -75,56 +75,68 @@ def call(mod):
         return False
 
 
+def run_for(mod, clock, minutes, poll=0.2):
+    """Call like a recorder for a while; return the clock times of real connects."""
+    attempts, end = [], clock.now + minutes * 60
+    while clock.now < end:
+        before = mod.connects
+        call(mod)
+        if mod.connects > before:
+            attempts.append(clock.now)
+        clock.now += poll
+    return attempts
+
+
 class GuardTests(unittest.TestCase):
     def test_a_connected_client_is_returned_as_before(self):
         mod, clock = fake_xtdata(up=True), Clock()
-        guard_for(mod, clock)
+        guard_for(mod, clock, port=lambda: True)
         for _ in range(5):
             self.assertTrue(call(mod))
         self.assertEqual(mod.connects, 1)
         self.assertEqual(clock.slept, [])
 
-    def test_while_down_calls_wait_and_fail_without_connecting(self):
+    def test_while_nothing_listens_calls_wait_and_fail_without_connecting(self):
         mod, clock, log = fake_xtdata(), Clock(), []
         guard = guard_for(mod, clock, log=log)
-        self.assertFalse(call(mod))             # the first failure is a real connect
-        self.assertEqual(mod.connects, 1)
-        start = clock.now
-        self.assertFalse(call(mod))             # inside the back-off: no connect, same 2 s pace
-        self.assertEqual(mod.connects, 1)
-        self.assertAlmostEqual(clock.now - start, g.SKIP_DELAY)
-        self.assertEqual(guard.skipped, 1)
+        for _ in range(3):
+            start = clock.now
+            self.assertFalse(call(mod))
+            self.assertAlmostEqual(clock.now - start, g.SKIP_DELAY)   # the old 2 s pace
+        self.assertEqual(mod.connects, 0)
+        self.assertEqual(guard.skipped, 3)
         self.assertEqual(len(log), 1)
         self.assertIn("QMT unreachable", log[0])
 
-    def test_real_connects_back_off_to_one_a_minute(self):
+    def test_a_long_outage_makes_no_real_connect(self):
+        mod, clock, log = fake_xtdata(), Clock(), []
+        guard_for(mod, clock, log=log)
+        self.assertEqual(run_for(mod, clock, minutes=24 * 60, poll=0.2), [])   # a whole day
+        self.assertEqual(len(log), 1)
+
+    def test_failing_connects_on_an_open_port_back_off_to_one_a_minute(self):
         mod, clock = fake_xtdata(), Clock()
-        guard_for(mod, clock)
-        attempts = []
-        while clock.now < 1000.0 + 15 * 60:     # a recorder calling for 15 minutes
-            before = mod.connects
-            call(mod)
-            if mod.connects > before:
-                attempts.append(clock.now)
-            clock.now += 0.2                    # its poll interval
+        guard_for(mod, clock, port=lambda: True)  # something listens but xtquant cannot connect
+        attempts = run_for(mod, clock, minutes=15)
         gaps = [b - a for a, b in zip(attempts, attempts[1:])]
         self.assertEqual(gaps, sorted(gaps))
         self.assertLessEqual(max(gaps), g.MAX_WAIT + g.SKIP_DELAY + 0.2)
         self.assertGreaterEqual(gaps[-1], g.MAX_WAIT)
-        self.assertLess(len(attempts), 20)      # was one leaking connect per call: ~400
+        self.assertLess(len(attempts), 20)        # was one leaking connect per call: ~400
 
     def test_reconnects_as_soon_as_the_port_opens(self):
         mod, clock, log = fake_xtdata(), Clock(), []
         port = {"open": False}
         guard_for(mod, clock, port=lambda: port["open"], log=log)
         self.assertFalse(call(mod))
-        mod.up = port["open"] = True            # QMT logged in again
+        mod.up = port["open"] = True              # QMT logged in again
+        start = clock.now
         self.assertTrue(call(mod))
-        self.assertEqual(mod.connects, 2)
-        self.assertEqual(clock.slept, [])
-        self.assertIn("reachable again", log[-1])
-        self.assertTrue(call(mod))              # back on the fast path
-        self.assertEqual(mod.connects, 2)
+        self.assertEqual(clock.now, start)        # no wait once the port is open
+        self.assertEqual(mod.connects, 1)
+        self.assertIn("reachable again after 0 failed connect(s); 1 call(s)", log[-1])
+        self.assertTrue(call(mod))                # back on the fast path
+        self.assertEqual(mod.connects, 1)
 
     def test_port_opening_during_a_wait_ends_the_wait(self):
         mod, clock = fake_xtdata(), Clock()
@@ -140,14 +152,16 @@ class GuardTests(unittest.TestCase):
         self.assertTrue(call(mod))
         self.assertAlmostEqual(clock.now - start["t"], 1.0)
 
-    def test_a_lost_connection_is_noticed(self):
+    def test_a_lost_connection_is_noticed_without_connecting(self):
         mod, clock = fake_xtdata(up=True), Clock()
-        guard = guard_for(mod, clock)
+        port = {"open": True}
+        guard = guard_for(mod, clock, port=lambda: port["open"])
         self.assertTrue(call(mod))
-        vars(mod)["__client"].connected = False  # QMT went away mid-session
-        mod.up = False
+        vars(mod)["__client"].connected = False   # QMT went away mid-session
+        mod.up = port["open"] = False
         self.assertFalse(call(mod))
-        self.assertEqual(guard.failures, 1)
+        self.assertTrue(guard.down)
+        self.assertEqual(mod.connects, 1)
 
     def test_port_is_checked_every_half_second_while_waiting(self):
         mod, clock = fake_xtdata(), Clock()
@@ -159,12 +173,11 @@ class GuardTests(unittest.TestCase):
 
         guard_for(mod, clock, port=probe)
         call(mod)
-        call(mod)
         self.assertEqual(len(checks), int(g.SKIP_DELAY / g.PROBE_EVERY) + 1)
 
     def test_back_off_never_overflows(self):
         mod, clock = fake_xtdata(), Clock()
-        guard = guard_for(mod, clock)
+        guard = guard_for(mod, clock, port=lambda: True)
         guard.failures, guard.next_attempt = 5000, 0.0
         self.assertFalse(call(mod))
         self.assertLessEqual(guard.next_attempt - clock.now, g.MAX_WAIT)
@@ -173,8 +186,8 @@ class GuardTests(unittest.TestCase):
 class InstallTests(unittest.TestCase):
     def test_install_is_idempotent_and_reaches_module_functions(self):
         mod = fake_xtdata(up=True)
-        first = g.install(mod, log=lambda m: None, probe=lambda: False)
-        self.assertIs(g.install(mod, log=lambda m: None, probe=lambda: False), first)
+        first = g.install(mod, log=lambda m: None, probe=lambda: True)
+        self.assertIs(g.install(mod, log=lambda m: None, probe=lambda: True), first)
         self.assertIs(mod.get_full_tick.__globals__["get_client"], first)
         self.assertTrue(call(mod))
         self.assertEqual(mod.connects, 1)
@@ -188,28 +201,36 @@ class InstallTests(unittest.TestCase):
             self.assertIs(getattr(xtdata, name).__globals__["get_client"], xtdata.get_client, name)
 
 
-class PortTests(unittest.TestCase):
+class AddressTests(unittest.TestCase):
     def test_open_and_closed_port(self):
         server = socket.socket()
         server.bind(("127.0.0.1", 0))
         server.listen(1)
         port = server.getsockname()[1]
         try:
-            self.assertTrue(g.port_open([port]))
+            self.assertTrue(g.address_open([("127.0.0.1", port)]))
         finally:
             server.close()
-        self.assertFalse(g.port_open([port]))
+        self.assertFalse(g.address_open([("127.0.0.1", port)]))
 
-    def test_candidate_ports_read_xtquant_configs(self):
+    def test_candidate_addresses_read_xtquant_configs(self):
         with tempfile.TemporaryDirectory() as home:
             base = Path(home) / ".xtquant"
-            for name, text in (("a", json.dumps({"ip": "127.0.0.1", "port": 58611})), ("b", "not json")):
+            configs = {"a": json.dumps({"ip": "127.0.0.1", "port": 58611}),
+                       "b": json.dumps({"ip": "0.0.0.0", "port": 58612}),
+                       "c": json.dumps({"ip": "10.0.0.5", "port": 58613}),
+                       "d": json.dumps({"port": 58610}),
+                       "e": "not json"}
+            for name, text in configs.items():
                 (base / name).mkdir(parents=True)
                 (base / name / "xtdata.cfg").write_text(text, encoding="utf-8")
-            (base / "c").mkdir()
-            self.assertEqual(g.candidate_ports(Path(home)), [58610, 58611])
+            (base / "f").mkdir()
+            (base / "f" / "running_status").write_text("", encoding="utf-8")
+            self.assertEqual(g.candidate_addresses(Path(home)),
+                             [("127.0.0.1", 58610), ("127.0.0.1", 58611),
+                              ("127.0.0.1", 58612), ("10.0.0.5", 58613)])
         with tempfile.TemporaryDirectory() as home:
-            self.assertEqual(g.candidate_ports(Path(home)), [58610])
+            self.assertEqual(g.candidate_addresses(Path(home)), [("127.0.0.1", 58610)])
 
 
 class ServicesInstallTheGuardTests(unittest.TestCase):

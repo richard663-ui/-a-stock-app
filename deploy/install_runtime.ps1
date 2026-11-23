@@ -180,9 +180,15 @@ function Stop-AStockServices {
     foreach ($p in ($procs | Where-Object { $_.Name -eq 'cmd.exe' })) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
     Start-Sleep -Milliseconds 500
     foreach ($p in ($procs | Where-Object { $_.Name -ne 'cmd.exe' })) { Stop-Process -Id $p.ProcessId -Force -ErrorAction SilentlyContinue }
-    Start-Sleep -Seconds 2
-    $left = @(Get-AStockProcesses)
-    if ($left.Count) { throw ("Could not stop: " + (($left | ForEach-Object { $_.ProcessId }) -join ', ')) }
+    # A worker holding thousands of handles can take a few seconds to exit.
+    $deadline = (Get-Date).AddSeconds(20)
+    do { Start-Sleep -Seconds 1; $left = @(Get-AStockProcesses) } while ($left.Count -and (Get-Date) -lt $deadline)
+    if ($left.Count) {
+        throw ("Could not stop: " + (($left | ForEach-Object { $_.ProcessId }) -join ', ') +
+               ". The watchdogs and the other workers were stopped and NOT restarted. A worker that was killed" +
+               " but never exits is stuck inside Windows (seen 2026-11-23 after QMT had been down for days);" +
+               " only a restart of the PC clears it. Restart the PC, then run this installer again.")
+    }
     Say "Stopped $($procs.Count) AStock processes."
 }
 
