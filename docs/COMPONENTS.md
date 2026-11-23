@@ -58,6 +58,7 @@ ML 60-second models show **no edge after realistic costs** on the recorded data
 | `power_events` | PRODUCTION-OPS | Windows standby/shutdown history and power-button/lid settings. |
 | `resource_guard` | PRODUCTION-OPS | Exits a service (code 75) before a memory or handle leak can exhaust the PC; the watchdog restarts it. |
 | `atomic_file` | PRODUCTION-OPS | Writes status files with a short retry so that a reader holding the file can no longer stop a recorder. |
+| `xtquant_guard` | PRODUCTION-OPS | While QMT is down, xtdata calls wait and fail without building a new client (each failed xtquant connect leaked 4.45 handles and 136 KB); reconnects as soon as the QMT port opens. |
 | `prediction_journal` | EXPERIMENTAL | V18 1-minute journal (empty in L1 mode). |
 | `qishi` | EXPERIMENTAL | Hand-weighted daily "起势" trend score for the desktop UI. |
 | `qmt_level2` | DORMANT (runs, returns empty) | QMT Level-2 subscription manager. |

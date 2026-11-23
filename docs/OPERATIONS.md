@@ -137,6 +137,8 @@ set PY=%LOCALAPPDATA%\Programs\Python\Python312\python.exe
 | `QMT_MEMORY` alert | QMT's quote process is above 6 GB. Restart the QMT terminal outside market hours. |
 | `status file busy, written after N retry(ies)` in a log | Normal. Another program had the status file open for a moment; the write was repeated. Before 2026-11-13 this stopped the training recorder (`PermissionError ... training_status.json`, 93 times since 2026-10-25). |
 | `status file busy, update skipped` in a log | The status file stayed locked for half a second, so one heartbeat was skipped; recording continues. If it repeats every 10 seconds, find the program that keeps the file open. |
+| `[QMT_GUARD] QMT unreachable` in a log | QMT is not running or not logged in. The services wait without leaking memory; log in to QMT and they reconnect within seconds (`[QMT_GUARD] QMT reachable again`). Before 2026-11-23 a QMT outage made every service grow to ~640 MB and restart every 2.7 hours. |
+| QMT login says `版本校验失败，请检查客户端版本是否更新` | The broker no longer accepts this QMT version, and this build cannot update itself (its updater looks up the placeholder host `XtAmpTradeClient.standard`). Get the current installer from 国盛证券 (hotline 956080 or your account manager), install it outside OneDrive, log in with 极简模式. Then run `BACKFILL_TICKS.cmd` for the missed days. |
 
 ## 8. Switching a service off or on
 

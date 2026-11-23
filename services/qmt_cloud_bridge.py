@@ -26,6 +26,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from xtquant import xtdata
+from modules.xtquant_guard import install as install_qmt_guard
+
+install_qmt_guard(xtdata)  # while QMT is down: wait and fail, never leak a client per call
 
 from modules.cloud_bridge import CloudBridge, load_bridge_config
 from modules.market_clock import continuous_market_open
